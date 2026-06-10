@@ -826,8 +826,20 @@ const I18N_EN = {
 };
 UI.initTheme();
 UI.onThemeChange(() => draw());
+const DEFAULT_TXT = {
+  de: "Hallo Welt!\nDies ist ein Test —\ngeschrieben mit dem Stift.",
+  en: "Hello world!\nThis is a test —\nwritten with a pen.",
+};
+const DEFAULT_FNAME = { de: "Mein Text", en: "My text" };
+function applyLangDefaults() {
+  document.title = UI.t("Text-Schreiber — Handschrift", "Text Writer — Handschrift");
+  const other = UI.lang() === "en" ? "de" : "en";
+  if ($("inpText").value.trim() === DEFAULT_TXT[other].trim()) $("inpText").value = DEFAULT_TXT[UI.lang()];
+  if ($("inpFname").value === DEFAULT_FNAME[other]) $("inpFname").value = DEFAULT_FNAME[UI.lang()];
+}
 UI.initLang(I18N_EN);
-UI.onLangChange(() => { relayout(); $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
+applyLangDefaults();
+UI.onLangChange(() => { applyLangDefaults(); relayout(); $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
 UI.initTour("text", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillFontSelect(false);
 const fontParam = new URLSearchParams(location.search).get("font");

@@ -819,8 +819,15 @@ const I18N_EN = {
 };
 UI.initTheme();
 UI.onThemeChange(() => draw());
+const DEFAULT_FNAME = { de: "Mein Bild", en: "My image" };
+function applyLangDefaults() {
+  document.title = UI.t("Bild-Plotter — Handschrift", "Image Plotter — Handschrift");
+  const other = UI.lang() === "en" ? "de" : "en";
+  if ($("inpFname").value === DEFAULT_FNAME[other]) $("inpFname").value = DEFAULT_FNAME[UI.lang()];
+}
 UI.initLang(I18N_EN);
-UI.onLangChange(() => recompute());
+applyLangDefaults();
+UI.onLangChange(() => { applyLangDefaults(); recompute(); });
 UI.initTour("bild", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillAsciiFonts();
 showStyleOpts();

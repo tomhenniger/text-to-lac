@@ -59,6 +59,9 @@
 <script src="app/ui.js?v=3"></script>
 <script>
 UI.initTheme();
+function applyLangDefaults() {
+  document.title = UI.t("Handschrift — Pen-Plotter-Tools für Bambu Lab", "Handschrift — Pen plotter tools for Bambu Lab");
+}
 UI.initLang({
   'Pen-Plotter-Tools für Bambu Lab': 'Pen plotter tools for Bambu Lab',
   'Text und Bilder mit dem Stift (Pen Holder) zeichnen — Export als .lac für die Bambu Suite. Läuft komplett im Browser.':
@@ -76,6 +79,8 @@ UI.initLang({
   'Repository': 'repository',
   '· Fonts: Hershey/EMS (SIL OFL)': '· Fonts: Hershey/EMS (SIL OFL)',
 });
+applyLangDefaults();
+UI.onLangChange(applyLangDefaults);
 </script>
 </body>
 </html>

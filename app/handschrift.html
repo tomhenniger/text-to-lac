@@ -594,8 +594,12 @@ const I18N_EN = {
 };
 UI.initTheme();
 UI.onThemeChange(() => draw());
+function applyLangDefaults() {
+  document.title = UI.t("Handschrift erfassen — Handschrift", "Capture Handwriting — Handschrift");
+}
 UI.initLang(I18N_EN);
-UI.onLangChange(() => { buildVariantBar(); setTool(tool); });
+applyLangDefaults();
+UI.onLangChange(() => { applyLangDefaults(); buildVariantBar(); setTool(tool); });
 UI.initTour("handschrift", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 buildGrid(); buildVariantBar(); resize(); setTool("pen");
 </script>
