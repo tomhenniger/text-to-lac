@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Text-Schreiber — Pen-Plotter-Tools für Bambu Lab</title>
+<title>Text-Schreiber — Handschrift</title>
 <style>
   :root {
     --bg: #f4f5f7; --panel: #ffffff; --border: #d9dce1; --text: #1c1e21;
@@ -64,11 +64,11 @@
 <body>
 <div id="sidebar">
   <div class="topnav">
-    <a class="nav" href="../index.html" title="Home">🏠</a>
-    <a class="nav" href="handschrift.html" title="Handschrift erfassen">🖊️</a>
-    <a class="nav" href="bild.html" title="Bild-Plotter">🎨</a>
+    <a class="nav" href="../index.html" title="Handschrift — Home" data-icon="home"></a>
+    <a class="nav" href="handschrift.html" title="Handschrift erfassen" data-icon="pen"></a>
+    <a class="nav" href="bild.html" title="Bild-Plotter" data-icon="image"></a>
     <span class="sp"></span>
-    <button id="btnLang">EN</button><button id="btnTheme">🌙</button><button id="btnTour">❓ Tour</button>
+    <button id="btnLang">EN</button><button id="btnTheme"></button><button id="btnTour"><span data-icon="help"></span> Tour</button>
   </div>
   <h1>Text → .lac<small>Stift-Schreiber für Bambu Lab (Pen Holder)</small></h1>
 
@@ -87,7 +87,7 @@ geschrieben mit dem Stift.</textarea>
       <label>Schriftart (Ein-Linien-Fonts, ideal für Stifte)</label>
       <select id="inpFont"></select>
       <div class="btnrow">
-        <button id="btnHw">🖊 Eigene Handschrift erfassen …</button>
+        <button id="btnHw"><span data-icon="pen"></span> Eigene Handschrift erfassen …</button>
         <button id="btnTtf">TTF/OTF …</button>
       </div>
       <input type="file" id="fileTtf" accept=".ttf,.otf" style="display:none">
@@ -126,7 +126,7 @@ geschrieben mit dem Stift.</textarea>
       <label>Linien-Zittern (mm)</label>
       <div class="slider"><input type="range" id="inpVWob" min="0" max="0.8" step="0.02" value="0.12"><span class="val" id="valVWob"></span></div>
       <div class="btnrow">
-        <button id="btnReroll">🎲 Neu würfeln</button>
+        <button id="btnReroll"><span data-icon="dice"></span> Neu würfeln</button>
         <button id="btnVarReset">Zurücksetzen</button>
       </div>
       <div class="hint">Jeder Buchstabe bekommt eigene Zufallswerte — derselbe Buchstabe sieht an jeder Stelle anders aus. „Neu würfeln“ erzeugt eine neue Zufallsvariante.</div>
@@ -184,7 +184,7 @@ geschrieben mit dem Stift.</textarea>
 <script src="fonts.js"></script>
 <script src="configs.js"></script>
 <script src="lac.js?v=2"></script>
-<script src="ui.js?v=2"></script>
+<script src="ui.js?v=3"></script>
 <script>
 "use strict";
 /* ============================== Zustand ============================== */
@@ -222,7 +222,7 @@ function hwFonts() {
     const s = JSON.parse(localStorage.getItem("hw_fonts")) || {};
     const out = {};
     for (const [id, f] of Object.entries(s))
-      out[id] = Object.assign({}, f, { name: "🖊 " + f.name });
+      out[id] = Object.assign({}, f, { name: "\u270E\uFE0E " + f.name });
     return out;
   } catch { return {}; }
 }
@@ -602,7 +602,7 @@ $("fileTtf").onchange = async e => {
   try { f = opentype.parse(buf); } catch (err) { alert("Schrift konnte nicht gelesen werden: " + err.message); return; }
   const upem = f.unitsPerEm;
   const cap = (f.tables.os2 && f.tables.os2.sCapHeight) || upem * 0.7;
-  const fontObj = { name: "🖋 " + (f.names.fullName?.en || file.name), upem,
+  const fontObj = { name: "\u270E\uFE0E " + (f.names.fullName?.en || file.name), upem,
                     ascent: f.ascender, descent: f.descender, capheight: cap,
                     xheight: (f.tables.os2 && f.tables.os2.sxHeight) || upem * 0.5, glyphs: {} };
   const chars = ' abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789äöüÄÖÜßéèêàáçñ.,;:!?\'"„“«»()[]{}<>/-–—_+=*#@&%€$§°^~|';
@@ -748,13 +748,13 @@ const TOUR = [
   { el: "#inpFont", title: "2 · Schrift wählen",
     text: "18 eingebaute <b>Ein-Linien-Schriften</b> (der Stift zieht echte Linien statt Umrisse) — oder deine <b>eigene Handschrift</b>: Über den Button darunter erfasst du jeden Buchstaben selbst, mit mehreren Varianten pro Zeichen." },
   { el: "#inpVarOn", title: "3 · Handschrift-Variation",
-    text: "Jeder Buchstabe bekommt eigene Zufallswerte für Drehung, Größe, Grundlinie, Neigung und Linien-Zittern — <b>kein Zeichen gleicht dem anderen</b>. Mit 🎲 würfelst du eine neue Gesamtvariante." },
+    text: "Jeder Buchstabe bekommt eigene Zufallswerte für Drehung, Größe, Grundlinie, Neigung und Linien-Zittern — <b>kein Zeichen gleicht dem anderen</b>. Mit „Neu würfeln“ würfelst du eine neue Gesamtvariante." },
   { el: "#canvasWrap", title: "4 · Vorschau & Feintuning",
     text: "Hier gestaltest du: <b>Buchstabe ziehen</b> = verschieben · <b>Klick auf Buchstabe</b> = nächste Handschrift-Variante · Lücke/Rand ziehen = ganze Zeile · Shift = ganzer Text · Mausrad = Zoom." },
   { el: "#inpFname", title: "5 · Exportieren",
     text: "Als <b>.lac exportieren</b> und in der Bambu Suite öffnen — der Prozess „Stift zeichnen“ und das Material sind bereits zugewiesen, du musst nur noch „Prepare“ klicken. Alternativ gibt's SVG für andere Tools." },
   { el: "#statusbar", title: "6 · Statusleiste",
-    text: "Unten siehst du Buchstaben- und Punktzahl, den Zufalls-Seed und beim Varianten-Klick die gewählte Variante. Viel Spaß! Die Tour startest du jederzeit neu über das ❓ oben." },
+    text: "Unten siehst du Buchstaben- und Punktzahl, den Zufalls-Seed und beim Varianten-Klick die gewählte Variante. Viel Spaß! Die Tour startest du jederzeit neu über „Tour“ oben." },
 ];
 const TOUR_EN = [
   { el: null, title: "Welcome to the Text Writer!",
@@ -764,22 +764,20 @@ const TOUR_EN = [
   { el: "#inpFont", title: "2 · Pick a font",
     text: "18 built-in <b>single-line fonts</b> (the pen draws real lines instead of outlines) — or your <b>own handwriting</b>: the button below lets you capture every letter yourself, with multiple variants per character." },
   { el: "#inpVarOn", title: "3 · Handwriting variation",
-    text: "Every letter gets its own random rotation, size, baseline, slant and line jitter — <b>no two characters look alike</b>. Hit 🎲 to roll a fresh overall look." },
+    text: "Every letter gets its own random rotation, size, baseline, slant and line jitter — <b>no two characters look alike</b>. Hit „Reroll“ to roll a fresh overall look." },
   { el: "#canvasWrap", title: "4 · Preview & fine-tuning",
     text: "This is where you design: <b>drag a letter</b> = move it · <b>click a letter</b> = next handwriting variant · drag a gap/edge = whole line · Shift = whole text · wheel = zoom." },
   { el: "#inpFname", title: "5 · Export",
     text: "Hit <b>Export as .lac</b> and open the file in Bambu Suite — the pen-draw process and material are pre-assigned, just click Prepare. There is also SVG export for other tools." },
   { el: "#statusbar", title: "6 · Status bar",
-    text: "Down here you see letter and point counts, the random seed and the chosen variant when clicking letters. Have fun! Restart this tour anytime via ❓ at the top." },
+    text: "Down here you see letter and point counts, the random seed and the chosen variant when clicking letters. Have fun! Restart this tour anytime via “Tour” at the top." },
 ];
 const I18N_EN = {
   'Stift-Schreiber für Bambu Lab (Pen Holder)': 'Pen writer for Bambu Lab (pen holder)',
-  '🖊️ Handschrift': '🖊️ Handwriting',
-  '🎨 Bild': '🎨 Image',
   '→ Bild-Plotter': '→ Image plotter',
   'Schrift': 'Font',
   'Schriftart (Ein-Linien-Fonts, ideal für Stifte)': 'Typeface (single-line fonts, ideal for pens)',
-  '🖊 Eigene Handschrift erfassen …': '🖊 Capture your handwriting …',
+  'Eigene Handschrift erfassen …': 'Capture your handwriting …',
   'Mit "Handschrift erfassen" zeichnest du jeden Buchstaben selbst — mit mehreren Varianten pro Buchstabe, aus denen beim Schreiben zufällig gewählt wird. TTF/OTF-Schriften sind dagegen Kontur-Schriften: Der Stift fährt nur den Umriss nach.':
     'With "Capture your handwriting" you draw every letter yourself — with multiple variants per character that are picked at random while writing. TTF/OTF fonts are outline fonts: the pen only traces the contour.',
   'Schriftgröße (Höhe Großbuchstaben)': 'Font size (capital height)',
@@ -796,7 +794,7 @@ const I18N_EN = {
   'Abstands-Streuung (±mm)': 'Spacing scatter (±mm)',
   'Neigungs-Streuung (±°)': 'Slant scatter (±°)',
   'Linien-Zittern (mm)': 'Line jitter (mm)',
-  '🎲 Neu würfeln': '🎲 Reroll',
+  'Neu würfeln': 'Reroll',
   'Zurücksetzen': 'Reset',
   'Jeder Buchstabe bekommt eigene Zufallswerte — derselbe Buchstabe sieht an jeder Stelle anders aus. "Neu würfeln" erzeugt eine neue Zufallsvariante.':
     'Every letter gets its own random values — the same letter looks different in every spot. "Reroll" creates a new random variation.',

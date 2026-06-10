@@ -12,8 +12,38 @@ window.UI = (function () {
     document.documentElement.dataset.theme = t;
     try { localStorage.setItem(THEME_KEY, t); } catch {}
     const b = document.getElementById("btnTheme");
-    if (b) { b.textContent = t === "dark" ? "☀️" : "🌙"; b.title = t === "dark" ? "Heller Modus" : "Dunkler Modus"; }
+    if (b) { b.innerHTML = icon(t === "dark" ? "sun" : "moon", 15); b.title = t === "dark" ? "Heller Modus" : "Dunkler Modus"; }
     for (const f of listeners) f();
+  }
+
+  /* ============================== Icons ============================== */
+  const ICONS = {
+    home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/>',
+    text: '<path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M9 20h6"/>',
+    pen: '<path d="M17 3l4 4L8.5 19.5 3 21l1.5-5.5L17 3z"/><path d="M14.5 5.5l4 4"/>',
+    pencil: '<path d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15.5 16 10.5 5 19.5"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+    help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.1 1-1.1 1.8"/><path d="M12 16.8h.01"/>',
+    dice: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h.01M15 9h.01M12 12h.01M9 15h.01M15 15h.01"/>',
+    trash: '<path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v5M14 11v5"/>',
+    eraser: '<path d="M16.5 3.5 21 8l-9.5 9.5H6.5L3 14.5z"/><path d="M10.5 7 17 13.5"/><path d="M6 21h15"/>',
+    camera: '<path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13.3" r="3.2"/>',
+    file: '<path d="M6.5 3H14l4.5 4.5V21h-12z"/><path d="M14 3v4.5h4.5"/>',
+    undo: '<path d="M8 13 3 8l5-5"/><path d="M3 8h11a6 6 0 0 1 0 12h-4"/>',
+  };
+
+  function icon(name, size = 15) {
+    return `<svg class="icn" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" ` +
+           `stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ` +
+           `style="vertical-align:-${Math.round(size * 0.16)}px">${ICONS[name] || ""}</svg>`;
+  }
+
+  function initIcons(root) {
+    (root || document).querySelectorAll("[data-icon]").forEach(el => {
+      el.innerHTML = icon(el.dataset.icon, +el.dataset.iconSize || 15);
+    });
   }
 
   function initTheme() {
@@ -22,6 +52,7 @@ window.UI = (function () {
     apply(saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
     const b = document.getElementById("btnTheme");
     if (b) b.onclick = () => apply(theme() === "dark" ? "light" : "dark");
+    initIcons();
   }
 
   function onThemeChange(f) { listeners.push(f); }
@@ -221,5 +252,5 @@ window.UI = (function () {
   }
 
   return { initTheme, onThemeChange, palette, theme, initTour, startTour,
-           initLang, onLangChange, lang, t };
+           initLang, onLangChange, lang, t, icon, initIcons };
 })();

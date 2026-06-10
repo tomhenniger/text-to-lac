@@ -1,6 +1,6 @@
-# Text → .lac — Stift-Schreiber für Bambu Lab A2L
+# Handschrift — Pen-Plotter-Tools für Bambu Lab
 
-Webapp, die Text in eine `.lac`-Projektdatei für die Bambu Suite umwandelt —
+**Handschrift** ist eine Webapp-Suite, die Text und Bilder in `.lac`-Projektdateien für die Bambu Suite umwandelt —
 zum Schreiben mit dem Pen Holder des A2L. Mit Live-Vorschau, frei wählbaren
 Schriften und Handschrift-Variation (kein Buchstabe gleicht dem anderen).
 
