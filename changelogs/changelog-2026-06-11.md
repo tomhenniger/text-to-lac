@@ -5,6 +5,9 @@
 - Onboarding-Touren für alle drei Tools: Schritt-für-Schritt-Präsentation mit
   Hervorhebung der Bedienelemente, startet automatisch beim ersten Besuch und
   ist jederzeit über den ❓-Button neu startbar (Pfeiltasten/Esc-Steuerung)
+- Zweisprachige Oberfläche (Deutsch/Englisch): automatische Erkennung über
+  die Browser-Sprache, manueller DE/EN-Umschalter auf allen Seiten
+  (gespeichert), inklusive übersetzter Onboarding-Touren und Statusmeldungen
 - Dark Mode auf allen Seiten (🌙/☀️-Umschalter, folgt initial der
   System-Einstellung, wird gespeichert; Canvas-Vorschauen mit eigener
   Dunkel-Palette)
@@ -14,7 +17,8 @@
 - Papier-Vorlage (PDF) ist jetzt direkt in der Handschrift-Erfassung verlinkt
   (öffnet in neuem Tab) statt auf der Landing-Page
 - Titel modellfrei: „Pen-Plotter-Tools für Bambu Lab" (ohne A2L)
-- Gemeinsames UI-Modul `app/ui.js` (Theme + Tour-Engine)
+- Gemeinsames UI-Modul `app/ui.js` (Theme + Tour-Engine + Sprach-Umschaltung)
+- Tour-Neustart-Button deutlicher beschriftet („❓ Tour")
 
 ## Bugfixes
 

@@ -56,7 +56,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h1>Text → .lac<span class="topbtns"><button id="btnTheme">🌙</button><button id="btnTour">❓</button></span><small>Stift-Schreiber für Bambu Lab (Pen Holder) · <a href="bild.html">→ Bild-Plotter</a></small></h1>
+  <h1>Text → .lac<span class="topbtns"><button id="btnLang">EN</button><button id="btnTheme">🌙</button><button id="btnTour">❓ Tour</button></span><small>Stift-Schreiber für Bambu Lab (Pen Holder) · <a href="bild.html">→ Bild-Plotter</a></small></h1>
 
   <details open>
     <summary>Text</summary>
@@ -431,12 +431,12 @@ function draw() {
 function updateStatus() {
   const { glyphs, missing } = cachedLayout;
   const segs = glyphs.reduce((a, g) => a + g.strokes.reduce((b, s) => b + s.length, 0), 0);
-  $("stInfo").textContent = `${glyphs.length} Buchstaben · ${segs.toLocaleString("de")} Punkte`;
+  $("stInfo").textContent = `${glyphs.length} ${UI.t("Buchstaben", "letters")} · ${segs.toLocaleString("de")} ${UI.t("Punkte", "points")}`;
   $("stSeed").textContent = `Seed ${S.seed}`;
   const w = $("warnBox");
   if (missing.size) {
     w.style.display = "block";
-    w.textContent = "Nicht in der Schrift enthalten (werden übersprungen): " + [...missing].join(" ");
+    w.textContent = UI.t("Nicht in der Schrift enthalten (werden übersprungen): ", "Not in this font (will be skipped): ") + [...missing].join(" ");
   } else w.style.display = "none";
 }
 
@@ -519,12 +519,12 @@ window.addEventListener("mouseup", () => {
 function cycleVariant(d) {
   const font = currentFont();
   const n = variantCount(font, d.glyph.char);
-  if (n < 2) { flashVar(`„${d.glyph.char}“ hat nur eine Variante`); relayout(); return; }
+  if (n < 2) { flashVar(UI.t(`„${d.glyph.char}“ hat nur eine Variante`, `"${d.glyph.char}" has only one variant`)); relayout(); return; }
   const [li, ci] = d.key.split(":").map(Number);
   const cur = S.charVar[d.key] != null ? S.charVar[d.key]
             : Math.min(n - 1, Math.floor(glyphRng(S.seed, li, ci)() * n));
   S.charVar[d.key] = (cur + 1) % n;
-  flashVar(`„${d.glyph.char}“ → Variante ${S.charVar[d.key] + 1}/${n}`);
+  flashVar(`„${d.glyph.char}“ → ${UI.t("Variante", "variant")} ${S.charVar[d.key] + 1}/${n}`);
   relayout();
 }
 
@@ -630,7 +630,7 @@ const fmtN = window.LacExport.fmtN;
 
 function buildGroups() {
   const { glyphs } = cachedLayout;
-  if (!glyphs.length) { alert("Kein Text zum Exportieren."); return null; }
+  if (!glyphs.length) { alert(UI.t("Kein Text zum Exportieren.", "No text to export.")); return null; }
   const grouping = $("inpGroup").value;
   let groups = [];
   if (grouping === "all") groups = [{ name: "Text", strokes: glyphs.flatMap(g => g.strokes) }];
@@ -714,7 +714,7 @@ for (const [id, vid, unit] of SLIDERS) {
 }
 for (const id of ["inpText", "inpFont", "inpAlign", "inpVarOn", "inpMatW", "inpMatH"])
   $(id).addEventListener("input", relayout);
-$("inpText").addEventListener("input", () => { $("stLen").textContent = $("inpText").value.length + " Zeichen"; });
+$("inpText").addEventListener("input", () => { $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
 $("btnReroll").onclick = () => { S.seed = (Math.random() * 1e9) | 0; relayout(); };
 $("btnVarReset").onclick = () => {
   const d = { inpVRot: 2.5, inpVSize: 4, inpVBase: 0.35, inpVSpace: 0.25, inpVSlant: 2, inpVWob: 0.12 };
@@ -742,16 +742,86 @@ const TOUR = [
   { el: "#statusbar", title: "6 · Statusleiste",
     text: "Unten siehst du Buchstaben- und Punktzahl, den Zufalls-Seed und beim Varianten-Klick die gewählte Variante. Viel Spaß! Die Tour startest du jederzeit neu über das ❓ oben." },
 ];
+const TOUR_EN = [
+  { el: null, title: "Welcome to the Text Writer!",
+    text: "This tool turns text into real pen writing for your Bambu plotter (pen holder). The result is a .lac file you open directly in Bambu Suite. This tour shows you everything — browse with ← →, Esc closes." },
+  { el: "#inpText", title: "1 · Enter text",
+    text: "Type your text here — multi-line, umlauts and ß included. Everything updates live in the preview on the right." },
+  { el: "#inpFont", title: "2 · Pick a font",
+    text: "18 built-in <b>single-line fonts</b> (the pen draws real lines instead of outlines) — or your <b>own handwriting</b>: the button below lets you capture every letter yourself, with multiple variants per character." },
+  { el: "#inpVarOn", title: "3 · Handwriting variation",
+    text: "Every letter gets its own random rotation, size, baseline, slant and line jitter — <b>no two characters look alike</b>. Hit 🎲 to roll a fresh overall look." },
+  { el: "#canvasWrap", title: "4 · Preview & fine-tuning",
+    text: "This is where you design: <b>drag a letter</b> = move it · <b>click a letter</b> = next handwriting variant · drag a gap/edge = whole line · Shift = whole text · wheel = zoom." },
+  { el: "#inpFname", title: "5 · Export",
+    text: "Hit <b>Export as .lac</b> and open the file in Bambu Suite — the pen-draw process and material are pre-assigned, just click Prepare. There is also SVG export for other tools." },
+  { el: "#statusbar", title: "6 · Status bar",
+    text: "Down here you see letter and point counts, the random seed and the chosen variant when clicking letters. Have fun! Restart this tour anytime via ❓ at the top." },
+];
+const I18N_EN = {
+  'Stift-Schreiber für Bambu Lab (Pen Holder) ·': 'Pen writer for Bambu Lab (pen holder) ·',
+  '→ Bild-Plotter': '→ Image plotter',
+  'Schrift': 'Font',
+  'Schriftart (Ein-Linien-Fonts, ideal für Stifte)': 'Typeface (single-line fonts, ideal for pens)',
+  '🖊 Eigene Handschrift erfassen …': '🖊 Capture your handwriting …',
+  'Mit "Handschrift erfassen" zeichnest du jeden Buchstaben selbst — mit mehreren Varianten pro Buchstabe, aus denen beim Schreiben zufällig gewählt wird. TTF/OTF-Schriften sind dagegen Kontur-Schriften: Der Stift fährt nur den Umriss nach.':
+    'With "Capture your handwriting" you draw every letter yourself — with multiple variants per character that are picked at random while writing. TTF/OTF fonts are outline fonts: the pen only traces the contour.',
+  'Schriftgröße (Höhe Großbuchstaben)': 'Font size (capital height)',
+  'Zeilenabstand': 'Line spacing',
+  'Buchstabenabstand': 'Letter spacing',
+  'Wortabstand': 'Word spacing',
+  'Ausrichtung': 'Alignment',
+  'Linksbündig': 'Left', 'Zentriert': 'Centered', 'Rechtsbündig': 'Right',
+  'Handschrift-Variation': 'Handwriting variation',
+  'Variation aktiv (kein Buchstabe gleicht dem anderen)': 'Variation on (no two letters look alike)',
+  'Drehung pro Buchstabe (±°)': 'Rotation per letter (±°)',
+  'Größenstreuung (±%)': 'Size scatter (±%)',
+  'Grundlinien-Tanz (±mm)': 'Baseline dance (±mm)',
+  'Abstands-Streuung (±mm)': 'Spacing scatter (±mm)',
+  'Neigungs-Streuung (±°)': 'Slant scatter (±°)',
+  'Linien-Zittern (mm)': 'Line jitter (mm)',
+  '🎲 Neu würfeln': '🎲 Reroll',
+  'Zurücksetzen': 'Reset',
+  'Jeder Buchstabe bekommt eigene Zufallswerte — derselbe Buchstabe sieht an jeder Stelle anders aus. "Neu würfeln" erzeugt eine neue Zufallsvariante.':
+    'Every letter gets its own random values — the same letter looks different in every spot. "Reroll" creates a new random variation.',
+  'Arbeitsbereich & Stift': 'Work area & pen',
+  'Breite (mm)': 'Width (mm)', 'Höhe (mm)': 'Height (mm)',
+  'Standard: 300 × 300 mm = Arbeitsbereich des A2L (nur als visuelle Hilfe).': 'Default: 300 × 300 mm = A2L work area (visual guide only).',
+  'Stiftbreite Vorschau (mm)': 'Pen width preview (mm)',
+  'Dateiname': 'File name',
+  'Objekt-Aufteilung in Bambu Suite': 'Object grouping in Bambu Suite',
+  'Alles als ein Objekt (Layout bleibt sicher erhalten)': 'Everything as one object (layout stays intact)',
+  'Ein Objekt pro Zeile': 'One object per line',
+  'Ein Objekt pro Buchstabe': 'One object per letter',
+  'Prozess': 'Process',
+  'Stift zeichnen (KCPenDraw)': 'Pen draw (KCPenDraw)',
+  'Stift ausmalen (KCPenDrawFill)': 'Pen fill (KCPenDrawFill)',
+  'Y-Achse spiegeln (falls der Text in der Suite kopfüber erscheint)': 'Flip Y axis (if text appears upside down in the Suite)',
+  'Als .lac exportieren': 'Export as .lac',
+  'Als SVG exportieren': 'Export as SVG',
+  'Die .lac-Datei in der Bambu Suite öffnen, Material/Stift wählen und "Vorbereiten" — der Prozess "Stift zeichnen" ist bereits zugewiesen.':
+    'Open the .lac file in Bambu Suite, choose material/pen and hit Prepare — the pen-draw process is already assigned.',
+  'Maus: Buchstabe ziehen = verschieben ·': 'Mouse: drag a letter = move it ·',
+  'Klick auf Buchstabe = nächste Variante': 'click a letter = next variant',
+  '· Lücke/Rand ziehen (oder Alt) = Zeile · Shift+Ziehen = ganzer Text · Mausrad = Zoom · Fläche ziehen = Ansicht':
+    '· drag a gap/edge (or Alt) = line · Shift+drag = whole text · wheel = zoom · drag empty space = pan',
+  'Ansicht einpassen': 'Fit view',
+  'Anpassungen zurücksetzen': 'Reset adjustments',
+  'TTF/OTF-Schriften werden als Umriss gezeichnet (der Stift fährt die Kontur der Buchstaben nach). Die eingebauten Ein-Linien-Fonts sehen mit Stift natürlicher aus.':
+    'TTF/OTF fonts are drawn as outlines (the pen traces the letter contours). The built-in single-line fonts look more natural with a pen.',
+};
 UI.initTheme();
 UI.onThemeChange(() => draw());
-UI.initTour("text", TOUR);
+UI.initLang(I18N_EN);
+UI.onLangChange(() => { relayout(); $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
+UI.initTour("text", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillFontSelect(false);
 const fontParam = new URLSearchParams(location.search).get("font");
 if (fontParam && allFonts()[fontParam]) $("inpFont").value = fontParam;
 resize();
 relayout();
 fitView();
-$("stLen").textContent = $("inpText").value.length + " Zeichen";
+$("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters");
 </script>
 </body>
 </html>

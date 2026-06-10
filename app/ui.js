@@ -35,14 +35,70 @@ window.UI = (function () {
           ink: "#16243d", frame: "rgba(0,0,0,0.15)", marker: "#00ae42" };
   }
 
+  /* ============================== Sprache ============================== */
+  const LANG_KEY = "ui_lang";
+  const langListeners = [];
+  let dict = {};                      // Deutsch -> Englisch (Text-Knoten)
+  const origText = new Map();         // Knoten -> deutscher Originaltext
+
+  function lang() {
+    try { const l = localStorage.getItem(LANG_KEY); if (l) return l; } catch {}
+    return (navigator.language || "de").toLowerCase().startsWith("de") ? "de" : "en";
+  }
+
+  // t("deutsch", "english") für dynamisch erzeugte Strings
+  function t(de, en) { return lang() === "en" ? en : de; }
+
+  function setLang(l) {
+    try { localStorage.setItem(LANG_KEY, l); } catch {}
+    applyLang();
+    for (const f of langListeners) f();
+  }
+
+  function onLangChange(f) { langListeners.push(f); }
+
+  function initLang(map) {
+    dict = map || {};
+    const b = document.getElementById("btnLang");
+    if (b) b.onclick = () => setLang(lang() === "de" ? "en" : "de");
+    applyLang();
+  }
+
+  // Schlüssel-Normalisierung: typografische Anführungszeichen + Mehrfach-Leerraum
+  function normKey(s) { return s.replace(/[„“”]/g, '"').replace(/\s+/g, " ").trim(); }
+
+  function applyLang() {
+    const en = lang() === "en";
+    const b = document.getElementById("btnLang");
+    if (b) { b.textContent = en ? "DE" : "EN"; b.title = en ? "Auf Deutsch umschalten" : "Switch to English"; }
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) {
+      const pe = n.parentElement;
+      if (!pe || pe.closest("script, style, textarea")) continue;
+      if (!origText.has(n)) {
+        const k = normKey(n.nodeValue);
+        if (k && dict[k] !== undefined) origText.set(n, n.nodeValue);
+      }
+      if (origText.has(n)) {
+        const orig = origText.get(n);
+        n.nodeValue = en ? orig.replace(orig.trim(), dict[normKey(orig)]) : orig;
+      }
+    }
+  }
+
   /* ============================== Tour ============================== */
-  let tour = null;       // {key, steps, i}
+  let tour = null;       // {key, steps: Array|Function, i}
   let tourEls = null;    // {card, hl}
+
+  function tourSteps() {
+    return typeof tour.steps === "function" ? tour.steps() : tour.steps;
+  }
 
   function initTour(key, steps) {
     tour = { key, steps, i: 0 };
     const b = document.getElementById("btnTour");
-    if (b) { b.onclick = () => startTour(); b.title = "Tour starten"; }
+    if (b) { b.onclick = () => startTour(); b.title = t("Tour neu starten", "Restart tour"); }
     let seen = null;
     try { seen = localStorage.getItem("tour_" + key); } catch {}
     if (!seen) setTimeout(startTour, 400);
@@ -73,7 +129,7 @@ window.UI = (function () {
     else if (e.key === "ArrowLeft") prev();
   }
 
-  function next() { if (tour.i < tour.steps.length - 1) { tour.i++; render(); } else endTour(); }
+  function next() { if (tour.i < tourSteps().length - 1) { tour.i++; render(); } else endTour(); }
   function prev() { if (tour.i > 0) { tour.i--; render(); } }
 
   function buildUi() {
@@ -87,7 +143,8 @@ window.UI = (function () {
   }
 
   function render() {
-    const st = tour.steps[tour.i];
+    const steps = tourSteps();
+    const st = steps[tour.i];
     document.querySelectorAll(".tour-hl").forEach(el => el.classList.remove("tour-hl"));
 
     let el = st.el ? document.querySelector(st.el) : null;
@@ -99,16 +156,16 @@ window.UI = (function () {
       el.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
 
-    const last = tour.i === tour.steps.length - 1;
+    const last = tour.i === steps.length - 1;
     tourEls.card.innerHTML = `
-      <div class="tour-step">Schritt ${tour.i + 1} von ${tour.steps.length}</div>
+      <div class="tour-step">${t("Schritt", "Step")} ${tour.i + 1} ${t("von", "of")} ${steps.length}</div>
       <h3>${st.title}</h3>
       <p>${st.text}</p>
       <div class="tour-btns">
-        <button class="tour-skip">Tour beenden</button>
+        <button class="tour-skip">${t("Tour beenden", "End tour")}</button>
         <span style="flex:1"></span>
-        <button class="tour-prev" ${tour.i === 0 ? "disabled" : ""}>← Zurück</button>
-        <button class="tour-next">${last ? "✓ Fertig" : "Weiter →"}</button>
+        <button class="tour-prev" ${tour.i === 0 ? "disabled" : ""}>${t("← Zurück", "← Back")}</button>
+        <button class="tour-next">${last ? t("✓ Fertig", "✓ Done") : t("Weiter →", "Next →")}</button>
       </div>`;
     tourEls.card.querySelector(".tour-next").onclick = next;
     tourEls.card.querySelector(".tour-prev").onclick = prev;
@@ -163,5 +220,6 @@ window.UI = (function () {
     document.head.appendChild(s);
   }
 
-  return { initTheme, onThemeChange, palette, theme, initTour, startTour };
+  return { initTheme, onThemeChange, palette, theme, initTour, startTour,
+           initLang, onLangChange, lang, t };
 })();

@@ -57,7 +57,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h1>Bild → .lac<span class="topbtns"><button id="btnTheme">🌙</button><button id="btnTour">❓</button></span><small>Plotter-Stile für Bambu Lab (Pen Holder) · <a href="index.html">→ Text-Schreiber</a></small></h1>
+  <h1>Bild → .lac<span class="topbtns"><button id="btnLang">EN</button><button id="btnTheme">🌙</button><button id="btnTour">❓ Tour</button></span><small>Plotter-Stile für Bambu Lab (Pen Holder) · <a href="index.html">→ Text-Schreiber</a></small></h1>
 
   <details open>
     <summary>Bild</summary>
@@ -198,7 +198,7 @@ function loadImage(file) {
     S.gw = c.width; S.gh = c.height;
     S.aspect = c.height / c.width;
     $("dropHint").classList.add("has");
-    $("dropHint").innerHTML = `✓ ${file.name}<br>${img.width}×${img.height}px — anderes Bild: klicken`;
+    $("dropHint").innerHTML = `✓ ${file.name}<br>${img.width}×${img.height}px — ${UI.t("anderes Bild: klicken", "click for another image")}`;
     $("inpFname").value = file.name.replace(/\.[^.]+$/, "");
     URL.revokeObjectURL(img.src);
     recompute();
@@ -534,13 +534,13 @@ function recompute() {
         styleContour(W, H);
     } catch (err) {
       console.error(err);
-      $("stInfo").textContent = "Fehler: " + err.message;
+      $("stInfo").textContent = UI.t("Fehler: ", "Error: ") + err.message;
       return;
     }
     const pts = S.strokes.reduce((a, s) => a + s.length, 0);
     const len = S.strokes.reduce((a, s) => a + segLen(s), 0);
-    $("stInfo").textContent = `${S.strokes.length.toLocaleString("de")} Striche · ${pts.toLocaleString("de")} Punkte · ~${(len / 1000).toFixed(1)} m Stiftweg`;
-    $("stCalc").textContent = `berechnet in ${Math.round(performance.now() - t0)} ms`;
+    $("stInfo").textContent = `${S.strokes.length.toLocaleString("de")} ${UI.t("Striche", "strokes")} · ${pts.toLocaleString("de")} ${UI.t("Punkte", "points")} · ~${(len / 1000).toFixed(1)} m ${UI.t("Stiftweg", "pen travel")}`;
+    $("stCalc").textContent = UI.t("berechnet in ", "computed in ") + Math.round(performance.now() - t0) + " ms";
     draw();
   }, 120);
 }
@@ -657,7 +657,7 @@ function makeThumbnail() {
   });
 }
 $("btnExport").onclick = async () => {
-  if (!S.strokes.length) { alert("Erst ein Bild laden."); return; }
+  if (!S.strokes.length) { alert(UI.t("Erst ein Bild laden.", "Load an image first.")); return; }
   const thumb = await makeThumbnail();
   const bytes = window.LacExport.makeLac(
     [{ name: "Bild", strokes: matStrokes() }],
@@ -665,7 +665,7 @@ $("btnExport").onclick = async () => {
   window.LacExport.download(bytes, ($("inpFname").value || "bild") + ".lac");
 };
 $("btnSvg").onclick = () => {
-  if (!S.strokes.length) { alert("Erst ein Bild laden."); return; }
+  if (!S.strokes.length) { alert(UI.t("Erst ein Bild laden.", "Load an image first.")); return; }
   const W = +$("inpMatW").value, H = +$("inpMatH").value;
   const fmtN = window.LacExport.fmtN;
   let paths = "";
@@ -718,9 +718,69 @@ const TOUR = [
   { el: "#btnExport", title: "6 · Exportieren",
     text: "Als <b>.lac exportieren</b> (Dateiname übernimmt automatisch den Bildnamen) und in der Bambu Suite öffnen — Stift-Prozess ist zugewiesen. Fertig zum Plotten!" },
 ];
+const TOUR_EN = [
+  { el: null, title: "Welcome to the Image Plotter!",
+    text: "This tool turns a photo or graphic into pen-drawing paths — in six styles, from hatched portraits to ASCII art in your own handwriting. (← → to browse, Esc closes.)" },
+  { el: "#dropHint", title: "1 · Load an image",
+    text: "Drop an image here or click. Use <b>brightness, contrast and invert</b> to control how much the pen draws — dark photos benefit from a bit more brightness." },
+  { el: "#inpStyle", title: "2 · Pick a style",
+    text: "<b>Squiggle lines</b> are the plotter classic for portraits · <b>cross hatching</b> looks hand-drawn · <b>spiral</b> turns the whole image into one line · <b>ASCII art</b> draws the image from letters (even in your handwriting!) · <b>contours</b> traces just the outlines." },
+  { el: ".styleopts.active", title: "3 · Style parameters",
+    text: "Each style has its own controls — line spacing, amplitude, character size and so on. Everything updates the preview live. Just experiment!" },
+  { el: "#canvasWrap", title: "4 · Position & preview",
+    text: "Drag the image around the mat, wheel zooms. The dashed frame shows the image size — set it with the width slider." },
+  { el: "#statusbar", title: "5 · Watch the pen travel",
+    text: "Down here you see the estimated <b>pen travel in meters</b> — a good proxy for plot time. Finer line spacing = nicer result, but much longer travel." },
+  { el: "#btnExport", title: "6 · Export",
+    text: "Hit <b>Export as .lac</b> (the file name is taken from the image automatically) and open it in Bambu Suite — the pen process is assigned. Ready to plot!" },
+];
+const I18N_EN = {
+  'Plotter-Stile für Bambu Lab (Pen Holder) ·': 'Plotter styles for Bambu Lab (pen holder) ·',
+  '→ Text-Schreiber': '→ Text writer',
+  'Bild': 'Image',
+  'Bild hierher ziehen oder klicken': 'Drop an image here or click',
+  '(JPG, PNG, …)': '(JPG, PNG, …)',
+  'Helligkeit': 'Brightness',
+  'Kontrast': 'Contrast',
+  'Invertieren (für dunkle Motive)': 'Invert (for dark subjects)',
+  'Breite auf der Matte (mm)': 'Width on the mat (mm)',
+  'Stil': 'Style',
+  'Parallele Linien': 'Parallel lines',
+  'Kreuzschraffur': 'Cross hatching',
+  'Wellenlinien (Squiggle)': 'Squiggle lines',
+  'Spirale': 'Spiral',
+  'ASCII-Art (mit Schrift)': 'ASCII art (with a font)',
+  'Konturen (Kanten)': 'Contours (edges)',
+  'Linienabstand (mm)': 'Line spacing (mm)',
+  'Winkel (°)': 'Angle (°)',
+  'Helligkeits-Stufen': 'Brightness levels',
+  'Zeilen-/Windungsabstand (mm)': 'Row/turn spacing (mm)',
+  'Max. Amplitude (× Abstand/2)': 'Max amplitude (× spacing/2)',
+  'Frequenz': 'Frequency',
+  'Helle Flächen auslassen': 'Skip bright areas',
+  'Schrift': 'Font',
+  'Zeichengröße (mm)': 'Character size (mm)',
+  'Zeichen-Rampe (hell → dunkel)': 'Character ramp (bright → dark)',
+  "Leerzeichen am Anfang = helle Stellen bleiben leer. Mit deiner Handschrift wird's ein handgeschriebenes Bild!":
+    'A leading space keeps bright areas empty. Use your own handwriting for a hand-written picture!',
+  'Kanten-Schwelle (niedrig = mehr Details)': 'Edge threshold (lower = more detail)',
+  'Detailgrad (Auflösung)': 'Level of detail (resolution)',
+  'Mit Schraffur kombinieren (dunkle Flächen füllen)': 'Combine with hatching (fill dark areas)',
+  'Arbeitsbereich & Stift': 'Work area & pen',
+  'Breite (mm)': 'Width (mm)', 'Höhe (mm)': 'Height (mm)',
+  'Stiftbreite Vorschau (mm)': 'Pen width preview (mm)',
+  'Dateiname': 'File name',
+  'Als .lac exportieren': 'Export as .lac',
+  'Als SVG exportieren': 'Export as SVG',
+  'Prozess "Stift zeichnen" (KCPenDraw) ist zugewiesen. Bild auf der Matte per Maus verschieben, Mausrad = Zoom.':
+    'The pen-draw process (KCPenDraw) is assigned. Drag the image around the mat, wheel = zoom.',
+  'Kein Bild geladen': 'No image loaded',
+};
 UI.initTheme();
 UI.onThemeChange(() => draw());
-UI.initTour("bild", TOUR);
+UI.initLang(I18N_EN);
+UI.onLangChange(() => recompute());
+UI.initTour("bild", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillAsciiFonts();
 showStyleOpts();
 resize();

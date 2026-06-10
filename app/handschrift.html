@@ -63,7 +63,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h1>Handschrift erfassen<span class="topbtns"><button id="btnTheme">🌙</button><button id="btnTour">❓</button></span><small>Eigene Ein-Linien-Schrift mit Buchstaben-Varianten · <a href="index.html">→ Text-Schreiber</a></small></h1>
+  <h1>Handschrift erfassen<span class="topbtns"><button id="btnLang">EN</button><button id="btnTheme">🌙</button><button id="btnTour">❓ Tour</button></span><small>Eigene Ein-Linien-Schrift mit Buchstaben-Varianten · <a href="index.html">→ Text-Schreiber</a></small></h1>
 
   <label>Name der Schrift</label>
   <input type="text" id="inpName" value="Meine Handschrift">
@@ -273,7 +273,7 @@ function buildVariantBar() {
   const vars = variants(curChar);
   const lab = document.createElement("span");
   lab.id = "varLabel";
-  lab.textContent = vars.length ? `„${curChar}“ — ${vars.length} Variante${vars.length > 1 ? "n" : ""}:` : `„${curChar}“ — noch keine Varianten`;
+  lab.textContent = vars.length ? `„${curChar}“ — ${vars.length} ${UI.t(vars.length > 1 ? "Varianten" : "Variante", vars.length > 1 ? "variants" : "variant")}:` : UI.t(`„${curChar}“ — noch keine Varianten`, `"${curChar}" — no variants yet`);
   bar.appendChild(lab);
   vars.forEach((v, i) => {
     const d = document.createElement("div");
@@ -316,7 +316,7 @@ function loadVariant(i) {
   draw();
 }
 $("btnSaveVar").onclick = () => {
-  if (!strokes.length) { alert("Erst etwas zeichnen :)"); return; }
+  if (!strokes.length) { alert(UI.t("Erst etwas zeichnen :)", "Draw something first :)")); return; }
   const adv = effAdv();
   const data = { adv, strokes: strokes.map(st => st.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10])) };
   persist(f => {
@@ -348,7 +348,7 @@ $("inpSpaceAdv").addEventListener("change", () => persist(f => { f.glyphsVar[" "
 $("btnUse").onclick = () => {
   const [s] = curFont(); saveStore(s);
   const n = Object.keys(loadStore()[fontId()].glyphsVar).filter(c => c !== " ").length;
-  if (!n) { alert("Noch keine Zeichen erfasst."); return; }
+  if (!n) { alert(UI.t("Noch keine Zeichen erfasst.", "No characters captured yet.")); return; }
   location.href = "index.html?font=" + encodeURIComponent(fontId());
 };
 $("btnExport").onclick = () => {
@@ -372,7 +372,7 @@ $("fileImport").onchange = async e => {
   } catch (err) { alert("Datei konnte nicht gelesen werden: " + err.message); }
 };
 $("btnDelFont").onclick = () => {
-  if (!confirm(`Schrift „${$("inpName").value}“ wirklich löschen?`)) return;
+  if (!confirm(UI.t(`Schrift „${$("inpName").value}“ wirklich löschen?`, `Really delete the font "${$("inpName").value}"?`))) return;
   const s = loadStore(); delete s[fontId()]; saveStore(s);
   buildGrid(); buildVariantBar();
 };
@@ -401,9 +401,56 @@ const TOUR = [
   { el: "#btnUse", title: "6 · Verwenden & sichern",
     text: "„In der Schreib-App verwenden“ wechselt direkt rüber mit deiner Schrift ausgewählt. Alles speichert sich automatisch im Browser; „Als Datei sichern“ erstellt ein Backup zum Weitergeben." },
 ];
+const TOUR_EN = [
+  { el: null, title: "Welcome to handwriting capture!",
+    text: "Here you build your own single-line font — with <b>multiple variants per letter</b> that the writer app later picks at random. That is what makes plotted text look genuinely handwritten. (← → to browse, Esc closes.)" },
+  { el: "#inpName", title: "1 · Name your font",
+    text: "Give your font a name. It will show up in the writer app's font menu under this name (with a 🖊 icon)." },
+  { el: "#charGrid", title: "2 · Pick a character",
+    text: "Click a character to capture it. The <b>blue number</b> shows how many variants you already have — 2 to 4 per character give the most lively look." },
+  { el: "#drawWrap", title: "3 · Write",
+    text: "Draw the character with mouse/trackpad onto the <b>baseline</b> — lowercase up to the x-height, capitals up to the top line. The dashed green line is the <b>advance width</b> (spacing to the next letter), draggable at its handle." },
+  { el: "#btnSaveVar", title: "4 · Save variant",
+    text: "Saves the drawing as a variant and jumps to the next empty character. The bar below shows all variants — click one to load it back into the editor, × deletes it." },
+  { el: "#btnVorlage", title: "5 · Or: write on paper",
+    text: "More comfortable with a real pen: <b>print the paper template</b> (opens in a new tab), fill it in, scan it and import it with <code>tools/handschrift_scan.py</code>. Load the resulting file via the Load button — then review and touch up every glyph here." },
+  { el: "#btnUse", title: "6 · Use & back up",
+    text: "Use in writer app switches right over with your font selected. Everything saves automatically in the browser; Save as file creates a backup you can share." },
+];
+const I18N_EN = {
+  'Handschrift erfassen': 'Capture handwriting',
+  'Eigene Ein-Linien-Schrift mit Buchstaben-Varianten ·': 'Your own single-line font with letter variants ·',
+  '→ Text-Schreiber': '→ Text writer',
+  'Name der Schrift': 'Font name',
+  'Zeichensatz': 'Character set',
+  'Blaue Zahl = Anzahl erfasster Varianten. Je mehr Varianten pro Buchstabe, desto lebendiger die Schrift — 2 bis 4 sind ideal.':
+    'Blue number = captured variants. More variants per letter make the font livelier — 2 to 4 are ideal.',
+  'Leerzeichen-Breite (Font-Einheiten, Großbuchstabe = 700)': 'Space width (font units, capital = 700)',
+  'Striche glätten': 'Smooth strokes',
+  'Nach Speichern zum nächsten Zeichen ohne Variante springen': 'After saving, jump to the next character without a variant',
+  'Stiftbreite Vorschau': 'Pen width preview',
+  '✓ Variante speichern': '✓ Save variant',
+  '↩ Strich rückgängig': '↩ Undo stroke',
+  'Leeren': 'Clear',
+  'Lieber auf Papier schreiben?': 'Prefer writing on paper?',
+  '📄 Papier-Vorlage (PDF) öffnen': '📄 Open paper template (PDF)',
+  'Vorlage drucken (100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, scannen/abfotografieren und mit': 'Print the template (100 %, actual size), fill it in with a dark pen, scan/photograph it and import it with',
+  'einlesen — die erzeugte Datei dann hier über "Laden …" importieren.': '— then load the resulting file here via "Load …".',
+  'In der Schreib-App verwenden': 'Use in writer app',
+  'Als Datei sichern (.json)': 'Save as file (.json)',
+  'Laden …': 'Load …',
+  'Schrift löschen': 'Delete font',
+  'Alles wird automatisch im Browser gespeichert (localStorage). "Als Datei sichern" erstellt zusätzlich ein Backup zum Weitergeben.':
+    'Everything is saved automatically in the browser (localStorage). "Save as file" additionally creates a backup you can share.',
+  'Schreibe das Zeichen auf die Grundlinie. Grüne gestrichelte Linie = Vorlaufbreite (bestimmt den Abstand zum nächsten Buchstaben) — am Griff unten ziehen.':
+    'Write the character on the baseline. Dashed green line = advance width (spacing to the next letter) — drag it at the handle below.',
+  'Noch keine Varianten': 'No variants yet',
+};
 UI.initTheme();
 UI.onThemeChange(() => draw());
-UI.initTour("handschrift", TOUR);
+UI.initLang(I18N_EN);
+UI.onLangChange(() => buildVariantBar());
+UI.initTour("handschrift", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 buildGrid(); buildVariantBar(); resize();
 </script>
 </body>

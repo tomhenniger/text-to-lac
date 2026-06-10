@@ -53,8 +53,26 @@
     Fonts: Hershey/EMS (SIL OFL)
   </footer>
 </main>
-<button id="btnTheme">🌙</button>
+<span style="position:fixed;top:14px;right:14px;display:flex;gap:8px"><button id="btnLang" style="padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer">EN</button><button id="btnTheme" style="position:static">🌙</button></span>
 <script src="app/ui.js"></script>
-<script>UI.initTheme();</script>
+<script>
+UI.initTheme();
+UI.initLang({
+  'Text und Bilder mit dem Stift (Pen Holder) zeichnen — Export als .lac für die Bambu Suite. Läuft komplett im Browser.':
+    'Draw text and images with the pen holder — exported as .lac for Bambu Suite. Runs entirely in your browser.',
+  'Text-Schreiber': 'Text writer',
+  'Text in Ein-Linien-Schriften oder der eigenen Handschrift, mit Variation pro Buchstabe — kein Zeichen gleicht dem anderen.':
+    'Text in single-line fonts or your own handwriting, with per-letter variation — no two characters look alike.',
+  'Handschrift erfassen': 'Capture handwriting',
+  'Eigene Buchstaben zeichnen oder per gedruckter Vorlage scannen — mit mehreren Varianten pro Zeichen.':
+    'Draw your own letters or scan them via a printed template — with multiple variants per character.',
+  'Bild-Plotter': 'Image plotter',
+  'Fotos als Schraffur, Wellenlinien, Spirale, Konturen oder ASCII-Art — auch in der eigenen Handschrift.':
+    'Photos as hatching, squiggle lines, spiral, contours or ASCII art — even in your own handwriting.',
+  'Quellcode & Doku im': 'Source code & docs in the',
+  'Repository': 'repository',
+  '· Fonts: Hershey/EMS (SIL OFL)': '· Fonts: Hershey/EMS (SIL OFL)',
+});
+</script>
 </body>
 </html>
