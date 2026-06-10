@@ -594,8 +594,22 @@ const I18N_EN = {
 };
 UI.initTheme();
 UI.onThemeChange(() => draw());
+const DEFAULT_NAME = { de: "Meine Handschrift", en: "My Handwriting" };
 function applyLangDefaults() {
   document.title = UI.t("Handschrift erfassen — Handschrift", "Capture Handwriting — Handschrift");
+  // Standard-Schriftnamen nur tauschen, solange unter dem Namen nichts erfasst ist
+  const other = UI.lang() === "en" ? "de" : "en";
+  if ($("inpName").value === DEFAULT_NAME[other]) {
+    const store = loadStore();
+    const oldId = "hw_" + slug(DEFAULT_NAME[other]);
+    const f = store[oldId];
+    const leer = !f || !Object.keys(f.glyphsVar).some(c => c !== " ");
+    if (leer) {
+      if (f) { delete store[oldId]; saveStore(store); }
+      $("inpName").value = DEFAULT_NAME[UI.lang()];
+      buildGrid(); buildVariantBar();
+    }
+  }
 }
 UI.initLang(I18N_EN);
 applyLangDefaults();

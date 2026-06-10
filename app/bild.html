@@ -379,7 +379,8 @@ function fillAsciiFonts() {
   sel.innerHTML = "";
   for (const [id, f] of Object.entries(allFonts())) {
     const o = document.createElement("option");
-    o.value = id; o.textContent = f.name;
+    o.value = id;
+    o.textContent = (UI.lang() === "en" && f.name_en) ? f.name_en : f.name;
     sel.appendChild(o);
   }
   const hw = Object.keys(hwFonts());
@@ -700,7 +701,7 @@ $("btnExport").onclick = async () => {
   if (!S.strokes.length) { alert(UI.t("Erst ein Bild laden.", "Load an image first.")); return; }
   const thumb = await makeThumbnail();
   const bytes = window.LacExport.makeLac(
-    [{ name: "Bild", strokes: matStrokes() }],
+    [{ name: UI.t("Bild", "Image"), strokes: matStrokes() }],
     { matW: +$("inpMatW").value, matH: +$("inpMatH").value, processType: "KCPenDraw", thumbnail: thumb });
   window.LacExport.download(bytes, ($("inpFname").value || "bild") + ".lac");
 };
@@ -827,7 +828,7 @@ function applyLangDefaults() {
 }
 UI.initLang(I18N_EN);
 applyLangDefaults();
-UI.onLangChange(() => { applyLangDefaults(); recompute(); });
+UI.onLangChange(() => { applyLangDefaults(); fillAsciiFonts(); recompute(); });
 UI.initTour("bild", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillAsciiFonts();
 showStyleOpts();

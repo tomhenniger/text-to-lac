@@ -274,25 +274,25 @@ def convert(svg_path):
     }
 
 
-NICE_NAMES = {
-    "EMSAllure": "EMS Allure (Schreibschrift)",
-    "EMSElfin": "EMS Elfin (verspielt)",
-    "EMSFelix": "EMS Felix (locker)",
-    "EMSNixish": "EMS Nixish",
-    "EMSNixishItalic": "EMS Nixish Kursiv",
-    "EMSOsmotron": "EMS Osmotron (Retro)",
-    "EMSReadability": "EMS Readability (klar)",
-    "EMSReadabilityItalic": "EMS Readability Kursiv",
-    "EMSTech": "EMS Tech",
-    "HersheyGothEnglish": "Hershey Gotisch",
-    "HersheySans1": "Hershey Sans dünn",
-    "HersheySansMed": "Hershey Sans",
-    "HersheyScript1": "Hershey Schreibschrift dünn",
-    "HersheyScriptMed": "Hershey Schreibschrift",
-    "HersheySerifBold": "Hershey Serif Fett",
-    "HersheySerifBoldItalic": "Hershey Serif Fett-Kursiv",
-    "HersheySerifMed": "Hershey Serif",
-    "HersheySerifMedItalic": "Hershey Serif Kursiv",
+NICE_NAMES = {  # (deutsch, englisch)
+    "EMSAllure": ("EMS Allure (Schreibschrift)", "EMS Allure (script)"),
+    "EMSElfin": ("EMS Elfin (verspielt)", "EMS Elfin (playful)"),
+    "EMSFelix": ("EMS Felix (locker)", "EMS Felix (casual)"),
+    "EMSNixish": ("EMS Nixish", "EMS Nixish"),
+    "EMSNixishItalic": ("EMS Nixish Kursiv", "EMS Nixish Italic"),
+    "EMSOsmotron": ("EMS Osmotron (Retro)", "EMS Osmotron (retro)"),
+    "EMSReadability": ("EMS Readability (klar)", "EMS Readability (clean)"),
+    "EMSReadabilityItalic": ("EMS Readability Kursiv", "EMS Readability Italic"),
+    "EMSTech": ("EMS Tech", "EMS Tech"),
+    "HersheyGothEnglish": ("Hershey Gotisch", "Hershey Gothic"),
+    "HersheySans1": ("Hershey Sans dünn", "Hershey Sans thin"),
+    "HersheySansMed": ("Hershey Sans", "Hershey Sans"),
+    "HersheyScript1": ("Hershey Schreibschrift dünn", "Hershey Script thin"),
+    "HersheyScriptMed": ("Hershey Schreibschrift", "Hershey Script"),
+    "HersheySerifBold": ("Hershey Serif Fett", "Hershey Serif Bold"),
+    "HersheySerifBoldItalic": ("Hershey Serif Fett-Kursiv", "Hershey Serif Bold Italic"),
+    "HersheySerifMed": ("Hershey Serif", "Hershey Serif"),
+    "HersheySerifMedItalic": ("Hershey Serif Kursiv", "Hershey Serif Italic"),
 }
 
 
@@ -304,7 +304,9 @@ def main():
     for f in sorted(src.glob("*.svg")):
         fid = f.stem
         data = convert(f)
-        data["name"] = NICE_NAMES.get(fid, fid)
+        de, en = NICE_NAMES.get(fid, (fid, fid))
+        data["name"] = de
+        data["name_en"] = en
         n = len(data["glyphs"])
         uml = "".join(c for c in "äöüÄÖÜß" if c in data["glyphs"])
         print(f"{fid:28s} {n:4d} Glyphen, Umlaute: {uml or '—'}")

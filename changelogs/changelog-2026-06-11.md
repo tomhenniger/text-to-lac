@@ -68,6 +68,14 @@
 
 ## Bugfixes
 
+- Sweep über alle deutschen Defaults in der englischen Oberfläche:
+  Beispieltext, Standard-Dateinamen, Tab-Titel, Font-Namen im Dropdown
+  (fonts.js trägt jetzt deutsche und englische Namen), Export-Objektnamen
+  („Zeile N" → „Line N", „Bild" → „Image") und der Standard-Schriftname
+  „Meine Handschrift" → „My Handwriting" (wird nur getauscht, solange
+  darunter nichts erfasst ist — eigene Inhalte bleiben unangetastet)
+
+
 - Bild-Plotter: Bild lässt sich nicht mehr aus dem Arbeitsfeld hinausziehen
   (Position wird beim Ziehen sowie bei Größen-/Mattenänderung begrenzt)
 

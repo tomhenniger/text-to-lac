@@ -258,7 +258,8 @@ function fillFontSelect(keep) {
   sel.innerHTML = "";
   for (const [id, f] of Object.entries(allFonts())) {
     const o = document.createElement("option");
-    o.value = id; o.textContent = f.name;
+    o.value = id;
+    o.textContent = (UI.lang() === "en" && f.name_en) ? f.name_en : f.name;
     sel.appendChild(o);
   }
   sel.value = allFonts()[prev] ? prev : Object.keys(allFonts())[0];
@@ -651,7 +652,7 @@ function buildGroups() {
   else if (grouping === "line") {
     const m = new Map();
     for (const g of glyphs) {
-      if (!m.has(g.line)) m.set(g.line, { name: "Zeile " + (g.line + 1), strokes: [] });
+      if (!m.has(g.line)) m.set(g.line, { name: UI.t("Zeile ", "Line ") + (g.line + 1), strokes: [] });
       m.get(g.line).strokes.push(...g.strokes);
     }
     groups = [...m.values()];
@@ -839,7 +840,7 @@ function applyLangDefaults() {
 }
 UI.initLang(I18N_EN);
 applyLangDefaults();
-UI.onLangChange(() => { applyLangDefaults(); relayout(); $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
+UI.onLangChange(() => { applyLangDefaults(); fillFontSelect(true); relayout(); $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
 UI.initTour("text", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillFontSelect(false);
 const fontParam = new URLSearchParams(location.search).get("font");
