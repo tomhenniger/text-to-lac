@@ -21,6 +21,9 @@
 
 ## UI-Änderungen
 
+- Bild-Plotter: „🗑 Bild entfernen"-Button setzt den Editor zurück
+
+
 - Handschrift-Erfassung: ⏎ Enter speichert die Variante und bleibt beim
   Zeichen (für weitere Varianten), ⇧⏎ Shift+Enter speichert und springt zum
   nächsten leeren Zeichen — die Auto-Sprung-Checkbox entfällt; zwei
@@ -42,6 +45,10 @@
 - Tour-Neustart-Button deutlicher beschriftet („❓ Tour")
 
 ## Bugfixes
+
+- Bild-Plotter: Bild lässt sich nicht mehr aus dem Arbeitsfeld hinausziehen
+  (Position wird beim Ziehen sowie bei Größen-/Mattenänderung begrenzt)
+
 
 - Gescannte Handschrift war deutlich kantiger als mit dem Trackpad
   gezeichnete Buchstaben → Chaikin-Kurvenglättung nach der Pfadvereinfachung

@@ -64,6 +64,7 @@
     <div class="body">
       <div id="dropHint">Bild hierher ziehen oder klicken<br>(JPG, PNG, …)</div>
       <input type="file" id="fileImg" accept="image/*" style="display:none">
+      <div class="btnrow" id="rowImgRemove" style="display:none"><button id="btnImgRemove">🗑 Bild entfernen</button></div>
       <label>Helligkeit</label>
       <div class="slider"><input type="range" id="inpBright" min="-60" max="60" step="1" value="0"><span class="val" id="valBright"></span></div>
       <label>Kontrast</label>
@@ -200,12 +201,35 @@ function loadImage(file) {
     $("dropHint").classList.add("has");
     $("dropHint").innerHTML = `✓ ${file.name}<br>${img.width}×${img.height}px — ${UI.t("anderes Bild: klicken", "click for another image")}`;
     $("inpFname").value = file.name.replace(/\.[^.]+$/, "");
+    $("rowImgRemove").style.display = "flex";
+    clampImgPos();
     URL.revokeObjectURL(img.src);
     recompute();
     fitView();
   };
   img.src = URL.createObjectURL(file);
 }
+
+// Bild darf das Arbeitsfeld nicht verlassen
+function clampImgPos() {
+  if (!S.gray) return;
+  const W = +$("inpMatW").value, H = +$("inpMatH").value;
+  const iw = +$("inpImgW").value, ih = iw * S.aspect;
+  S.imgX = iw <= W ? Math.max(0, Math.min(W - iw, S.imgX)) : Math.min(0, Math.max(W - iw, S.imgX));
+  S.imgY = ih <= H ? Math.max(0, Math.min(H - ih, S.imgY)) : Math.min(0, Math.max(H - ih, S.imgY));
+}
+
+$("btnImgRemove").onclick = () => {
+  S.gray = null;
+  S.strokes = [];
+  $("dropHint").classList.remove("has");
+  $("dropHint").innerHTML = UI.t("Bild hierher ziehen oder klicken<br>(JPG, PNG, …)",
+                                 "Drop an image here or click<br>(JPG, PNG, …)");
+  $("rowImgRemove").style.display = "none";
+  $("stInfo").textContent = UI.t("Kein Bild geladen", "No image loaded");
+  $("stCalc").textContent = "";
+  draw();
+};
 
 // Helligkeit 0..1 an Bildposition (mm), mit Helligkeit/Kontrast/Invertierung
 function lum(xMM, yMM, W, H) {
@@ -521,6 +545,7 @@ function recompute() {
   clearTimeout(recomputeTimer);
   recomputeTimer = setTimeout(() => {
     if (!S.gray) { S.strokes = []; draw(); return; }
+    clampImgPos();
     const t0 = performance.now();
     const W = +$("inpImgW").value, H = W * S.aspect;
     const style = $("inpStyle").value;
@@ -618,6 +643,7 @@ window.addEventListener("mousemove", e => {
     const [mx, my] = px2mm(e.clientX - r.left, e.clientY - r.top);
     S.imgX += mx - drag.sx; S.imgY += my - drag.sy;
     drag.sx = mx; drag.sy = my;
+    clampImgPos();
   }
   draw();
 });
@@ -739,6 +765,7 @@ const I18N_EN = {
   '→ Text-Schreiber': '→ Text writer',
   'Bild': 'Image',
   'Bild hierher ziehen oder klicken': 'Drop an image here or click',
+  '🗑 Bild entfernen': '🗑 Remove image',
   '(JPG, PNG, …)': '(JPG, PNG, …)',
   'Helligkeit': 'Brightness',
   'Kontrast': 'Contrast',
