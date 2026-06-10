@@ -183,8 +183,8 @@ geschrieben mit dem Stift.</textarea>
 
 <script src="fonts.js"></script>
 <script src="configs.js"></script>
-<script src="lac.js?v=2"></script>
-<script src="ui.js?v=3"></script>
+<script src="lac.js?v=3"></script>
+<script src="ui.js?v=4"></script>
 <script>
 "use strict";
 /* ============================== Zustand ============================== */
@@ -296,7 +296,8 @@ function layout() {
       const vPick = rng();                                // Varianten-Wahl (Handschrift)
       rng(); rng(); rng(); rng(); rng();                  // gleiche Reihenfolge wie unten
       const spJit = (rng() * 2 - 1) * vSpace;
-      const g = pickGlyph(font, ch, vPick, S.charVar[li + ":" + ci]);
+      const cv = S.charVar[li + ":" + ci];
+      const g = pickGlyph(font, ch, vPick, cv && cv.ch === ch ? cv.v : null);
       const sp = pickGlyph(font, " ", 0);
       let base = g ? g.adv * scale : (sp ? sp.adv * scale : sizeMM * 0.5);
       if (ch === " ") base *= +$("inpWordSp").value;
@@ -315,7 +316,8 @@ function layout() {
     [...ln].forEach((ch, ci) => {
       const rng = glyphRng(S.seed, li, ci);
       const vPick = rng();                                // Varianten-Wahl (Handschrift)
-      const g = pickGlyph(font, ch, vPick, S.charVar[li + ":" + ci]);
+      const cvr = S.charVar[li + ":" + ci];
+      const g = pickGlyph(font, ch, vPick, cvr && cvr.ch === ch ? cvr.v : null);
       const rRot = (rng() * 2 - 1) * vRot * Math.PI / 180;
       const rScale = 1 + (rng() * 2 - 1) * vSize;
       const rBase = (rng() * 2 - 1) * vBase;
@@ -328,7 +330,9 @@ function layout() {
         return;
       }
       const adv = advCache[li][ci];
-      const co = S.charOff[li + ":" + ci] || { dx: 0, dy: 0 };
+      const coRaw = S.charOff[li + ":" + ci];
+      // Offsets gelten nur, solange an der Position dasselbe Zeichen steht
+      const co = (coRaw && coRaw.ch === ch) ? coRaw : { dx: 0, dy: 0 };
       const s = scale * rScale;
       const cx = g.adv * s / 2, cy = -sizeMM / 2;         // Drehpunkt: Mitte des Buchstabens
       const cosR = Math.cos(rRot), sinR = Math.sin(rRot);
@@ -510,7 +514,8 @@ window.addEventListener("mousemove", e => {
     drag.sx = mx; drag.sy = my;
     if (drag.mode === "all") { S.textX += dx; S.textY += dy; }
     else if (drag.mode === "char") {
-      const o = S.charOff[drag.key] || (S.charOff[drag.key] = { dx: 0, dy: 0 });
+      let o = S.charOff[drag.key];
+      if (!o || o.ch !== drag.glyph.char) o = S.charOff[drag.key] = { dx: 0, dy: 0, ch: drag.glyph.char };
       o.dx += dx; o.dy += dy;
       drag.total += Math.hypot(dx, dy);
     }
@@ -536,10 +541,11 @@ function cycleVariant(d) {
   const n = variantCount(font, d.glyph.char);
   if (n < 2) { flashVar(UI.t(`„${d.glyph.char}“ hat nur eine Variante`, `"${d.glyph.char}" has only one variant`)); relayout(); return; }
   const [li, ci] = d.key.split(":").map(Number);
-  const cur = S.charVar[d.key] != null ? S.charVar[d.key]
+  const prev = S.charVar[d.key];
+  const cur = (prev && prev.ch === d.glyph.char) ? prev.v
             : Math.min(n - 1, Math.floor(glyphRng(S.seed, li, ci)() * n));
-  S.charVar[d.key] = (cur + 1) % n;
-  flashVar(`„${d.glyph.char}“ → ${UI.t("Variante", "variant")} ${S.charVar[d.key] + 1}/${n}`);
+  S.charVar[d.key] = { v: (cur + 1) % n, ch: d.glyph.char };
+  flashVar(`„${d.glyph.char}“ → ${UI.t("Variante", "variant")} ${S.charVar[d.key].v + 1}/${n}`);
   relayout();
 }
 

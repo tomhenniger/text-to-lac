@@ -134,7 +134,7 @@
   <div id="variantBar"><span id="varLabel">Noch keine Varianten</span></div>
 </div>
 
-<script src="ui.js?v=3"></script>
+<script src="ui.js?v=4"></script>
 <script src="vorlage_layout.js"></script>
 <script src="scan.js?v=2"></script>
 <script>
@@ -157,7 +157,14 @@ function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^
 function fontId() { return "hw_" + slug($("inpName").value); }
 
 function loadStore() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } }
-function saveStore(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
+function saveStore(s) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
+  catch (e) {
+    alert(UI.t("Browser-Speicher voll — die Schrift konnte nicht gesichert werden. Alte Schriften löschen oder als Datei exportieren.",
+               "Browser storage full — the font could not be saved. Delete old fonts or export as a file."));
+    throw e;
+  }
+}
 
 function curFont() {
   const s = loadStore();
@@ -268,6 +275,8 @@ let eraserPos = null;   // Cursor-Position in Font-Einheiten
 const ERASER_R = 32;
 
 function setTool(t) {
+  if (mode === "draw") curStroke = null;   // laufenden Strich verwerfen
+  mode = null;
   tool = t;
   $("btnPen").classList.toggle("toolactive", t === "pen");
   $("btnEraser").classList.toggle("toolactive", t === "eraser");

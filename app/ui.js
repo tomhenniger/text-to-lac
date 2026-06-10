@@ -70,7 +70,7 @@ window.UI = (function () {
   const LANG_KEY = "ui_lang";
   const langListeners = [];
   let dict = {};                      // Deutsch -> Englisch (Text-Knoten)
-  const origText = new Map();         // Knoten -> deutscher Originaltext
+  const origText = new WeakMap();     // Knoten -> deutscher Originaltext (Weak: tote Knoten werden freigegeben)
 
   function lang() {
     try { const l = localStorage.getItem(LANG_KEY); if (l) return l; } catch {}

@@ -73,6 +73,8 @@
     const { matW: W, matH: H, processType = "KCPenDraw", flipY = false, thumbnail = null } = opts;
     const objList = [], components = [], objectSettings = [], plateComponents = [];
     let oid = 16;
+    groups = groups.filter(g => g.strokes.some(st => st.length >= 2));
+    if (!groups.length) throw new Error("Keine Pfade zum Exportieren");
     for (const grp of groups) {
       const strokes = flipY ? grp.strokes.map(st => st.map(([x, y]) => [x, H - y])) : grp.strokes;
       let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
@@ -130,10 +132,11 @@
  <Default Extension="png" ContentType="image/png"/>
  <Default Extension="gcode" ContentType="text/x.gcode"/>
 </Types>`;
-    const rels = `<?xml version="1.0" encoding="UTF-8"?>
+    const rels = thumbnail ? `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Target="/2D/design_thumbnail.png" Id="rel-1" Type=""></Relationship>
-</Relationships>`;
+</Relationships>` : `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`;
 
     const enc = new TextEncoder();
     const files = [

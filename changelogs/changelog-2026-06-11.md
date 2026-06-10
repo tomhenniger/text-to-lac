@@ -68,6 +68,22 @@
 
 ## Bugfixes
 
+- Komplett-Audit (Code-Review + automatisierte Randfall-Suite, 13 Szenarien):
+  - Buchstaben-Anpassungen (Variante/Verschiebung) verrutschen nicht mehr auf
+    fremde Zeichen, wenn der Text danach editiert wird — Overrides sind jetzt
+    an das Zeichen gebunden und deaktivieren sich bei Nichtübereinstimmung
+  - localStorage-Quota-Überlauf beim Speichern von Schriften wird abgefangen
+    (verständliche Meldung statt stillem Datenverlust)
+  - Sprach-Umschaltung: WeakMap statt Map (kein Speicherleck über lange
+    Sitzungen mit vielen DOM-Neuaufbauten)
+  - Werkzeugwechsel (Taste E) während eines laufenden Strichs bricht den
+    Strich sauber ab statt inkonsistent weiterzuzeichnen
+  - lac.js: leere Gruppen werden gefiltert (keine degenerierten PathObjects),
+    Thumbnail-Relationship nur noch wenn ein Thumbnail existiert
+  - Bild-Plotter: korrekte Meldung wenn ein geladenes Bild 0 Striche ergibt;
+    Nur-Leerzeichen-Zeichenrampe fällt auf die Standard-Rampe zurück
+
+
 - Sweep über alle deutschen Defaults in der englischen Oberfläche:
   Beispieltext, Standard-Dateinamen, Tab-Titel, Font-Namen im Dropdown
   (fonts.js trägt jetzt deutsche und englische Namen), Export-Objektnamen
