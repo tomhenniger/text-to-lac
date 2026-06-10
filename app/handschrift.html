@@ -18,6 +18,13 @@
   #sidebar { width: 330px; min-width: 330px; background: var(--panel); border-right: 1px solid var(--border);
              overflow-y: auto; padding: 14px 16px 40px; }
   #main { flex: 1; display: flex; flex-direction: column; padding: 14px; gap: 10px; overflow: hidden; }
+  .topnav { display: flex; gap: 6px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
+  .topnav a.nav { font-size: 13.5px; color: var(--muted); text-decoration: none; padding: 5px 8px;
+                  border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+                  white-space: nowrap; }
+  .topnav a.nav:hover { border-color: var(--accent); color: var(--text); }
+  .topnav button { padding: 5px 8px; font-size: 12.5px; white-space: nowrap; }
+  .topnav .sp { flex: 1; }
   h1 { font-size: 16px; margin: 2px 0 12px; }
   h1 small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; margin-top: 2px; }
   label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
@@ -65,7 +72,14 @@
 </head>
 <body>
 <div id="sidebar">
-  <h1>Handschrift erfassen<span class="topbtns"><button id="btnLang">EN</button><button id="btnTheme">🌙</button><button id="btnTour">❓ Tour</button></span><small>Eigene Ein-Linien-Schrift mit Buchstaben-Varianten · <a href="index.html">→ Text-Schreiber</a></small></h1>
+  <div class="topnav">
+    <a class="nav" href="../index.html" title="Home">🏠</a>
+    <a class="nav" href="index.html" title="Text-Schreiber">✍️</a>
+    <a class="nav" href="bild.html" title="Bild-Plotter">🎨</a>
+    <span class="sp"></span>
+    <button id="btnLang">EN</button><button id="btnTheme">🌙</button><button id="btnTour">❓ Tour</button>
+  </div>
+  <h1>Handschrift erfassen<small>Eigene Ein-Linien-Schrift mit Buchstaben-Varianten</small></h1>
 
   <label>Name der Schrift</label>
   <input type="text" id="inpName" value="Meine Handschrift">
@@ -546,7 +560,8 @@ const TOUR_EN = [
 ];
 const I18N_EN = {
   'Handschrift erfassen': 'Capture handwriting',
-  'Eigene Ein-Linien-Schrift mit Buchstaben-Varianten ·': 'Your own single-line font with letter variants ·',
+  'Eigene Ein-Linien-Schrift mit Buchstaben-Varianten': 'Your own single-line font with letter variants',
+  '🎨 Bild': '🎨 Image',
   '→ Text-Schreiber': '→ Text writer',
   'Name der Schrift': 'Font name',
   'Zeichensatz': 'Character set',

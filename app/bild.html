@@ -20,6 +20,13 @@
   #main { flex: 1; display: flex; flex-direction: column; }
   #canvasWrap { flex: 1; position: relative; }
   canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  .topnav { display: flex; gap: 6px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
+  .topnav a.nav { font-size: 13.5px; color: var(--muted); text-decoration: none; padding: 5px 8px;
+                  border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+                  white-space: nowrap; }
+  .topnav a.nav:hover { border-color: var(--accent); color: var(--text); }
+  .topnav button { padding: 5px 8px; font-size: 12.5px; white-space: nowrap; }
+  .topnav .sp { flex: 1; }
   h1 { font-size: 16px; margin: 2px 0 12px; }
   h1 small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; margin-top: 2px; }
   details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--panel); }
@@ -57,7 +64,14 @@
 </head>
 <body>
 <div id="sidebar">
-  <h1>Bild → .lac<span class="topbtns"><button id="btnLang">EN</button><button id="btnTheme">🌙</button><button id="btnTour">❓ Tour</button></span><small>Plotter-Stile für Bambu Lab (Pen Holder) · <a href="index.html">→ Text-Schreiber</a></small></h1>
+  <div class="topnav">
+    <a class="nav" href="../index.html" title="Home">🏠</a>
+    <a class="nav" href="index.html" title="Text-Schreiber">✍️</a>
+    <a class="nav" href="handschrift.html" title="Handschrift erfassen">🖊️</a>
+    <span class="sp"></span>
+    <button id="btnLang">EN</button><button id="btnTheme">🌙</button><button id="btnTour">❓ Tour</button>
+  </div>
+  <h1>Bild → .lac<small>Plotter-Stile für Bambu Lab (Pen Holder)</small></h1>
 
   <details open>
     <summary>Bild</summary>
@@ -761,7 +775,8 @@ const TOUR_EN = [
     text: "Hit <b>Export as .lac</b> (the file name is taken from the image automatically) and open it in Bambu Suite — the pen process is assigned. Ready to plot!" },
 ];
 const I18N_EN = {
-  'Plotter-Stile für Bambu Lab (Pen Holder) ·': 'Plotter styles for Bambu Lab (pen holder) ·',
+  'Plotter-Stile für Bambu Lab (Pen Holder)': 'Plotter styles for Bambu Lab (pen holder)',
+  '🖊️ Handschrift': '🖊️ Handwriting',
   '→ Text-Schreiber': '→ Text writer',
   'Bild': 'Image',
   'Bild hierher ziehen oder klicken': 'Drop an image here or click',

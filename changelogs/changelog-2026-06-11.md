@@ -21,6 +21,12 @@
 
 ## UI-Änderungen
 
+- Aufgeräumter Kopfbereich auf allen Tool-Seiten: einheitliche
+  Navigations-Zeile mit 🏠 Home-Button (zur Startseite), Icon-Links zu den
+  anderen Tools und rechtsbündigen Bedienelementen (DE/EN, Theme, Tour) —
+  der Titel steht wieder frei
+
+
 - Handschrift-Erfassung: Radiergummi-Werkzeug (🧹 oben links an der
   Zeichenfläche, Taste E wechselt zwischen Stift und Radierer) — radiert
   mit Kreis-Cursor punktgenau und teilt Striche dabei sauber auf
