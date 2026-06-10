@@ -56,6 +56,8 @@
   #curChar { font-size: 30px; font-weight: 700; min-width: 46px; text-align: center;
              background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; }
   #topBar .grow { flex: 1; }
+  .toolactive { border-color: var(--accent) !important; background: var(--hover) !important;
+                box-shadow: 0 0 0 1px var(--accent); }
   .slider { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .val { font-size: 11px; color: var(--muted); text-align: right; }
@@ -106,6 +108,10 @@
     <button id="btnPrev">◀</button><button id="btnNext">▶</button>
   </div>
   <div id="drawWrap"><canvas id="draw"></canvas>
+    <div style="position:absolute;left:12px;top:12px;display:flex;gap:6px">
+      <button id="btnPen" class="toolactive">✏️</button>
+      <button id="btnEraser">🧹</button>
+    </div>
     <div style="position:absolute;right:12px;bottom:12px;display:flex;gap:8px;align-items:center">
       <button id="btnUndo2" title="Strich rückgängig">↩</button>
       <button class="primary" id="btnSaveVar2" style="padding:9px 16px;width:auto;margin:0">✓ Speichern (⏎)</button>
@@ -229,17 +235,73 @@ function draw() {
     }
   }
   ctx.stroke();
+
+  // Radiergummi-Cursor
+  if (tool === "eraser" && eraserPos) {
+    const [ex, ey] = u2px(eraserPos[0], eraserPos[1]);
+    ctx.strokeStyle = "#dc2626"; ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.arc(ex, ey, ERASER_R / view.upp, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 }
 
-let mode = null; // "draw" | "adv"
+let mode = null;        // "draw" | "adv" | "erase"
+let tool = "pen";       // "pen" | "eraser"
+let eraserPos = null;   // Cursor-Position in Font-Einheiten
+const ERASER_R = 32;
+
+function setTool(t) {
+  tool = t;
+  $("btnPen").classList.toggle("toolactive", t === "pen");
+  $("btnEraser").classList.toggle("toolactive", t === "eraser");
+  $("btnPen").title = UI.t("Stift (E wechselt)", "Pen (E toggles)");
+  $("btnEraser").title = UI.t("Radiergummi (E wechselt)", "Eraser (E toggles)");
+  cv.style.cursor = t === "eraser" ? "none" : "crosshair";
+  if (t !== "eraser") eraserPos = null;
+  draw();
+}
+$("btnPen").onclick = () => setTool("pen");
+$("btnEraser").onclick = () => setTool("eraser");
+
+function eraseAt([ux, uy]) {
+  const out = [];
+  for (const st of strokes) {
+    let cur = [];
+    for (const p of st) {
+      if (Math.hypot(p[0] - ux, p[1] - uy) <= ERASER_R) {
+        if (cur.length > 1) out.push(cur);
+        cur = [];
+      } else cur.push(p);
+    }
+    if (cur.length > 1) out.push(cur);
+  }
+  strokes = out;
+}
+
 cv.addEventListener("pointerdown", e => {
   cv.setPointerCapture(e.pointerId);
+  if (tool === "eraser") {
+    mode = "erase";
+    eraserPos = px2u(e.offsetX, e.offsetY);
+    eraseAt(eraserPos);
+    draw();
+    return;
+  }
   const [ax] = u2px(effAdv(), 0);
   if (Math.abs(e.offsetX - ax) < 9) { mode = "adv"; return; }
   mode = "draw";
   curStroke = [px2u(e.offsetX, e.offsetY)];
 });
 cv.addEventListener("pointermove", e => {
+  if (tool === "eraser") {
+    eraserPos = px2u(e.offsetX, e.offsetY);
+    if (mode === "erase") eraseAt(eraserPos);
+    draw();
+    return;
+  }
   if (mode === "adv") {
     advance = Math.max(20, Math.round(px2u(e.offsetX, 0)[0]));
     draw(); return;
@@ -249,6 +311,7 @@ cv.addEventListener("pointermove", e => {
   const last = curStroke[curStroke.length - 1];
   if (Math.hypot(p[0] - last[0], p[1] - last[1]) > 4) { curStroke.push(p); draw(); }
 });
+cv.addEventListener("pointerleave", () => { if (tool === "eraser") { eraserPos = null; draw(); } });
 cv.addEventListener("pointerup", () => {
   if (mode === "draw" && curStroke && curStroke.length > 1) {
     strokes.push($("inpSmooth").checked ? smooth(curStroke) : curStroke);
@@ -360,6 +423,7 @@ document.addEventListener("keydown", e => {
   if (e.target.matches("input, textarea, select")) return;
   if (document.querySelector(".tour-card")) return;   // Tour nutzt Enter selbst
   if (e.key === "Enter") { e.preventDefault(); saveVariant(e.shiftKey); }
+  else if (e.key === "e" || e.key === "E") { setTool(tool === "pen" ? "eraser" : "pen"); }
   else if ((e.metaKey || e.ctrlKey) && e.key === "z") { e.preventDefault(); strokes.pop(); draw(); }
 });
 $("btnUndo").onclick = () => { strokes.pop(); draw(); };
@@ -425,7 +489,7 @@ const TOUR = [
   { el: "#charGrid", title: "2 · Zeichen wählen",
     text: "Klick ein Zeichen an, um es zu erfassen. Die <b>blaue Zahl</b> zeigt, wie viele Varianten du schon hast — 2 bis 4 pro Zeichen sind ideal für einen lebendigen Look." },
   { el: "#drawWrap", title: "3 · Schreiben",
-    text: "Zeichne das Zeichen mit Maus/Trackpad auf die <b>Grundlinie</b> — kleine Buchstaben bis zur x-Höhe, große bis zur oberen Linie. Die grüne gestrichelte Linie ist der <b>Vorlauf</b> (Abstand zum nächsten Buchstaben), am Griff unten ziehbar." },
+    text: "Zeichne das Zeichen mit Maus/Trackpad auf die <b>Grundlinie</b> — kleine Buchstaben bis zur x-Höhe, große bis zur oberen Linie. Die grüne gestrichelte Linie ist der <b>Vorlauf</b> (Abstand zum nächsten Buchstaben), am Griff unten ziehbar. Verzeichnet? Mit dem <b>🧹 Radiergummi</b> oben links (Taste E) korrigierst du Stellen, ↩ nimmt den letzten Strich zurück." },
   { el: "#btnSaveVar2", title: "4 · Variante speichern",
     text: "<b>⏎ Enter</b> speichert die Variante und du bleibst beim Zeichen — gleich noch eine schreiben! <b>⇧ Shift+Enter</b> speichert und springt zum nächsten leeren Zeichen. In der Leiste unten siehst du alle Varianten: Klick zeigt eine groß im Editor (zum Ansehen oder Überarbeiten), 🗑 löscht sie." },
   { el: "#btnVorlage", title: "5 · Oder: auf Papier schreiben",
@@ -472,7 +536,7 @@ const TOUR_EN = [
   { el: "#charGrid", title: "2 · Pick a character",
     text: "Click a character to capture it. The <b>blue number</b> shows how many variants you already have — 2 to 4 per character give the most lively look." },
   { el: "#drawWrap", title: "3 · Write",
-    text: "Draw the character with mouse/trackpad onto the <b>baseline</b> — lowercase up to the x-height, capitals up to the top line. The dashed green line is the <b>advance width</b> (spacing to the next letter), draggable at its handle." },
+    text: "Draw the character with mouse/trackpad onto the <b>baseline</b> — lowercase up to the x-height, capitals up to the top line. The dashed green line is the <b>advance width</b> (spacing to the next letter), draggable at its handle. Made a mistake? Use the <b>🧹 eraser</b> at the top left (key E), ↩ undoes the last stroke." },
   { el: "#btnSaveVar2", title: "4 · Save variant",
     text: "<b>⏎ Enter</b> saves the variant and keeps the character selected — write another one right away! <b>⇧ Shift+Enter</b> saves and jumps to the next empty character. The bar below shows all variants: click one to view or rework it in the editor, 🗑 deletes it." },
   { el: "#btnVorlage", title: "5 · Or: write on paper",
@@ -517,9 +581,9 @@ const I18N_EN = {
 UI.initTheme();
 UI.onThemeChange(() => draw());
 UI.initLang(I18N_EN);
-UI.onLangChange(() => { buildVariantBar(); draw(); });
+UI.onLangChange(() => { buildVariantBar(); setTool(tool); });
 UI.initTour("handschrift", () => UI.lang() === "en" ? TOUR_EN : TOUR);
-buildGrid(); buildVariantBar(); resize();
+buildGrid(); buildVariantBar(); resize(); setTool("pen");
 </script>
 </body>
 </html>

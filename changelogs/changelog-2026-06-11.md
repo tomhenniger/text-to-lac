@@ -21,6 +21,11 @@
 
 ## UI-Änderungen
 
+- Handschrift-Erfassung: Radiergummi-Werkzeug (🧹 oben links an der
+  Zeichenfläche, Taste E wechselt zwischen Stift und Radierer) — radiert
+  mit Kreis-Cursor punktgenau und teilt Striche dabei sauber auf
+
+
 - Bild-Plotter: „🗑 Bild entfernen"-Button setzt den Editor zurück
 
 
