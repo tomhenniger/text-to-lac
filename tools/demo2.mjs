@@ -1,0 +1,18 @@
+import { chromium } from 'playwright';
+import { fileURLToPath } from 'url';
+import path from 'path';
+const here = path.dirname(fileURLToPath(import.meta.url));
+const appDir = 'file://' + path.join(here, '..', 'app');
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+page.on('pageerror', e => console.log('EXC:', e.message));
+await page.goto(appDir + '/handschrift.html');
+await page.setInputFiles('#fileImport', '/Users/tomhenniger/Downloads/toms_handschrift.handschrift.json');
+await page.waitForTimeout(400);
+await Promise.all([page.waitForNavigation(), page.click('#btnUse')]);
+await page.fill('#inpText', 'Hallo das ist Tom\nund das ist seine Handschrift,\nrecht zügig geschrieben.');
+await page.click('#btnFit');
+await page.waitForTimeout(400);
+await page.screenshot({ path: '/tmp/lac_test/demo_tom2.png', clip: { x: 340, y: 0, width: 1160, height: 600 } });
+await browser.close();
+console.log('ok');

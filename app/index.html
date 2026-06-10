@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Text → .lac (Stift-Schreiber für Bambu A2L)</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --border: #d9dce1; --text: #1c1e21;
+    --muted: #6b7280; --accent: #00ae42; --accent-dark: #008f36;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
+         color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+  #sidebar { width: 340px; min-width: 340px; background: var(--panel); border-right: 1px solid var(--border);
+             overflow-y: auto; padding: 14px 16px 40px; }
+  #main { flex: 1; display: flex; flex-direction: column; }
+  #canvasWrap { flex: 1; position: relative; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  h1 { font-size: 16px; margin: 2px 0 12px; }
+  h1 small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; margin-top: 2px; }
+  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: #fff; }
+  details summary { cursor: pointer; padding: 9px 12px; font-weight: 600; font-size: 13px; user-select: none; }
+  details[open] summary { border-bottom: 1px solid var(--border); }
+  .body { padding: 10px 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  label:first-child { margin-top: 0; }
+  textarea { width: 100%; min-height: 110px; font-family: inherit; font-size: 13px; padding: 8px;
+             border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
+  select, input[type=text], input[type=number] { width: 100%; padding: 6px 8px; font-size: 13px;
+             border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  .slider { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .val { font-size: 11px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  button { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
+           background: #fff; cursor: pointer; }
+  button:hover { background: #f0f1f3; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+                   width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
+  button.primary:hover { background: var(--accent-dark); }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
+  .warn { font-size: 11px; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 6px 8px;
+          margin-top: 8px; display: none; }
+  #statusbar { padding: 5px 14px; font-size: 11px; color: var(--muted); background: var(--panel);
+               border-top: 1px solid var(--border); display: flex; gap: 18px; }
+  .checkrow { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; font-size: 12.5px; color: var(--text); }
+  .checkrow input { accent-color: var(--accent); }
+  .btnrow { display: flex; gap: 8px; margin-top: 8px; }
+  .btnrow button { flex: 1; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h1>Text → .lac<small>Stift-Schreiber für Bambu A2L (Pen Holder) · <a href="bild.html">→ Bild-Plotter</a></small></h1>
+
+  <details open>
+    <summary>Text</summary>
+    <div class="body">
+      <textarea id="inpText">Hallo Welt!
+Dies ist ein Test —
+geschrieben mit dem Stift.</textarea>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Schrift</summary>
+    <div class="body">
+      <label>Schriftart (Ein-Linien-Fonts, ideal für Stifte)</label>
+      <select id="inpFont"></select>
+      <div class="btnrow">
+        <button id="btnHw">🖊 Eigene Handschrift erfassen …</button>
+        <button id="btnTtf">TTF/OTF …</button>
+      </div>
+      <input type="file" id="fileTtf" accept=".ttf,.otf" style="display:none">
+      <div class="hint" id="ttfHint">Mit „Handschrift erfassen" zeichnest du jeden Buchstaben selbst — mit mehreren Varianten pro Buchstabe, aus denen beim Schreiben zufällig gewählt wird. TTF/OTF-Schriften sind dagegen Kontur-Schriften: Der Stift fährt nur den Umriss nach.</div>
+      <label>Schriftgröße (Höhe Großbuchstaben)</label>
+      <div class="slider"><input type="range" id="inpSize" min="3" max="60" step="0.5" value="10"><span class="val" id="valSize"></span></div>
+      <label>Zeilenabstand</label>
+      <div class="slider"><input type="range" id="inpLineH" min="0.8" max="3" step="0.05" value="1.5"><span class="val" id="valLineH"></span></div>
+      <label>Buchstabenabstand</label>
+      <div class="slider"><input type="range" id="inpTrack" min="-2" max="5" step="0.1" value="0"><span class="val" id="valTrack"></span></div>
+      <label>Wortabstand</label>
+      <div class="slider"><input type="range" id="inpWordSp" min="0.4" max="3" step="0.05" value="1"><span class="val" id="valWordSp"></span></div>
+      <label>Ausrichtung</label>
+      <select id="inpAlign">
+        <option value="left">Linksbündig</option>
+        <option value="center">Zentriert</option>
+        <option value="right">Rechtsbündig</option>
+      </select>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Handschrift-Variation</summary>
+    <div class="body">
+      <div class="checkrow"><input type="checkbox" id="inpVarOn" checked><span>Variation aktiv (kein Buchstabe gleicht dem anderen)</span></div>
+      <label>Drehung pro Buchstabe (±°)</label>
+      <div class="slider"><input type="range" id="inpVRot" min="0" max="12" step="0.5" value="2.5"><span class="val" id="valVRot"></span></div>
+      <label>Größenstreuung (±%)</label>
+      <div class="slider"><input type="range" id="inpVSize" min="0" max="20" step="0.5" value="4"><span class="val" id="valVSize"></span></div>
+      <label>Grundlinien-Tanz (±mm)</label>
+      <div class="slider"><input type="range" id="inpVBase" min="0" max="3" step="0.05" value="0.35"><span class="val" id="valVBase"></span></div>
+      <label>Abstands-Streuung (±mm)</label>
+      <div class="slider"><input type="range" id="inpVSpace" min="0" max="2" step="0.05" value="0.25"><span class="val" id="valVSpace"></span></div>
+      <label>Neigungs-Streuung (±°)</label>
+      <div class="slider"><input type="range" id="inpVSlant" min="0" max="10" step="0.5" value="2"><span class="val" id="valVSlant"></span></div>
+      <label>Linien-Zittern (mm)</label>
+      <div class="slider"><input type="range" id="inpVWob" min="0" max="0.8" step="0.02" value="0.12"><span class="val" id="valVWob"></span></div>
+      <div class="btnrow">
+        <button id="btnReroll">🎲 Neu würfeln</button>
+        <button id="btnVarReset">Zurücksetzen</button>
+      </div>
+      <div class="hint">Jeder Buchstabe bekommt eigene Zufallswerte — derselbe Buchstabe sieht an jeder Stelle anders aus. „Neu würfeln" erzeugt eine neue Zufallsvariante.</div>
+    </div>
+  </details>
+
+  <details>
+    <summary>Arbeitsbereich &amp; Stift</summary>
+    <div class="body">
+      <div class="row">
+        <div><label>Breite (mm)</label><input type="number" id="inpMatW" value="300" min="50" max="600"></div>
+        <div><label>Höhe (mm)</label><input type="number" id="inpMatH" value="300" min="50" max="600"></div>
+      </div>
+      <div class="hint">Standard: 300 × 300 mm = Arbeitsbereich des A2L (nur als visuelle Hilfe).</div>
+      <label>Stiftbreite Vorschau (mm)</label>
+      <div class="slider"><input type="range" id="inpPenW" min="0.2" max="1.5" step="0.05" value="0.5"><span class="val" id="valPenW"></span></div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Export</summary>
+    <div class="body">
+      <label>Dateiname</label>
+      <input type="text" id="inpFname" value="Mein Text">
+      <label>Objekt-Aufteilung in Bambu Suite</label>
+      <select id="inpGroup">
+        <option value="all">Alles als ein Objekt (Layout bleibt sicher erhalten)</option>
+        <option value="line">Ein Objekt pro Zeile</option>
+        <option value="char">Ein Objekt pro Buchstabe</option>
+      </select>
+      <label>Prozess</label>
+      <select id="inpProcess">
+        <option value="KCPenDraw">Stift zeichnen (KCPenDraw)</option>
+        <option value="KCPenDrawFill">Stift ausmalen (KCPenDrawFill)</option>
+      </select>
+      <div class="checkrow"><input type="checkbox" id="inpFlipY"><span>Y-Achse spiegeln (falls der Text in der Suite kopfüber erscheint)</span></div>
+      <button class="primary" id="btnExport">Als .lac exportieren</button>
+      <div class="btnrow"><button id="btnSvg">Als SVG exportieren</button></div>
+      <div class="warn" id="warnBox"></div>
+      <div class="hint">Die .lac-Datei in der Bambu Suite öffnen, Material/Stift wählen und „Vorbereiten" — der Prozess „Stift zeichnen" ist bereits zugewiesen.</div>
+    </div>
+  </details>
+
+  <div class="hint" style="margin-top:14px">Maus: Buchstabe ziehen = verschieben · <b>Klick auf Buchstabe = nächste Variante</b> · Lücke/Rand ziehen (oder Alt) = Zeile · Shift+Ziehen = ganzer Text · Mausrad = Zoom · Fläche ziehen = Ansicht</div>
+  <div class="btnrow"><button id="btnFit">Ansicht einpassen</button><button id="btnResetPos">Anpassungen zurücksetzen</button></div>
+</div>
+
+<div id="main">
+  <div id="canvasWrap"><canvas id="cv"></canvas></div>
+  <div id="statusbar">
+    <span id="stInfo"></span><span id="stLen"></span><span id="stSeed"></span><span id="stVar" style="color:var(--accent);font-weight:600"></span>
+  </div>
+</div>
+
+<script src="fonts.js"></script>
+<script src="configs.js"></script>
+<script src="lac.js"></script>
+<script>
+"use strict";
+/* ============================== Zustand ============================== */
+const S = {
+  seed: 42,
+  textX: 20, textY: 30,          // Position des Textblocks in mm (Baseline-Start 1. Zeile)
+  lineOff: [],                   // individuelle Zeilen-Offsets {dx,dy}
+  charOff: {},                   // individuelle Buchstaben-Offsets, Key "zeile:spalte"
+  charVar: {},                   // manuell gewählte Varianten, Key "zeile:spalte"
+  view: { scale: 3, ox: 40, oy: 40 },  // Bildschirm-Px pro mm, Offset
+  customFonts: {},               // per TTF geladene Fonts
+};
+
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+/* ============================== PRNG ============================== */
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+// deterministischer Hash pro Buchstabe (Seed, Zeile, Spalte)
+function glyphRng(seed, line, col) {
+  return mulberry32((seed * 374761393 + line * 668265263 + col * 2246822519) >>> 0);
+}
+
+/* ============================== Fonts ============================== */
+// Handschrift-Fonts aus der Erfassungsseite (handschrift.html, localStorage)
+function hwFonts() {
+  try {
+    const s = JSON.parse(localStorage.getItem("hw_fonts")) || {};
+    const out = {};
+    for (const [id, f] of Object.entries(s))
+      out[id] = Object.assign({}, f, { name: "🖊 " + f.name });
+    return out;
+  } catch { return {}; }
+}
+function allFonts() { return Object.assign({}, window.SL_FONTS, hwFonts(), S.customFonts); }
+function currentFont() { return allFonts()[$("inpFont").value] || Object.values(allFonts())[0]; }
+
+// Ersatzzeichen, falls eine Glyphe fehlt (typografische Varianten)
+const CHAR_FALLBACK = { "—": "-", "–": "-", "„": '"', "“": '"', "”": '"',
+                        "’": "'", "‘": "'", "…": "." };
+// Glyphe holen; bei Handschrift-Fonts wählt r (0..1) eine der Varianten,
+// forced (Index) übersteuert die Zufallswahl
+function pickGlyph(font, ch, r, forced) {
+  const get = c => {
+    if (font.glyphsVar) {
+      const v = font.glyphsVar[c];
+      if (!v || !v.length) return null;
+      const idx = forced != null ? ((forced % v.length) + v.length) % v.length
+                                 : Math.min(v.length - 1, Math.floor(r * v.length));
+      return v[idx];
+    }
+    return font.glyphs[c] || null;
+  };
+  return get(ch) || (CHAR_FALLBACK[ch] ? get(CHAR_FALLBACK[ch]) : null);
+}
+
+function variantCount(font, ch) {
+  if (!font.glyphsVar) return font.glyphs[ch] ? 1 : 0;
+  return (font.glyphsVar[ch] || font.glyphsVar[CHAR_FALLBACK[ch]] || []).length;
+}
+
+function fillFontSelect(keep) {
+  const sel = $("inpFont"), prev = keep ? sel.value : "EMSReadability";
+  sel.innerHTML = "";
+  for (const [id, f] of Object.entries(allFonts())) {
+    const o = document.createElement("option");
+    o.value = id; o.textContent = f.name;
+    sel.appendChild(o);
+  }
+  sel.value = allFonts()[prev] ? prev : Object.keys(allFonts())[0];
+}
+
+/* ============================== Layout ============================== */
+// Liefert pro Buchstabe: Strokes in mm (y-down, Ursprung = Arbeitsbereich oben links)
+function layout() {
+  const font = currentFont();
+  const sizeMM = +$("inpSize").value;
+  const scale = sizeMM / (font.capheight || font.upem * 0.7);
+  const lineH = +$("inpLineH").value * sizeMM;
+  const track = +$("inpTrack").value;
+  const align = $("inpAlign").value;
+  const varOn = $("inpVarOn").checked;
+  const vRot = varOn ? +$("inpVRot").value : 0;
+  const vSize = varOn ? +$("inpVSize").value / 100 : 0;
+  const vBase = varOn ? +$("inpVBase").value : 0;
+  const vSpace = varOn ? +$("inpVSpace").value : 0;
+  const vSlant = varOn ? +$("inpVSlant").value : 0;
+  const vWob = varOn ? +$("inpVWob").value : 0;
+
+  const lines = $("inpText").value.replace(/\r/g, "").split("\n");
+  const glyphs = [];           // {char, line, strokes:[[x,y]...], x, y(Baseline)}
+  const missing = new Set();
+  const lineWidths = [];
+
+  // Erst Breiten messen (mit Abstands-Jitter, damit Ausrichtung stimmt)
+  const advCache = [];
+  lines.forEach((ln, li) => {
+    let w = 0; const advs = [];
+    [...ln].forEach((ch, ci) => {
+      const rng = glyphRng(S.seed, li, ci);
+      const vPick = rng();                                // Varianten-Wahl (Handschrift)
+      rng(); rng(); rng(); rng(); rng();                  // gleiche Reihenfolge wie unten
+      const spJit = (rng() * 2 - 1) * vSpace;
+      const g = pickGlyph(font, ch, vPick, S.charVar[li + ":" + ci]);
+      const sp = pickGlyph(font, " ", 0);
+      let base = g ? g.adv * scale : (sp ? sp.adv * scale : sizeMM * 0.5);
+      if (ch === " ") base *= +$("inpWordSp").value;
+      const adv = base + track + spJit;
+      advs.push(adv); w += adv;
+    });
+    advCache.push(advs); lineWidths.push(w);
+  });
+  const maxW = Math.max(0, ...lineWidths);
+
+  lines.forEach((ln, li) => {
+    const off = S.lineOff[li] || { dx: 0, dy: 0 };
+    let x = S.textX + off.dx +
+      (align === "center" ? (maxW - lineWidths[li]) / 2 : align === "right" ? maxW - lineWidths[li] : 0);
+    const baseY = S.textY + off.dy + li * lineH;
+    [...ln].forEach((ch, ci) => {
+      const rng = glyphRng(S.seed, li, ci);
+      const vPick = rng();                                // Varianten-Wahl (Handschrift)
+      const g = pickGlyph(font, ch, vPick, S.charVar[li + ":" + ci]);
+      const rRot = (rng() * 2 - 1) * vRot * Math.PI / 180;
+      const rScale = 1 + (rng() * 2 - 1) * vSize;
+      const rBase = (rng() * 2 - 1) * vBase;
+      const rSlant = (rng() * 2 - 1) * vSlant * Math.PI / 180;
+      const wPhase = rng() * Math.PI * 2;
+      rng();                                              // spJit (oben verbraucht)
+      if (!g || !g.strokes.length) {
+        if (ch.trim() && !g) missing.add(ch);
+        x += advCache[li][ci];
+        return;
+      }
+      const adv = advCache[li][ci];
+      const co = S.charOff[li + ":" + ci] || { dx: 0, dy: 0 };
+      const s = scale * rScale;
+      const cx = g.adv * s / 2, cy = -sizeMM / 2;         // Drehpunkt: Mitte des Buchstabens
+      const cosR = Math.cos(rRot), sinR = Math.sin(rRot);
+      const tanS = Math.tan(rSlant);
+      const strokes = g.strokes.map(st => {
+        // 1) Font-Units -> mm, y-Flip (Fontdaten sind y-up)
+        let pts = st.map(p => [p[0] * s, -p[1] * s]);
+        // 2) Zittern: Segmente unterteilen + sanfte Störung
+        if (vWob > 0) pts = wobble(pts, vWob, wPhase);
+        // 3) Neigung (Shear) + Drehung um Buchstabenmitte + Position
+        return pts.map(([px0, py0]) => {
+          const px = px0 - tanS * py0;                     // Shear: oben kippt zur Seite (Baseline bleibt)
+          const py = py0;
+          const dx = px - cx, dy = py - cy;
+          return [x + co.dx + cx + dx * cosR - dy * sinR,
+                  baseY + rBase + co.dy + cy + dx * sinR + dy * cosR];
+        });
+      });
+      glyphs.push({ char: ch, line: li, col: ci, strokes });
+      x += adv;
+    });
+  });
+  return { glyphs, missing, lines };
+}
+
+// Polylinie unterteilen + weiche, deterministische Störung senkrecht zur Linie
+function wobble(pts, amp, phase) {
+  const MAXSEG = 0.9; // mm
+  const out = [];
+  let dist = 0;
+  for (let i = 0; i < pts.length; i++) {
+    if (i === 0) { out.push({ p: pts[0], d: 0 }); continue; }
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const n = Math.max(1, Math.ceil(len / MAXSEG));
+    for (let k = 1; k <= n; k++) {
+      const t = k / n;
+      out.push({ p: [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t], d: dist + len * t });
+    }
+    dist += len;
+  }
+  return out.map(({ p, d }, i) => {
+    if (i === 0 || i === out.length - 1) return p;        // Endpunkte fixieren
+    const noise = Math.sin(d * 2.1 + phase) * 0.6 + Math.sin(d * 5.3 + phase * 1.7) * 0.4;
+    // Richtung senkrecht zum lokalen Verlauf
+    const prev = out[i - 1].p, next = out[i + 1].p;
+    const dx = next[0] - prev[0], dy = next[1] - prev[1];
+    const l = Math.hypot(dx, dy) || 1;
+    return [p[0] + (-dy / l) * noise * amp, p[1] + (dx / l) * noise * amp];
+  });
+}
+
+/* ============================== Vorschau ============================== */
+function resize() {
+  const r = cv.parentElement.getBoundingClientRect();
+  cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio;
+  draw();
+}
+window.addEventListener("resize", resize);
+
+let cachedLayout = null;
+function relayout() { cachedLayout = layout(); draw(); updateStatus(); }
+
+function mm2px(x, y) { return [(x * S.view.scale + S.view.ox) * devicePixelRatio, (y * S.view.scale + S.view.oy) * devicePixelRatio]; }
+function px2mm(x, y) { return [(x - S.view.ox) / S.view.scale, (y - S.view.oy) / S.view.scale]; }
+
+function draw() {
+  if (!cachedLayout) return;
+  const W = +$("inpMatW").value, H = +$("inpMatH").value;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.save();
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.translate(S.view.ox, S.view.oy);
+  ctx.scale(S.view.scale, S.view.scale);
+
+  // Matte
+  ctx.fillStyle = "#e8f4ec";
+  ctx.strokeStyle = "#9fc8ab"; ctx.lineWidth = 0.4;
+  ctx.beginPath(); ctx.roundRect(0, 0, W, H, 3); ctx.fill(); ctx.stroke();
+  // Raster 10mm
+  ctx.strokeStyle = "rgba(0,140,60,0.10)"; ctx.lineWidth = 0.15;
+  ctx.beginPath();
+  for (let x = 10; x < W; x += 10) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = 10; y < H; y += 10) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+
+  // Text
+  ctx.strokeStyle = "#16243d";
+  ctx.lineWidth = +$("inpPenW").value;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath();
+  for (const g of cachedLayout.glyphs)
+    for (const st of g.strokes) {
+      ctx.moveTo(st[0][0], st[0][1]);
+      for (let i = 1; i < st.length; i++) ctx.lineTo(st[i][0], st[i][1]);
+    }
+  ctx.stroke();
+
+  // gezogener Buchstabe: Markierungsrahmen
+  if (drag && drag.mode === "char") {
+    const g = cachedLayout.glyphs.find(g => g.line + ":" + g.col === drag.key);
+    if (g) {
+      const [minx, miny, maxx, maxy] = glyphBBox(g);
+      ctx.strokeStyle = "#00ae42"; ctx.lineWidth = 0.3;
+      ctx.setLineDash([1.2, 1]);
+      ctx.strokeRect(minx - 1, miny - 1, maxx - minx + 2, maxy - miny + 2);
+      ctx.setLineDash([]);
+    }
+  }
+  ctx.restore();
+}
+
+function updateStatus() {
+  const { glyphs, missing } = cachedLayout;
+  const segs = glyphs.reduce((a, g) => a + g.strokes.reduce((b, s) => b + s.length, 0), 0);
+  $("stInfo").textContent = `${glyphs.length} Buchstaben · ${segs.toLocaleString("de")} Punkte`;
+  $("stSeed").textContent = `Seed ${S.seed}`;
+  const w = $("warnBox");
+  if (missing.size) {
+    w.style.display = "block";
+    w.textContent = "Nicht in der Schrift enthalten (werden übersprungen): " + [...missing].join(" ");
+  } else w.style.display = "none";
+}
+
+/* ============================== Interaktion ============================== */
+let drag = null;
+
+function glyphBBox(g) {
+  let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
+  for (const st of g.strokes) for (const [x, y] of st) {
+    minx = Math.min(minx, x); miny = Math.min(miny, y);
+    maxx = Math.max(maxx, x); maxy = Math.max(maxy, y);
+  }
+  return [minx, miny, maxx, maxy];
+}
+
+// Buchstabe unter dem Cursor (bei Überlappung: der mit der nächsten Mitte)
+function hitChar(mx, my) {
+  if (!cachedLayout) return null;
+  const pad = 0.8;
+  let best = null, bestD = Infinity;
+  for (const g of cachedLayout.glyphs) {
+    const [minx, miny, maxx, maxy] = glyphBBox(g);
+    if (mx < minx - pad || mx > maxx + pad || my < miny - pad || my > maxy + pad) continue;
+    const d = Math.hypot(mx - (minx + maxx) / 2, my - (miny + maxy) / 2);
+    if (d < bestD) { bestD = d; best = g; }
+  }
+  return best;
+}
+
+cv.addEventListener("mousedown", e => {
+  const [mx, my] = px2mm(e.offsetX, e.offsetY);
+  const g = (!e.shiftKey && !e.altKey) ? hitChar(mx, my) : null;
+  const li = hitLine(mx, my);
+  if (g) drag = { mode: "char", key: g.line + ":" + g.col, sx: mx, sy: my, glyph: g, total: 0,
+                  off0: S.charOff[g.line + ":" + g.col] ? { ...S.charOff[g.line + ":" + g.col] } : null };
+  else if (li >= 0) drag = { mode: e.shiftKey ? "all" : "line", li, sx: mx, sy: my };
+  else drag = { mode: "pan", sx: e.offsetX, sy: e.offsetY, ox: S.view.ox, oy: S.view.oy };
+  cv.style.cursor = (g || li >= 0) ? "move" : "grabbing";
+});
+cv.addEventListener("mousemove", e => {       // Hover-Cursor (ohne Drag)
+  if (drag) return;
+  const [mx, my] = px2mm(e.offsetX, e.offsetY);
+  cv.style.cursor = (hitChar(mx, my) || hitLine(mx, my) >= 0) ? "move" : "grab";
+});
+window.addEventListener("mousemove", e => {
+  if (!drag) return;
+  if (drag.mode === "pan") {
+    const r = cv.getBoundingClientRect();
+    S.view.ox = drag.ox + (e.clientX - r.left - drag.sx);
+    S.view.oy = drag.oy + (e.clientY - r.top - drag.sy);
+    draw();
+  } else {
+    const r = cv.getBoundingClientRect();
+    const [mx, my] = px2mm(e.clientX - r.left, e.clientY - r.top);
+    const dx = mx - drag.sx, dy = my - drag.sy;
+    drag.sx = mx; drag.sy = my;
+    if (drag.mode === "all") { S.textX += dx; S.textY += dy; }
+    else if (drag.mode === "char") {
+      const o = S.charOff[drag.key] || (S.charOff[drag.key] = { dx: 0, dy: 0 });
+      o.dx += dx; o.dy += dy;
+      drag.total += Math.hypot(dx, dy);
+    }
+    else {
+      if (!S.lineOff[drag.li]) S.lineOff[drag.li] = { dx: 0, dy: 0 };
+      S.lineOff[drag.li].dx += dx; S.lineOff[drag.li].dy += dy;
+    }
+    relayout();
+  }
+});
+window.addEventListener("mouseup", () => {
+  if (drag && drag.mode === "char" && drag.total < 0.5) {
+    // Klick statt Ziehen: Mini-Verschiebung zurücknehmen, Variante weiterblättern
+    if (drag.off0) S.charOff[drag.key] = drag.off0;
+    else delete S.charOff[drag.key];
+    cycleVariant(drag);
+  }
+  drag = null; cv.style.cursor = "grab"; draw();
+});
+
+function cycleVariant(d) {
+  const font = currentFont();
+  const n = variantCount(font, d.glyph.char);
+  if (n < 2) { flashVar(`„${d.glyph.char}" hat nur eine Variante`); relayout(); return; }
+  const [li, ci] = d.key.split(":").map(Number);
+  const cur = S.charVar[d.key] != null ? S.charVar[d.key]
+            : Math.min(n - 1, Math.floor(glyphRng(S.seed, li, ci)() * n));
+  S.charVar[d.key] = (cur + 1) % n;
+  flashVar(`„${d.glyph.char}" → Variante ${S.charVar[d.key] + 1}/${n}`);
+  relayout();
+}
+
+let flashTimer = null;
+function flashVar(msg) {
+  $("stVar").textContent = msg;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { $("stVar").textContent = ""; }, 2500);
+}
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const ns = Math.min(40, Math.max(0.4, S.view.scale * f));
+  S.view.ox = e.offsetX - (e.offsetX - S.view.ox) * ns / S.view.scale;
+  S.view.oy = e.offsetY - (e.offsetY - S.view.oy) * ns / S.view.scale;
+  S.view.scale = ns;
+  draw();
+}, { passive: false });
+
+function hitLine(mx, my) {
+  if (!cachedLayout) return -1;
+  const boxes = {};
+  for (const g of cachedLayout.glyphs)
+    for (const st of g.strokes)
+      for (const [x, y] of st) {
+        const b = boxes[g.line] || (boxes[g.line] = [1e9, 1e9, -1e9, -1e9]);
+        b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y);
+        b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y);
+      }
+  for (const [li, b] of Object.entries(boxes))
+    if (mx >= b[0] - 2 && mx <= b[2] + 2 && my >= b[1] - 2 && my <= b[3] + 2) return +li;
+  return -1;
+}
+
+function fitView() {
+  const W = +$("inpMatW").value, H = +$("inpMatH").value;
+  const r = cv.getBoundingClientRect();
+  const sc = Math.min(r.width / (W + 30), r.height / (H + 30));
+  S.view.scale = sc;
+  S.view.ox = (r.width - W * sc) / 2; S.view.oy = (r.height - H * sc) / 2;
+  draw();
+}
+
+/* ============================== TTF-Import ============================== */
+$("btnTtf").onclick = () => {
+  if (!window.opentype) { loadOpentype(() => $("fileTtf").click()); }
+  else $("fileTtf").click();
+};
+function loadOpentype(cb) {
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js";
+  s.onload = cb;
+  s.onerror = () => alert("opentype.js konnte nicht geladen werden (Internet nötig für TTF-Import).");
+  document.head.appendChild(s);
+}
+$("fileTtf").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const buf = await file.arrayBuffer();
+  let f;
+  try { f = opentype.parse(buf); } catch (err) { alert("Schrift konnte nicht gelesen werden: " + err.message); return; }
+  const upem = f.unitsPerEm;
+  const cap = (f.tables.os2 && f.tables.os2.sCapHeight) || upem * 0.7;
+  const fontObj = { name: "🖋 " + (f.names.fullName?.en || file.name), upem,
+                    ascent: f.ascender, descent: f.descender, capheight: cap,
+                    xheight: (f.tables.os2 && f.tables.os2.sxHeight) || upem * 0.5, glyphs: {} };
+  const chars = ' abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789äöüÄÖÜßéèêàáçñ.,;:!?\'"„“«»()[]{}<>/-–—_+=*#@&%€$§°^~|';
+  for (const ch of chars) {
+    const gl = f.charToGlyph(ch);
+    if (!gl || (gl.index === 0 && ch !== " ")) continue;
+    const p = gl.getPath(0, 0, upem);                      // y-down!
+    const strokes = []; let cur = null; let startPt = null;
+    const SEG = 12;
+    for (const c of p.commands) {
+      if (c.type === "M") { if (cur && cur.length > 1) strokes.push(cur); cur = [[c.x, -c.y]]; startPt = [c.x, -c.y]; }
+      else if (c.type === "L") cur && cur.push([c.x, -c.y]);
+      else if (c.type === "C" && cur) {
+        const [x0, y0] = cur[cur.length - 1];
+        for (let k = 1; k <= SEG; k++) { const t = k / SEG, m = 1 - t;
+          cur.push([m*m*m*x0 + 3*m*m*t*c.x1 + 3*m*t*t*c.x2 + t*t*t*c.x,
+                    m*m*m*y0 + 3*m*m*t*-c.y1 + 3*m*t*t*-c.y2 + t*t*t*-c.y]); }
+      }
+      else if (c.type === "Q" && cur) {
+        const [x0, y0] = cur[cur.length - 1];
+        for (let k = 1; k <= SEG; k++) { const t = k / SEG, m = 1 - t;
+          cur.push([m*m*x0 + 2*m*t*c.x1 + t*t*c.x, m*m*y0 + 2*m*t*-c.y1 + t*t*-c.y]); }
+      }
+      else if (c.type === "Z" && cur) { if (startPt) cur.push([...startPt]); strokes.push(cur); cur = null; }
+    }
+    if (cur && cur.length > 1) strokes.push(cur);
+    fontObj.glyphs[ch] = { adv: gl.advanceWidth || upem * 0.5,
+      strokes: strokes.map(st => st.map(p2 => [Math.round(p2[0] * 10) / 10, Math.round(p2[1] * 10) / 10])) };
+  }
+  const id = "ttf_" + file.name.replace(/\W/g, "_");
+  S.customFonts[id] = fontObj;
+  fillFontSelect(false);
+  $("inpFont").value = id;
+  relayout();
+};
+
+/* ============================== .lac-Export ============================== */
+const fmtN = window.LacExport.fmtN;
+
+function buildGroups() {
+  const { glyphs } = cachedLayout;
+  if (!glyphs.length) { alert("Kein Text zum Exportieren."); return null; }
+  const grouping = $("inpGroup").value;
+  let groups = [];
+  if (grouping === "all") groups = [{ name: "Text", strokes: glyphs.flatMap(g => g.strokes) }];
+  else if (grouping === "line") {
+    const m = new Map();
+    for (const g of glyphs) {
+      if (!m.has(g.line)) m.set(g.line, { name: "Zeile " + (g.line + 1), strokes: [] });
+      m.get(g.line).strokes.push(...g.strokes);
+    }
+    groups = [...m.values()];
+  } else {
+    glyphs.forEach((g, i) => groups.push({ name: g.char + " " + (i + 1), strokes: g.strokes }));
+  }
+  return groups;
+}
+
+// Thumbnail vom aktuellen Layout rendern
+function makeThumbnail() {
+  return new Promise(res => {
+    const W = +$("inpMatW").value, H = +$("inpMatH").value;
+    const c = document.createElement("canvas");
+    const sc = 512 / Math.max(W, H);
+    c.width = Math.round(W * sc); c.height = Math.round(H * sc);
+    const g = c.getContext("2d");
+    g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+    g.scale(sc, sc);
+    g.strokeStyle = "#16243d"; g.lineWidth = Math.max(0.4, +$("inpPenW").value);
+    g.lineCap = "round"; g.lineJoin = "round";
+    g.beginPath();
+    for (const gl of cachedLayout.glyphs)
+      for (const st of gl.strokes) {
+        g.moveTo(st[0][0], st[0][1]);
+        for (let i = 1; i < st.length; i++) g.lineTo(st[i][0], st[i][1]);
+      }
+    g.stroke();
+    c.toBlob(b => b.arrayBuffer().then(buf => res(new Uint8Array(buf))), "image/png");
+  });
+}
+
+$("btnExport").onclick = async () => {
+  const groups = buildGroups();
+  if (!groups) return;
+  const thumb = await makeThumbnail();
+  const bytes = window.LacExport.makeLac(groups, {
+    matW: +$("inpMatW").value, matH: +$("inpMatH").value,
+    processType: $("inpProcess").value, flipY: $("inpFlipY").checked,
+    thumbnail: thumb,
+  });
+  window.LacExport.download(bytes, ($("inpFname").value || "text") + ".lac");
+};
+
+$("btnSvg").onclick = () => {
+  const { glyphs } = cachedLayout;
+  const W = +$("inpMatW").value, H = +$("inpMatH").value;
+  let paths = "";
+  for (const g of glyphs)
+    for (const st of g.strokes)
+      paths += `<path d="M ${st.map(p => fmtN(p[0]) + "," + fmtN(p[1])).join(" L ")}"/>\n`;
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}">
+<g fill="none" stroke="#000" stroke-width="${$("inpPenW").value}" stroke-linecap="round" stroke-linejoin="round">
+${paths}</g>
+</svg>`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  a.download = ($("inpFname").value || "text") + ".svg";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+/* ============================== Verkabelung ============================== */
+const SLIDERS = [["inpSize", "valSize", " mm"], ["inpLineH", "valLineH", "×"], ["inpTrack", "valTrack", " mm"],
+  ["inpWordSp", "valWordSp", "×"],
+  ["inpVRot", "valVRot", "°"], ["inpVSize", "valVSize", " %"], ["inpVBase", "valVBase", " mm"],
+  ["inpVSpace", "valVSpace", " mm"], ["inpVSlant", "valVSlant", "°"], ["inpVWob", "valVWob", " mm"],
+  ["inpPenW", "valPenW", " mm"]];
+for (const [id, vid, unit] of SLIDERS) {
+  const upd = () => { $(vid).textContent = $(id).value + unit; };
+  $(id).addEventListener("input", () => { upd(); relayout(); });
+  upd();
+}
+for (const id of ["inpText", "inpFont", "inpAlign", "inpVarOn", "inpMatW", "inpMatH"])
+  $(id).addEventListener("input", relayout);
+$("inpText").addEventListener("input", () => { $("stLen").textContent = $("inpText").value.length + " Zeichen"; });
+$("btnReroll").onclick = () => { S.seed = (Math.random() * 1e9) | 0; relayout(); };
+$("btnVarReset").onclick = () => {
+  const d = { inpVRot: 2.5, inpVSize: 4, inpVBase: 0.35, inpVSpace: 0.25, inpVSlant: 2, inpVWob: 0.12 };
+  for (const [id, v] of Object.entries(d)) { $(id).value = v; $(id).dispatchEvent(new Event("input")); }
+};
+$("btnFit").onclick = fitView;
+$("btnResetPos").onclick = () => { S.lineOff = []; S.charOff = {}; S.charVar = {}; relayout(); };
+$("btnHw").onclick = () => { location.href = "handschrift.html?font=" + encodeURIComponent($("inpFont").value); };
+// Live-Aktualisierung, wenn in einem anderen Tab Handschrift erfasst wird
+window.addEventListener("storage", e => { if (e.key === "hw_fonts") { fillFontSelect(true); relayout(); } });
+
+fillFontSelect(false);
+const fontParam = new URLSearchParams(location.search).get("font");
+if (fontParam && allFonts()[fontParam]) $("inpFont").value = fontParam;
+resize();
+relayout();
+fitView();
+$("stLen").textContent = $("inpText").value.length + " Zeichen";
+</script>
+</body>
+</html>

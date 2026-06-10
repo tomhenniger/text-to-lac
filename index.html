@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pen-Plotter-Tools für Bambu Lab A2L</title>
+<style>
+  :root { --accent: #00ae42; --text: #1c1e21; --muted: #6b7280; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; color: var(--text);
+         background: #f4f5f7; display: flex; min-height: 100vh; align-items: center; justify-content: center; }
+  main { max-width: 720px; padding: 40px 24px; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  p.sub { color: var(--muted); margin: 0 0 28px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  a.card { display: block; background: #fff; border: 1px solid #d9dce1; border-radius: 12px;
+           padding: 18px 16px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+  a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card .icon { font-size: 28px; }
+  .card h2 { font-size: 16px; margin: 8px 0 4px; }
+  .card p { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.5; }
+  footer { margin-top: 30px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pen-Plotter-Tools für Bambu Lab A2L</h1>
+  <p class="sub">Text und Bilder mit dem Stift (Pen Holder) zeichnen — Export als .lac für die Bambu Suite. Läuft komplett im Browser.</p>
+  <div class="cards">
+    <a class="card" href="app/index.html">
+      <div class="icon">✍️</div>
+      <h2>Text-Schreiber</h2>
+      <p>Text in Ein-Linien-Schriften oder der eigenen Handschrift, mit Variation pro Buchstabe — kein Zeichen gleicht dem anderen.</p>
+    </a>
+    <a class="card" href="app/handschrift.html">
+      <div class="icon">🖊️</div>
+      <h2>Handschrift erfassen</h2>
+      <p>Eigene Buchstaben zeichnen oder per gedruckter Vorlage scannen — mit mehreren Varianten pro Zeichen.</p>
+    </a>
+    <a class="card" href="app/bild.html">
+      <div class="icon">🎨</div>
+      <h2>Bild-Plotter</h2>
+      <p>Fotos als Schraffur, Wellenlinien, Spirale, Konturen oder ASCII-Art — auch in der eigenen Handschrift.</p>
+    </a>
+  </div>
+  <footer>
+    Papier-Vorlage zum Handschrift-Erfassen: <a href="vorlage.pdf">vorlage.pdf</a> (drucken, ausfüllen, mit
+    <code>tools/handschrift_scan.py</code> einlesen) · Quellcode &amp; Doku im
+    <a href="https://github.com/tomhenniger/text-to-lac">Repository</a> ·
+    Fonts: Hershey/EMS (SIL OFL)
+  </footer>
+</main>
+</body>
+</html>

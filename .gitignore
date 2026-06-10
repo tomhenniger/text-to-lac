@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.local
+.env*.local
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+session-*
+*.handschrift.json

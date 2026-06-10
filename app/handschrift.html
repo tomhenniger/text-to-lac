@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Handschrift erfassen — Text → .lac</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --border: #d9dce1; --text: #1c1e21;
+    --muted: #6b7280; --accent: #00ae42; --accent-dark: #008f36;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
+         color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+  #sidebar { width: 330px; min-width: 330px; background: var(--panel); border-right: 1px solid var(--border);
+             overflow-y: auto; padding: 14px 16px 40px; }
+  #main { flex: 1; display: flex; flex-direction: column; padding: 14px; gap: 10px; overflow: hidden; }
+  h1 { font-size: 16px; margin: 2px 0 12px; }
+  h1 small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; margin-top: 2px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  input[type=text], input[type=number] { width: 100%; padding: 6px 8px; font-size: 13px;
+             border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+  button { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
+           background: #fff; cursor: pointer; }
+  button:hover { background: #f0f1f3; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { background: var(--accent-dark); }
+  .btnrow { display: flex; gap: 8px; margin-top: 8px; }
+  .btnrow button { flex: 1; }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
+  #charGrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 6px; }
+  #charGrid button { padding: 5px 0; font-size: 14px; position: relative; min-width: 0; }
+  #charGrid button.sel { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #charGrid button .n { position: absolute; top: -5px; right: -3px; background: #1c64f2; color: #fff;
+        border-radius: 8px; font-size: 9px; padding: 0 4px; line-height: 13px; }
+  #charGrid button.sel .n { background: #0b4abf; }
+  #drawWrap { flex: 1; position: relative; background: #fff; border: 1px solid var(--border);
+              border-radius: 10px; overflow: hidden; min-height: 0; }
+  #draw { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  #variantBar { height: 96px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+                display: flex; gap: 8px; padding: 8px; align-items: center; overflow-x: auto; }
+  .vth { position: relative; height: 78px; width: 78px; border: 1px solid var(--border); border-radius: 8px;
+         background: #fff; flex: 0 0 auto; cursor: pointer; }
+  .vth:hover { border-color: var(--accent); }
+  .vth canvas { width: 100%; height: 100%; }
+  .vth .del { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; border-radius: 9px;
+              background: #dc2626; color: #fff; border: none; font-size: 11px; line-height: 16px;
+              padding: 0; cursor: pointer; }
+  #varLabel { font-size: 12px; color: var(--muted); flex: 0 0 auto; }
+  .checkrow { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; font-size: 12.5px; }
+  .checkrow input { accent-color: var(--accent); }
+  #topBar { display: flex; gap: 8px; align-items: center; }
+  #curChar { font-size: 30px; font-weight: 700; min-width: 46px; text-align: center;
+             background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; }
+  #topBar .grow { flex: 1; }
+  .slider { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .val { font-size: 11px; color: var(--muted); text-align: right; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h1>Handschrift erfassen<small>Eigene Ein-Linien-Schrift mit Buchstaben-Varianten</small></h1>
+
+  <label>Name der Schrift</label>
+  <input type="text" id="inpName" value="Meine Handschrift">
+
+  <label>Zeichensatz</label>
+  <input type="text" id="inpCharset" value="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789äöüÄÖÜß.,;:!?-–'()&quot;@€&amp;+=/%">
+  <div id="charGrid"></div>
+  <div class="hint">Blaue Zahl = Anzahl erfasster Varianten. Je mehr Varianten pro Buchstabe, desto lebendiger die Schrift — 2 bis 4 sind ideal.</div>
+
+  <label>Leerzeichen-Breite (Font-Einheiten, Großbuchstabe = 700)</label>
+  <input type="number" id="inpSpaceAdv" value="350" min="50" max="900" step="10">
+
+  <div class="checkrow"><input type="checkbox" id="inpSmooth" checked><span>Striche glätten</span></div>
+  <div class="checkrow"><input type="checkbox" id="inpAutoNext" checked><span>Nach Speichern zum nächsten Zeichen ohne Variante springen</span></div>
+
+  <label>Stiftbreite Vorschau</label>
+  <div class="slider"><input type="range" id="inpPen" min="2" max="14" step="1" value="6"><span class="val" id="valPen">6</span></div>
+
+  <div class="btnrow"><button class="primary" id="btnSaveVar">✓ Variante speichern</button></div>
+  <div class="btnrow"><button id="btnUndo">↩ Strich rückgängig</button><button id="btnClear">Leeren</button></div>
+
+  <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+
+  <div class="btnrow"><button class="primary" id="btnUse">In der Schreib-App verwenden</button></div>
+  <div class="btnrow"><button id="btnExport">Als Datei sichern (.json)</button><button id="btnImport">Laden …</button></div>
+  <input type="file" id="fileImport" accept=".json" style="display:none">
+  <div class="btnrow"><button id="btnDelFont" style="color:#dc2626">Schrift löschen</button></div>
+  <div class="hint">Alles wird automatisch im Browser gespeichert (localStorage). „Als Datei sichern" erstellt zusätzlich ein Backup zum Weitergeben.</div>
+</div>
+
+<div id="main">
+  <div id="topBar">
+    <div id="curChar">a</div>
+    <div class="grow hint" style="margin:0">Schreibe das Zeichen auf die Grundlinie. Grüne gestrichelte Linie = Vorlaufbreite (bestimmt den Abstand zum nächsten Buchstaben) — am Griff unten ziehen.</div>
+    <button id="btnPrev">◀</button><button id="btnNext">▶</button>
+  </div>
+  <div id="drawWrap"><canvas id="draw"></canvas></div>
+  <div id="variantBar"><span id="varLabel">Noch keine Varianten</span></div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("draw"), ctx = cv.getContext("2d");
+
+/* ====== Font-Metriken (Einheiten wie bei den eingebauten Fonts) ====== */
+const UPEM = 1000, CAP = 700, XH = 480, ASC = 750, DESC = -250;
+const STORE_KEY = "hw_fonts";
+
+/* ====== Zustand ====== */
+let curChar = "a";
+let strokes = [];          // aktuelle Zeichnung, Font-Einheiten y-up
+let curStroke = null;
+let advance = null;        // null = automatisch
+let view = {};             // px-Mapping, in resize() berechnet
+
+function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "schrift"; }
+function fontId() { return "hw_" + slug($("inpName").value); }
+
+function loadStore() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } }
+function saveStore(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
+
+function curFont() {
+  const s = loadStore();
+  if (!s[fontId()]) {
+    s[fontId()] = { name: $("inpName").value, upem: UPEM, ascent: ASC, descent: DESC,
+                    capheight: CAP, xheight: XH, glyphsVar: {} };
+  }
+  s[fontId()].name = $("inpName").value;
+  return [s, s[fontId()]];
+}
+function variants(ch) {
+  const [, f] = curFont();
+  return f.glyphsVar[ch] || [];
+}
+
+/* ====== Koordinaten: Canvas-px <-> Font-Einheiten ====== */
+function resize() {
+  const r = cv.parentElement.getBoundingClientRect();
+  cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio;
+  // Skala: Ascent..Descent soll ~86% der Höhe füllen
+  const unitsPerPx = (ASC - DESC) / (r.height * 0.86);
+  view = { upp: unitsPerPx, baseY: r.height * 0.72, left: r.width * 0.18 };
+  draw();
+}
+window.addEventListener("resize", resize);
+const px2u = (x, y) => [(x - view.left) * view.upp, (view.baseY - y) * view.upp];
+const u2px = (ux, uy) => [view.left + ux / view.upp, view.baseY - uy / view.upp];
+
+function autoAdv() {
+  let mx = 0;
+  for (const st of strokes) for (const [x] of st) mx = Math.max(mx, x);
+  return Math.round(mx + 70);
+}
+function effAdv() { return advance !== null ? advance : (strokes.length ? autoAdv() : 350); }
+
+/* ====== Zeichnen ====== */
+function draw() {
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  const w = cv.width / devicePixelRatio, h = cv.height / devicePixelRatio;
+  ctx.clearRect(0, 0, w, h);
+
+  // Hilfslinien
+  const lines = [[CAP, "Großbuchstaben", "#c4b5fd"], [XH, "x-Höhe", "#bae6fd"],
+                 [0, "Grundlinie", "#9ca3af"], [DESC, "Unterlänge", "#fecaca"]];
+  ctx.font = "10px -apple-system"; ctx.textBaseline = "bottom";
+  for (const [uy, name, col] of lines) {
+    const [, y] = u2px(0, uy);
+    ctx.strokeStyle = col; ctx.lineWidth = uy === 0 ? 1.6 : 1;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    ctx.fillStyle = col; ctx.fillText(name, 6, y - 2);
+  }
+  // Startlinie (x=0)
+  ctx.strokeStyle = "#9ca3af"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(view.left, 0); ctx.lineTo(view.left, h); ctx.stroke();
+
+  // Vorlauf-Linie
+  const [ax] = u2px(effAdv(), 0);
+  ctx.strokeStyle = "#00ae42"; ctx.setLineDash([6, 5]); ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(ax, 0); ctx.lineTo(ax, h); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#00ae42";
+  ctx.beginPath(); ctx.moveTo(ax - 8, h); ctx.lineTo(ax + 8, h); ctx.lineTo(ax, h - 12); ctx.closePath(); ctx.fill();
+  ctx.fillText(advance === null ? "Vorlauf (auto)" : "Vorlauf", ax + 5, h - 6);
+
+  // Striche
+  ctx.strokeStyle = "#16243d"; ctx.lineWidth = +$("inpPen").value;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath();
+  for (const st of strokes.concat(curStroke ? [curStroke] : [])) {
+    if (st.length < 1) continue;
+    const [x0, y0] = u2px(st[0][0], st[0][1]);
+    ctx.moveTo(x0, y0);
+    for (let i = 1; i < st.length; i++) {
+      const [x, y] = u2px(st[i][0], st[i][1]);
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+}
+
+let mode = null; // "draw" | "adv"
+cv.addEventListener("pointerdown", e => {
+  cv.setPointerCapture(e.pointerId);
+  const [ax] = u2px(effAdv(), 0);
+  if (Math.abs(e.offsetX - ax) < 9) { mode = "adv"; return; }
+  mode = "draw";
+  curStroke = [px2u(e.offsetX, e.offsetY)];
+});
+cv.addEventListener("pointermove", e => {
+  if (mode === "adv") {
+    advance = Math.max(20, Math.round(px2u(e.offsetX, 0)[0]));
+    draw(); return;
+  }
+  if (mode !== "draw" || !curStroke) return;
+  const p = px2u(e.offsetX, e.offsetY);
+  const last = curStroke[curStroke.length - 1];
+  if (Math.hypot(p[0] - last[0], p[1] - last[1]) > 4) { curStroke.push(p); draw(); }
+});
+cv.addEventListener("pointerup", () => {
+  if (mode === "draw" && curStroke && curStroke.length > 1) {
+    strokes.push($("inpSmooth").checked ? smooth(curStroke) : curStroke);
+  }
+  curStroke = null; mode = null; draw();
+});
+
+function smooth(pts) {
+  if (pts.length < 5) return pts;
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++)
+    out.push([(pts[i - 1][0] + 2 * pts[i][0] + pts[i + 1][0]) / 4,
+              (pts[i - 1][1] + 2 * pts[i][1] + pts[i + 1][1]) / 4]);
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+/* ====== Zeichensatz-Raster ====== */
+function buildGrid() {
+  const grid = $("charGrid");
+  grid.innerHTML = "";
+  for (const ch of $("inpCharset").value) {
+    const b = document.createElement("button");
+    b.textContent = ch;
+    if (ch === curChar) b.classList.add("sel");
+    const n = variants(ch).length;
+    if (n) b.innerHTML += `<span class="n">${n}</span>`;
+    b.onclick = () => selectChar(ch);
+    grid.appendChild(b);
+  }
+}
+function selectChar(ch) {
+  curChar = ch;
+  $("curChar").textContent = ch;
+  strokes = []; curStroke = null; advance = null;
+  buildGrid(); buildVariantBar(); draw();
+}
+
+/* ====== Varianten ====== */
+function buildVariantBar() {
+  const bar = $("variantBar");
+  bar.innerHTML = "";
+  const vars = variants(curChar);
+  const lab = document.createElement("span");
+  lab.id = "varLabel";
+  lab.textContent = vars.length ? `„${curChar}" — ${vars.length} Variante${vars.length > 1 ? "n" : ""}:` : `„${curChar}" — noch keine Varianten`;
+  bar.appendChild(lab);
+  vars.forEach((v, i) => {
+    const d = document.createElement("div");
+    d.className = "vth";
+    d.title = "Klicken: in den Editor laden (zum Überarbeiten)";
+    const c = document.createElement("canvas");
+    c.width = 156; c.height = 156;
+    const g = c.getContext("2d");
+    g.strokeStyle = "#16243d"; g.lineWidth = 5; g.lineCap = "round"; g.lineJoin = "round";
+    const sc = 110 / (ASC - DESC);
+    g.beginPath();
+    for (const st of v.strokes) {
+      g.moveTo(23 + st[0][0] * sc, 120 - st[0][1] * sc);
+      for (let k = 1; k < st.length; k++) g.lineTo(23 + st[k][0] * sc, 120 - st[k][1] * sc);
+    }
+    g.stroke();
+    d.appendChild(c);
+    const del = document.createElement("button");
+    del.className = "del"; del.textContent = "×";
+    del.onclick = ev => { ev.stopPropagation(); removeVariant(i); };
+    d.onclick = () => loadVariant(i);
+    d.appendChild(del);
+    bar.appendChild(d);
+  });
+}
+function persist(mutate) {
+  const [s, f] = curFont();
+  mutate(f);
+  saveStore(s);
+  buildGrid(); buildVariantBar();
+}
+function removeVariant(i) {
+  persist(f => { f.glyphsVar[curChar].splice(i, 1); if (!f.glyphsVar[curChar].length) delete f.glyphsVar[curChar]; });
+}
+function loadVariant(i) {
+  const v = variants(curChar)[i];
+  strokes = v.strokes.map(st => st.map(p => [...p]));
+  advance = v.adv;
+  removeVariant(i);
+  draw();
+}
+$("btnSaveVar").onclick = () => {
+  if (!strokes.length) { alert("Erst etwas zeichnen :)"); return; }
+  const adv = effAdv();
+  const data = { adv, strokes: strokes.map(st => st.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10])) };
+  persist(f => {
+    (f.glyphsVar[curChar] = f.glyphsVar[curChar] || []).push(data);
+    f.glyphsVar[" "] = [{ adv: +$("inpSpaceAdv").value, strokes: [] }];
+  });
+  strokes = []; advance = null; draw();
+  if ($("inpAutoNext").checked) {
+    const cs = [...$("inpCharset").value];
+    const next = cs.find(c => !variants(c).length);
+    if (next) selectChar(next);
+  }
+};
+$("btnUndo").onclick = () => { strokes.pop(); draw(); };
+$("btnClear").onclick = () => { strokes = []; advance = null; draw(); };
+$("btnPrev").onclick = () => stepChar(-1);
+$("btnNext").onclick = () => stepChar(1);
+function stepChar(d) {
+  const cs = [...$("inpCharset").value];
+  const i = cs.indexOf(curChar);
+  selectChar(cs[(i + d + cs.length) % cs.length]);
+}
+$("inpPen").addEventListener("input", () => { $("valPen").textContent = $("inpPen").value; draw(); });
+$("inpCharset").addEventListener("input", buildGrid);
+$("inpName").addEventListener("change", () => { buildGrid(); buildVariantBar(); });
+$("inpSpaceAdv").addEventListener("change", () => persist(f => { f.glyphsVar[" "] = [{ adv: +$("inpSpaceAdv").value, strokes: [] }]; }));
+
+/* ====== Verwenden / Export / Import / Löschen ====== */
+$("btnUse").onclick = () => {
+  const [s] = curFont(); saveStore(s);
+  const n = Object.keys(loadStore()[fontId()].glyphsVar).filter(c => c !== " ").length;
+  if (!n) { alert("Noch keine Zeichen erfasst."); return; }
+  location.href = "index.html?font=" + encodeURIComponent(fontId());
+};
+$("btnExport").onclick = () => {
+  const [s] = curFont(); saveStore(s);
+  const blob = new Blob([JSON.stringify(loadStore()[fontId()], null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = slug($("inpName").value) + ".handschrift.json";
+  a.click(); URL.revokeObjectURL(a.href);
+};
+$("btnImport").onclick = () => $("fileImport").click();
+$("fileImport").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const f = JSON.parse(await file.text());
+    if (!f.glyphsVar) throw new Error("kein glyphsVar-Feld");
+    $("inpName").value = f.name || file.name.replace(/\.handschrift\.json$|\.json$/, "");
+    const s = loadStore(); s[fontId()] = f; saveStore(s);
+    buildGrid(); buildVariantBar();
+  } catch (err) { alert("Datei konnte nicht gelesen werden: " + err.message); }
+};
+$("btnDelFont").onclick = () => {
+  if (!confirm(`Schrift „${$("inpName").value}" wirklich löschen?`)) return;
+  const s = loadStore(); delete s[fontId()]; saveStore(s);
+  buildGrid(); buildVariantBar();
+};
+
+/* ====== Start ====== */
+const params = new URLSearchParams(location.search);
+if (params.get("font")) {
+  const f = loadStore()[params.get("font")];
+  if (f) $("inpName").value = f.name;
+}
+const existing = loadStore()[fontId()];
+if (existing && existing.glyphsVar[" "]) $("inpSpaceAdv").value = existing.glyphsVar[" "][0].adv;
+buildGrid(); buildVariantBar(); resize();
+</script>
+</body>
+</html>
