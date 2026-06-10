@@ -1,0 +1,25 @@
+import { chromium } from 'playwright';
+import { fileURLToPath } from 'url';
+import path from 'path';
+const here = path.dirname(fileURLToPath(import.meta.url));
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ locale: 'en-US' });
+const page = await ctx.newPage();
+page.on('pageerror', e => console.log('EXC:', e.message));
+await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
+await page.goto('file://' + path.join(here, '..', 'app', 'handschrift.html'));
+await page.evaluate(() => localStorage.removeItem('hw_fonts'));
+await page.reload();
+const msgs = [];
+await page.exposeFunction('logProgress', m => msgs.push(m));
+await page.evaluate(() => {
+  const st = document.getElementById('scanStatus');
+  new MutationObserver(() => window.logProgress(st.textContent)).observe(st, { childList: true, characterData: true, subtree: true });
+});
+await page.setInputFiles('#fileScan', '/Users/tomhenniger/Downloads/seite1.png');
+await page.waitForFunction(() => /^[✓KF]/.test(document.getElementById('scanStatus').textContent), { timeout: 120000 });
+const final = await page.evaluate(() => document.getElementById('scanStatus').textContent);
+console.log('Fortschritt (Beispiele):', msgs.filter(m => m.includes('box')).slice(0, 2));
+console.log('Deutsch dabei?', msgs.some(m => /Kästchen|Seite \d/.test(m)) ? 'JA (FEHLER)' : 'nein');
+console.log('Final:', final);
+await browser.close();

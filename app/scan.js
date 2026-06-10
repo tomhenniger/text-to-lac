@@ -3,6 +3,7 @@
 // Tinte -> Zhang-Suen-Skelett -> Pfadverfolgung -> Font-Einheiten).
 "use strict";
 window.ScanImport = (function () {
+  const T = (de, en) => (window.UI ? window.UI.t(de, en) : de);
   const RES = 10;          // px pro mm im entzerrten Zellenraster
   const MIN_COMP = 10;     // Mindest-Pixelfläche einer Tintenkomponente
   const MIN_INK = 25;      // Mindest-Tintenpixel pro Kästchen
@@ -122,7 +123,7 @@ window.ScanImport = (function () {
         if (c.px.length / (bw * bh) < 0.6) continue;
         if (!best || c.px.length > best.px.length) best = c;
       }
-      if (!best) throw new Error(`Kein Marker in Ecke ${key} gefunden`);
+      if (!best) throw new Error(T(`Kein Marker in Ecke ${key} gefunden`, `No marker found in corner ${key}`));
       centers[key] = [x0 + best.sx / best.px.length, y0 + best.sy / best.px.length];
     }
     return centers;
@@ -461,7 +462,7 @@ window.ScanImport = (function () {
       onProgress?.(file.name + " …");
       let gray, w, h;
       try { ({ gray, w, h } = await loadGray(file)); }
-      catch { log.push(`${file.name}: Bild konnte nicht gelesen werden`); continue; }
+      catch { log.push(`${file.name}: ` + T("Bild konnte nicht gelesen werden", "could not read the image")); continue; }
       let centers;
       try { centers = findMarkers(gray, w, h); }
       catch (e) { log.push(`${file.name}: ${e.message}`); continue; }
@@ -475,7 +476,7 @@ window.ScanImport = (function () {
         if (p2 >= 1 && p2 <= 63) { H = H2; page = p2; }
       }
       if (!(page >= 1 && page <= 63)) {
-        log.push(`${file.name}: Seiten-ID nicht lesbar — Foto zu schräg oder unscharf?`);
+        log.push(`${file.name}: ` + T("Seiten-ID nicht lesbar — Foto zu schräg oder unscharf?", "page ID unreadable — photo too skewed or blurry?"));
         continue;
       }
 
@@ -484,7 +485,7 @@ window.ScanImport = (function () {
       for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         if (i % 8 === 0) {
-          onProgress?.(`${file.name}: Seite ${page}, Kästchen ${i + 1}/${cells.length} …`);
+          onProgress?.(`${file.name}: ${T("Seite", "page")} ${page}, ${T("Kästchen", "box")} ${i + 1}/${cells.length} …`);
           await tick();
         }
         const patch = sampleRegion(gray, w, h, H, cell.x, cell.y, cell.w, cell.h);
@@ -494,7 +495,7 @@ window.ScanImport = (function () {
           filled++;
         }
       }
-      log.push(`${file.name}: Seite ${page}, ${filled}/${cells.length} Kästchen mit Tinte`);
+      log.push(`${file.name}: ${T("Seite", "page")} ${page}, ${filled}/${cells.length} ${T("Kästchen mit Tinte", "boxes with ink")}`);
     }
     return { glyphsVar, log };
   }
