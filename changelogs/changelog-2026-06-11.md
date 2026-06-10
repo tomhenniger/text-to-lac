@@ -21,6 +21,11 @@
 
 ## UI-Änderungen
 
+- Variante speichern deutlich klarer: schwebender „✓ Speichern"-Button direkt
+  an der Zeichenfläche, ⏎ Enter als Shortcut (Cmd/Ctrl+Z = Strich rückgängig),
+  und im leeren Canvas steht jetzt eine Kurzanleitung
+
+
 - Papier-Vorlage (PDF) ist jetzt direkt in der Handschrift-Erfassung verlinkt
   (öffnet in neuem Tab) statt auf der Landing-Page
 - Titel modellfrei: „Pen-Plotter-Tools für Bambu Lab" (ohne A2L)
@@ -28,6 +33,10 @@
 - Tour-Neustart-Button deutlicher beschriftet („❓ Tour")
 
 ## Bugfixes
+
+- Hilfslinien-Beschriftungen im Zeichen-Canvas (Großbuchstaben, x-Höhe,
+  Grundlinie, Unterlänge, Vorlauf) werden jetzt mitübersetzt
+
 
 
 ## Sonstiges
