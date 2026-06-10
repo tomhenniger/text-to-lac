@@ -4,10 +4,12 @@ import path from 'path';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appDir = 'file://' + path.join(here, '..', 'app');
 const browser = await chromium.launch();
+browser.contexts; // Tour-Autostart in Tests unterdrücken
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
 page.on('pageerror', e => console.log('EXC:', e.message));
 
 // Handschrift laden (3 Varianten pro Buchstabe), dann in der Schreib-App testen
+await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
 await page.goto(appDir + '/handschrift.html');
 await page.evaluate(() => localStorage.clear());
 await page.setInputFiles('#fileImport', '/Users/tomhenniger/Downloads/toms_handschrift.handschrift.json');

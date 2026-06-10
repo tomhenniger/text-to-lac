@@ -8,10 +8,12 @@ const appUrl = 'file://' + path.join(here, '..', 'app', 'index.html');
 const outDir = '/tmp/lac_test';
 
 const browser = await chromium.launch();
+browser.contexts; // Tour-Autostart in Tests unterdrücken
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 }, acceptDownloads: true });
 page.on('console', m => { if (m.type() === 'error') console.log('PAGE ERROR:', m.text()); });
 page.on('pageerror', e => console.log('PAGE EXCEPTION:', e.message));
 
+await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
 await page.goto(appUrl);
 await page.fill('#inpText', 'Süße Grüße aus Köln!\nÄpfel, Öl & Übermut —\nder Stift schreibt selbst. ß');
 await page.selectOption('#inpFont', 'EMSAllure');

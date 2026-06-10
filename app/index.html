@@ -2,11 +2,15 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Text → .lac (Stift-Schreiber für Bambu A2L)</title>
+<title>Text-Schreiber — Pen-Plotter-Tools für Bambu Lab</title>
 <style>
   :root {
     --bg: #f4f5f7; --panel: #ffffff; --border: #d9dce1; --text: #1c1e21;
-    --muted: #6b7280; --accent: #00ae42; --accent-dark: #008f36;
+    --muted: #6b7280; --accent: #00ae42; --accent-dark: #008f36; --hover: #f0f1f3;
+  }
+  html[data-theme="dark"] {
+    --bg: #15171b; --panel: #1f232a; --border: #353b45; --text: #e7eaee;
+    --muted: #9aa3af; --hover: #2a3038;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
@@ -18,24 +22,24 @@
   canvas { display: block; width: 100%; height: 100%; cursor: grab; }
   h1 { font-size: 16px; margin: 2px 0 12px; }
   h1 small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; margin-top: 2px; }
-  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: #fff; }
+  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--panel); }
   details summary { cursor: pointer; padding: 9px 12px; font-weight: 600; font-size: 13px; user-select: none; }
   details[open] summary { border-bottom: 1px solid var(--border); }
   .body { padding: 10px 12px; }
   label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
   label:first-child { margin-top: 0; }
   textarea { width: 100%; min-height: 110px; font-family: inherit; font-size: 13px; padding: 8px;
-             border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
+             border: 1px solid var(--border); border-radius: 6px; resize: vertical; background: var(--panel); color: var(--text); }
   select, input[type=text], input[type=number] { width: 100%; padding: 6px 8px; font-size: 13px;
-             border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+             border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
   .row { display: flex; gap: 8px; }
   .row > div { flex: 1; }
   .slider { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .val { font-size: 11px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
   button { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
-           background: #fff; cursor: pointer; }
-  button:hover { background: #f0f1f3; }
+           background: var(--panel); color: var(--text); cursor: pointer; }
+  button:hover { background: var(--hover); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
                    width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
   button.primary:hover { background: var(--accent-dark); }
@@ -52,7 +56,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h1>Text → .lac<small>Stift-Schreiber für Bambu A2L (Pen Holder) · <a href="bild.html">→ Bild-Plotter</a></small></h1>
+  <h1>Text → .lac<span class="topbtns"><button id="btnTheme">🌙</button><button id="btnTour">❓</button></span><small>Stift-Schreiber für Bambu Lab (Pen Holder) · <a href="bild.html">→ Bild-Plotter</a></small></h1>
 
   <details open>
     <summary>Text</summary>
@@ -73,7 +77,7 @@ geschrieben mit dem Stift.</textarea>
         <button id="btnTtf">TTF/OTF …</button>
       </div>
       <input type="file" id="fileTtf" accept=".ttf,.otf" style="display:none">
-      <div class="hint" id="ttfHint">Mit „Handschrift erfassen" zeichnest du jeden Buchstaben selbst — mit mehreren Varianten pro Buchstabe, aus denen beim Schreiben zufällig gewählt wird. TTF/OTF-Schriften sind dagegen Kontur-Schriften: Der Stift fährt nur den Umriss nach.</div>
+      <div class="hint" id="ttfHint">Mit „Handschrift erfassen“ zeichnest du jeden Buchstaben selbst — mit mehreren Varianten pro Buchstabe, aus denen beim Schreiben zufällig gewählt wird. TTF/OTF-Schriften sind dagegen Kontur-Schriften: Der Stift fährt nur den Umriss nach.</div>
       <label>Schriftgröße (Höhe Großbuchstaben)</label>
       <div class="slider"><input type="range" id="inpSize" min="3" max="60" step="0.5" value="10"><span class="val" id="valSize"></span></div>
       <label>Zeilenabstand</label>
@@ -111,7 +115,7 @@ geschrieben mit dem Stift.</textarea>
         <button id="btnReroll">🎲 Neu würfeln</button>
         <button id="btnVarReset">Zurücksetzen</button>
       </div>
-      <div class="hint">Jeder Buchstabe bekommt eigene Zufallswerte — derselbe Buchstabe sieht an jeder Stelle anders aus. „Neu würfeln" erzeugt eine neue Zufallsvariante.</div>
+      <div class="hint">Jeder Buchstabe bekommt eigene Zufallswerte — derselbe Buchstabe sieht an jeder Stelle anders aus. „Neu würfeln“ erzeugt eine neue Zufallsvariante.</div>
     </div>
   </details>
 
@@ -148,7 +152,7 @@ geschrieben mit dem Stift.</textarea>
       <button class="primary" id="btnExport">Als .lac exportieren</button>
       <div class="btnrow"><button id="btnSvg">Als SVG exportieren</button></div>
       <div class="warn" id="warnBox"></div>
-      <div class="hint">Die .lac-Datei in der Bambu Suite öffnen, Material/Stift wählen und „Vorbereiten" — der Prozess „Stift zeichnen" ist bereits zugewiesen.</div>
+      <div class="hint">Die .lac-Datei in der Bambu Suite öffnen, Material/Stift wählen und „Vorbereiten“ — der Prozess „Stift zeichnen“ ist bereits zugewiesen.</div>
     </div>
   </details>
 
@@ -166,6 +170,7 @@ geschrieben mit dem Stift.</textarea>
 <script src="fonts.js"></script>
 <script src="configs.js"></script>
 <script src="lac.js"></script>
+<script src="ui.js"></script>
 <script>
 "use strict";
 /* ============================== Zustand ============================== */
@@ -386,18 +391,19 @@ function draw() {
   ctx.scale(S.view.scale, S.view.scale);
 
   // Matte
-  ctx.fillStyle = "#e8f4ec";
-  ctx.strokeStyle = "#9fc8ab"; ctx.lineWidth = 0.4;
+  const P = UI.palette();
+  ctx.fillStyle = P.mat;
+  ctx.strokeStyle = P.matBorder; ctx.lineWidth = 0.4;
   ctx.beginPath(); ctx.roundRect(0, 0, W, H, 3); ctx.fill(); ctx.stroke();
   // Raster 10mm
-  ctx.strokeStyle = "rgba(0,140,60,0.10)"; ctx.lineWidth = 0.15;
+  ctx.strokeStyle = P.grid; ctx.lineWidth = 0.15;
   ctx.beginPath();
   for (let x = 10; x < W; x += 10) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
   for (let y = 10; y < H; y += 10) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
   ctx.stroke();
 
   // Text
-  ctx.strokeStyle = "#16243d";
+  ctx.strokeStyle = P.ink;
   ctx.lineWidth = +$("inpPenW").value;
   ctx.lineCap = "round"; ctx.lineJoin = "round";
   ctx.beginPath();
@@ -413,7 +419,7 @@ function draw() {
     const g = cachedLayout.glyphs.find(g => g.line + ":" + g.col === drag.key);
     if (g) {
       const [minx, miny, maxx, maxy] = glyphBBox(g);
-      ctx.strokeStyle = "#00ae42"; ctx.lineWidth = 0.3;
+      ctx.strokeStyle = P.marker; ctx.lineWidth = 0.3;
       ctx.setLineDash([1.2, 1]);
       ctx.strokeRect(minx - 1, miny - 1, maxx - minx + 2, maxy - miny + 2);
       ctx.setLineDash([]);
@@ -513,12 +519,12 @@ window.addEventListener("mouseup", () => {
 function cycleVariant(d) {
   const font = currentFont();
   const n = variantCount(font, d.glyph.char);
-  if (n < 2) { flashVar(`„${d.glyph.char}" hat nur eine Variante`); relayout(); return; }
+  if (n < 2) { flashVar(`„${d.glyph.char}“ hat nur eine Variante`); relayout(); return; }
   const [li, ci] = d.key.split(":").map(Number);
   const cur = S.charVar[d.key] != null ? S.charVar[d.key]
             : Math.min(n - 1, Math.floor(glyphRng(S.seed, li, ci)() * n));
   S.charVar[d.key] = (cur + 1) % n;
-  flashVar(`„${d.glyph.char}" → Variante ${S.charVar[d.key] + 1}/${n}`);
+  flashVar(`„${d.glyph.char}“ → Variante ${S.charVar[d.key] + 1}/${n}`);
   relayout();
 }
 
@@ -720,6 +726,25 @@ $("btnHw").onclick = () => { location.href = "handschrift.html?font=" + encodeUR
 // Live-Aktualisierung, wenn in einem anderen Tab Handschrift erfasst wird
 window.addEventListener("storage", e => { if (e.key === "hw_fonts") { fillFontSelect(true); relayout(); } });
 
+const TOUR = [
+  { el: null, title: "Willkommen beim Text-Schreiber!",
+    text: "Dieses Tool verwandelt Text in echte Stift-Schrift für deinen Bambu-Plotter (Pen Holder). Das Ergebnis ist eine .lac-Datei, die du direkt in der Bambu Suite öffnest. Die Tour zeigt dir alles Wichtige — mit ← → kannst du blättern, Esc beendet." },
+  { el: "#inpText", title: "1 · Text eingeben",
+    text: "Schreib hier deinen Text — mehrzeilig, mit Umlauten und ß. Alles weitere passiert live in der Vorschau rechts." },
+  { el: "#inpFont", title: "2 · Schrift wählen",
+    text: "18 eingebaute <b>Ein-Linien-Schriften</b> (der Stift zieht echte Linien statt Umrisse) — oder deine <b>eigene Handschrift</b>: Über den Button darunter erfasst du jeden Buchstaben selbst, mit mehreren Varianten pro Zeichen." },
+  { el: "#inpVarOn", title: "3 · Handschrift-Variation",
+    text: "Jeder Buchstabe bekommt eigene Zufallswerte für Drehung, Größe, Grundlinie, Neigung und Linien-Zittern — <b>kein Zeichen gleicht dem anderen</b>. Mit 🎲 würfelst du eine neue Gesamtvariante." },
+  { el: "#canvasWrap", title: "4 · Vorschau & Feintuning",
+    text: "Hier gestaltest du: <b>Buchstabe ziehen</b> = verschieben · <b>Klick auf Buchstabe</b> = nächste Handschrift-Variante · Lücke/Rand ziehen = ganze Zeile · Shift = ganzer Text · Mausrad = Zoom." },
+  { el: "#inpFname", title: "5 · Exportieren",
+    text: "Als <b>.lac exportieren</b> und in der Bambu Suite öffnen — der Prozess „Stift zeichnen“ und das Material sind bereits zugewiesen, du musst nur noch „Prepare“ klicken. Alternativ gibt's SVG für andere Tools." },
+  { el: "#statusbar", title: "6 · Statusleiste",
+    text: "Unten siehst du Buchstaben- und Punktzahl, den Zufalls-Seed und beim Varianten-Klick die gewählte Variante. Viel Spaß! Die Tour startest du jederzeit neu über das ❓ oben." },
+];
+UI.initTheme();
+UI.onThemeChange(() => draw());
+UI.initTour("text", TOUR);
 fillFontSelect(false);
 const fontParam = new URLSearchParams(location.search).get("font");
 if (fontParam && allFonts()[fontParam]) $("inpFont").value = fontParam;

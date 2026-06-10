@@ -2,11 +2,15 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Bild → .lac (Plotter-Stile für Bambu A2L)</title>
+<title>Bild-Plotter — Pen-Plotter-Tools für Bambu Lab</title>
 <style>
   :root {
     --bg: #f4f5f7; --panel: #ffffff; --border: #d9dce1; --text: #1c1e21;
-    --muted: #6b7280; --accent: #00ae42; --accent-dark: #008f36;
+    --muted: #6b7280; --accent: #00ae42; --accent-dark: #008f36; --hover: #f0f1f3;
+  }
+  html[data-theme="dark"] {
+    --bg: #15171b; --panel: #1f232a; --border: #353b45; --text: #e7eaee;
+    --muted: #9aa3af; --hover: #2a3038;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
@@ -18,22 +22,22 @@
   canvas { display: block; width: 100%; height: 100%; cursor: grab; }
   h1 { font-size: 16px; margin: 2px 0 12px; }
   h1 small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; margin-top: 2px; }
-  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: #fff; }
+  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--panel); }
   details summary { cursor: pointer; padding: 9px 12px; font-weight: 600; font-size: 13px; user-select: none; }
   details[open] summary { border-bottom: 1px solid var(--border); }
   .body { padding: 10px 12px; }
   label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
   label:first-child { margin-top: 0; }
   select, input[type=text], input[type=number] { width: 100%; padding: 6px 8px; font-size: 13px;
-             border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+             border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
   .row { display: flex; gap: 8px; }
   .row > div { flex: 1; }
   .slider { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .val { font-size: 11px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
   button { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
-           background: #fff; cursor: pointer; }
-  button:hover { background: #f0f1f3; }
+           background: var(--panel); color: var(--text); cursor: pointer; }
+  button:hover { background: var(--hover); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
                    width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
   button.primary:hover { background: var(--accent-dark); }
@@ -53,7 +57,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h1>Bild → .lac<small>Plotter-Stile für Bambu A2L (Pen Holder) · <a href="index.html">→ Text-Schreiber</a></small></h1>
+  <h1>Bild → .lac<span class="topbtns"><button id="btnTheme">🌙</button><button id="btnTour">❓</button></span><small>Plotter-Stile für Bambu Lab (Pen Holder) · <a href="index.html">→ Text-Schreiber</a></small></h1>
 
   <details open>
     <summary>Bild</summary>
@@ -140,7 +144,7 @@
       <input type="text" id="inpFname" value="Mein Bild">
       <button class="primary" id="btnExport">Als .lac exportieren</button>
       <div class="btnrow"><button id="btnSvg">Als SVG exportieren</button></div>
-      <div class="hint">Prozess „Stift zeichnen" (KCPenDraw) ist zugewiesen. Bild auf der Matte per Maus verschieben, Mausrad = Zoom.</div>
+      <div class="hint">Prozess „Stift zeichnen“ (KCPenDraw) ist zugewiesen. Bild auf der Matte per Maus verschieben, Mausrad = Zoom.</div>
     </div>
   </details>
 </div>
@@ -153,6 +157,7 @@
 <script src="fonts.js"></script>
 <script src="configs.js"></script>
 <script src="lac.js"></script>
+<script src="ui.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -555,10 +560,11 @@ function draw() {
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.translate(S.view.ox, S.view.oy);
   ctx.scale(S.view.scale, S.view.scale);
-  ctx.fillStyle = "#e8f4ec";
-  ctx.strokeStyle = "#9fc8ab"; ctx.lineWidth = 0.4;
+  const P = UI.palette();
+  ctx.fillStyle = P.mat;
+  ctx.strokeStyle = P.matBorder; ctx.lineWidth = 0.4;
   ctx.beginPath(); ctx.roundRect(0, 0, W, H, 3); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = "rgba(0,140,60,0.10)"; ctx.lineWidth = 0.15;
+  ctx.strokeStyle = P.grid; ctx.lineWidth = 0.15;
   ctx.beginPath();
   for (let x = 10; x < W; x += 10) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
   for (let y = 10; y < H; y += 10) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
@@ -566,12 +572,12 @@ function draw() {
 
   if (S.gray) {                                     // Bildrahmen
     const iw = +$("inpImgW").value, ih = iw * S.aspect;
-    ctx.strokeStyle = "rgba(0,0,0,0.15)"; ctx.lineWidth = 0.3;
+    ctx.strokeStyle = P.frame; ctx.lineWidth = 0.3;
     ctx.setLineDash([2, 2]);
     ctx.strokeRect(S.imgX, S.imgY, iw, ih);
     ctx.setLineDash([]);
   }
-  ctx.strokeStyle = "#16243d";
+  ctx.strokeStyle = P.ink;
   ctx.lineWidth = +$("inpPenW").value;
   ctx.lineCap = "round"; ctx.lineJoin = "round";
   ctx.beginPath();
@@ -696,6 +702,25 @@ function showStyleOpts() {
   document.querySelectorAll(".styleopts").forEach(el =>
     el.classList.toggle("active", el.dataset.style.split(" ").includes(style)));
 }
+const TOUR = [
+  { el: null, title: "Willkommen beim Bild-Plotter!",
+    text: "Dieses Tool verwandelt ein Foto oder eine Grafik in Stift-Zeichenpfade — in sechs verschiedenen Stilen, vom Schraffur-Portrait bis zur ASCII-Art in deiner Handschrift. (← → blättern, Esc beendet.)" },
+  { el: "#dropHint", title: "1 · Bild laden",
+    text: "Bild hierher ziehen oder klicken. Mit <b>Helligkeit, Kontrast und Invertieren</b> steuerst du, wie viel der Stift zeichnet — bei dunklen Fotos lohnt sich etwas mehr Helligkeit." },
+  { el: "#inpStyle", title: "2 · Stil wählen",
+    text: "<b>Wellenlinien</b> sind der Plotter-Klassiker für Portraits · <b>Kreuzschraffur</b> wirkt wie gezeichnet · <b>Spirale</b> macht das ganze Bild zu einer Linie · <b>ASCII-Art</b> zeichnet das Bild aus Buchstaben (auch in deiner Handschrift!) · <b>Konturen</b> zieht nur die Umrisse nach." },
+  { el: ".styleopts.active", title: "3 · Stil-Parameter",
+    text: "Jeder Stil hat eigene Regler — Linienabstand, Amplitude, Zeichengröße usw. Alles wirkt live auf die Vorschau. Einfach experimentieren!" },
+  { el: "#canvasWrap", title: "4 · Position & Vorschau",
+    text: "Das Bild per Maus auf der Matte verschieben, Mausrad zoomt. Der gestrichelte Rahmen zeigt die Bildgröße — die stellst du unter „Breite auf der Matte“ ein." },
+  { el: "#statusbar", title: "5 · Stiftweg im Blick",
+    text: "Unten steht der geschätzte <b>Stiftweg in Metern</b> — ein guter Anhaltspunkt für die Plot-Dauer. Feinere Linienabstände = schöneres Ergebnis, aber deutlich längerer Weg." },
+  { el: "#btnExport", title: "6 · Exportieren",
+    text: "Als <b>.lac exportieren</b> (Dateiname übernimmt automatisch den Bildnamen) und in der Bambu Suite öffnen — Stift-Prozess ist zugewiesen. Fertig zum Plotten!" },
+];
+UI.initTheme();
+UI.onThemeChange(() => draw());
+UI.initTour("bild", TOUR);
 fillAsciiFonts();
 showStyleOpts();
 resize();

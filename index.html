@@ -3,16 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pen-Plotter-Tools für Bambu Lab A2L</title>
+<title>Pen-Plotter-Tools für Bambu Lab</title>
 <style>
-  :root { --accent: #00ae42; --text: #1c1e21; --muted: #6b7280; }
+  :root { --accent: #00ae42; --text: #1c1e21; --muted: #6b7280; --bg: #f4f5f7;
+          --panel: #ffffff; --border: #d9dce1; }
+  html[data-theme="dark"] { --text: #e7eaee; --muted: #9aa3af; --bg: #15171b;
+          --panel: #1f232a; --border: #353b45; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; color: var(--text);
-         background: #f4f5f7; display: flex; min-height: 100vh; align-items: center; justify-content: center; }
+         background: var(--bg); display: flex; min-height: 100vh; align-items: center; justify-content: center; }
+  #btnTheme { position: fixed; top: 14px; right: 14px; padding: 6px 10px; font-size: 15px;
+              border: 1px solid var(--border); border-radius: 8px; background: var(--panel); cursor: pointer; }
   main { max-width: 720px; padding: 40px 24px; }
   h1 { font-size: 28px; margin: 0 0 6px; }
   p.sub { color: var(--muted); margin: 0 0 28px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
-  a.card { display: block; background: #fff; border: 1px solid #d9dce1; border-radius: 12px;
+  a.card { display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
            padding: 18px 16px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
   a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
   .card .icon { font-size: 28px; }
@@ -24,7 +29,7 @@
 </head>
 <body>
 <main>
-  <h1>Pen-Plotter-Tools für Bambu Lab A2L</h1>
+  <h1>Pen-Plotter-Tools für Bambu Lab</h1>
   <p class="sub">Text und Bilder mit dem Stift (Pen Holder) zeichnen — Export als .lac für die Bambu Suite. Läuft komplett im Browser.</p>
   <div class="cards">
     <a class="card" href="app/index.html">
@@ -44,11 +49,12 @@
     </a>
   </div>
   <footer>
-    Papier-Vorlage zum Handschrift-Erfassen: <a href="vorlage.pdf">vorlage.pdf</a> (drucken, ausfüllen, mit
-    <code>tools/handschrift_scan.py</code> einlesen) · Quellcode &amp; Doku im
-    <a href="https://github.com/tomhenniger/text-to-lac">Repository</a> ·
+    Quellcode &amp; Doku im <a href="https://github.com/tomhenniger/text-to-lac">Repository</a> ·
     Fonts: Hershey/EMS (SIL OFL)
   </footer>
 </main>
+<button id="btnTheme">🌙</button>
+<script src="app/ui.js"></script>
+<script>UI.initTheme();</script>
 </body>
 </html>

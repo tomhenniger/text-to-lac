@@ -2,11 +2,15 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Handschrift erfassen — Text → .lac</title>
+<title>Handschrift erfassen — Pen-Plotter-Tools für Bambu Lab</title>
 <style>
   :root {
     --bg: #f4f5f7; --panel: #ffffff; --border: #d9dce1; --text: #1c1e21;
-    --muted: #6b7280; --accent: #00ae42; --accent-dark: #008f36;
+    --muted: #6b7280; --accent: #00ae42; --accent-dark: #008f36; --hover: #f0f1f3;
+  }
+  html[data-theme="dark"] {
+    --bg: #15171b; --panel: #1f232a; --border: #353b45; --text: #e7eaee;
+    --muted: #9aa3af; --hover: #2a3038;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
@@ -18,10 +22,10 @@
   h1 small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; margin-top: 2px; }
   label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
   input[type=text], input[type=number] { width: 100%; padding: 6px 8px; font-size: 13px;
-             border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+             border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
   button { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
-           background: #fff; cursor: pointer; }
-  button:hover { background: #f0f1f3; }
+           background: var(--panel); color: var(--text); cursor: pointer; }
+  button:hover { background: var(--hover); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
   button.primary:hover { background: var(--accent-dark); }
   .btnrow { display: flex; gap: 8px; margin-top: 8px; }
@@ -59,7 +63,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h1>Handschrift erfassen<small>Eigene Ein-Linien-Schrift mit Buchstaben-Varianten</small></h1>
+  <h1>Handschrift erfassen<span class="topbtns"><button id="btnTheme">🌙</button><button id="btnTour">❓</button></span><small>Eigene Ein-Linien-Schrift mit Buchstaben-Varianten · <a href="index.html">→ Text-Schreiber</a></small></h1>
 
   <label>Name der Schrift</label>
   <input type="text" id="inpName" value="Meine Handschrift">
@@ -83,11 +87,15 @@
 
   <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
 
-  <div class="btnrow"><button class="primary" id="btnUse">In der Schreib-App verwenden</button></div>
+  <label>Lieber auf Papier schreiben?</label>
+  <div class="btnrow"><a id="btnVorlage" href="../vorlage.pdf" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none;color:var(--text);padding:8px 12px;font-size:13px;border:1px solid var(--border);border-radius:6px;background:var(--panel);display:block">📄 Papier-Vorlage (PDF) öffnen</a></div>
+  <div class="hint">Vorlage drucken (100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, scannen/abfotografieren und mit <code>tools/handschrift_scan.py</code> einlesen — die erzeugte Datei dann hier über „Laden …“ importieren.</div>
+
+  <div class="btnrow" style="margin-top:14px"><button class="primary" id="btnUse">In der Schreib-App verwenden</button></div>
   <div class="btnrow"><button id="btnExport">Als Datei sichern (.json)</button><button id="btnImport">Laden …</button></div>
   <input type="file" id="fileImport" accept=".json" style="display:none">
   <div class="btnrow"><button id="btnDelFont" style="color:#dc2626">Schrift löschen</button></div>
-  <div class="hint">Alles wird automatisch im Browser gespeichert (localStorage). „Als Datei sichern" erstellt zusätzlich ein Backup zum Weitergeben.</div>
+  <div class="hint">Alles wird automatisch im Browser gespeichert (localStorage). „Als Datei sichern“ erstellt zusätzlich ein Backup zum Weitergeben.</div>
 </div>
 
 <div id="main">
@@ -100,6 +108,7 @@
   <div id="variantBar"><span id="varLabel">Noch keine Varianten</span></div>
 </div>
 
+<script src="ui.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -264,7 +273,7 @@ function buildVariantBar() {
   const vars = variants(curChar);
   const lab = document.createElement("span");
   lab.id = "varLabel";
-  lab.textContent = vars.length ? `„${curChar}" — ${vars.length} Variante${vars.length > 1 ? "n" : ""}:` : `„${curChar}" — noch keine Varianten`;
+  lab.textContent = vars.length ? `„${curChar}“ — ${vars.length} Variante${vars.length > 1 ? "n" : ""}:` : `„${curChar}“ — noch keine Varianten`;
   bar.appendChild(lab);
   vars.forEach((v, i) => {
     const d = document.createElement("div");
@@ -363,7 +372,7 @@ $("fileImport").onchange = async e => {
   } catch (err) { alert("Datei konnte nicht gelesen werden: " + err.message); }
 };
 $("btnDelFont").onclick = () => {
-  if (!confirm(`Schrift „${$("inpName").value}" wirklich löschen?`)) return;
+  if (!confirm(`Schrift „${$("inpName").value}“ wirklich löschen?`)) return;
   const s = loadStore(); delete s[fontId()]; saveStore(s);
   buildGrid(); buildVariantBar();
 };
@@ -376,6 +385,25 @@ if (params.get("font")) {
 }
 const existing = loadStore()[fontId()];
 if (existing && existing.glyphsVar[" "]) $("inpSpaceAdv").value = existing.glyphsVar[" "][0].adv;
+const TOUR = [
+  { el: null, title: "Willkommen bei der Handschrift-Erfassung!",
+    text: "Hier baust du deine eigene Ein-Linien-Schrift — mit <b>mehreren Varianten pro Buchstabe</b>, aus denen die Schreib-App später zufällig wählt. So sieht geplotteter Text aus wie echt geschrieben. (← → blättern, Esc beendet.)" },
+  { el: "#inpName", title: "1 · Schrift benennen",
+    text: "Gib deiner Schrift einen Namen. Unter diesem Namen taucht sie später im Schriften-Menü der Schreib-App auf (mit 🖊-Symbol)." },
+  { el: "#charGrid", title: "2 · Zeichen wählen",
+    text: "Klick ein Zeichen an, um es zu erfassen. Die <b>blaue Zahl</b> zeigt, wie viele Varianten du schon hast — 2 bis 4 pro Zeichen sind ideal für einen lebendigen Look." },
+  { el: "#drawWrap", title: "3 · Schreiben",
+    text: "Zeichne das Zeichen mit Maus/Trackpad auf die <b>Grundlinie</b> — kleine Buchstaben bis zur x-Höhe, große bis zur oberen Linie. Die grüne gestrichelte Linie ist der <b>Vorlauf</b> (Abstand zum nächsten Buchstaben), am Griff unten ziehbar." },
+  { el: "#btnSaveVar", title: "4 · Variante speichern",
+    text: "Speichert die Zeichnung als Variante und springt automatisch zum nächsten leeren Zeichen. In der Leiste unten siehst du alle Varianten — Klick lädt eine zurück in den Editor, × löscht sie." },
+  { el: "#btnVorlage", title: "5 · Oder: auf Papier schreiben",
+    text: "Bequemer mit echtem Stift: <b>Papier-Vorlage drucken</b> (öffnet in neuem Tab), ausfüllen, scannen und mit <code>tools/handschrift_scan.py</code> einlesen. Die erzeugte Datei importierst du über „Laden …“ — und kannst hier jede Glyphe prüfen und nachbessern." },
+  { el: "#btnUse", title: "6 · Verwenden & sichern",
+    text: "„In der Schreib-App verwenden“ wechselt direkt rüber mit deiner Schrift ausgewählt. Alles speichert sich automatisch im Browser; „Als Datei sichern“ erstellt ein Backup zum Weitergeben." },
+];
+UI.initTheme();
+UI.onThemeChange(() => draw());
+UI.initTour("handschrift", TOUR);
 buildGrid(); buildVariantBar(); resize();
 </script>
 </body>
