@@ -2,6 +2,12 @@
 
 ## Neue Features
 
+- Branding: Die Tool-Suite heißt jetzt „Handschrift" (bleibt auch in der
+  englischen Oberfläche deutsch) — mit Wortmarke als echtem
+  Ein-Linien-Schriftzug (Hershey-Schreibschrift, Inline-SVG) auf der
+  Startseite; Seitentitel und Repo-Beschreibung angepasst
+
+
 - Scan-Import läuft jetzt komplett im Browser: ausgefüllte Papier-Vorlagen
   direkt in der Handschrift-Erfassung über „📷 Ausgefüllte Scans einlesen"
   importieren — kein Python mehr nötig (`app/scan.js`, JS-Port der gesamten
@@ -20,6 +26,11 @@
   Dunkel-Palette)
 
 ## UI-Änderungen
+
+- Emojis durch einheitliche SVG-Strich-Icons ersetzt (Navigation, Theme,
+  Tour, Werkzeuge, Papierkorb, Kamera, Würfel ...) — Icon-Set in app/ui.js,
+  erbt die Textfarbe und passt zum Stift-Thema
+
 
 - Aufgeräumter Kopfbereich auf allen Tool-Seiten: einheitliche
   Navigations-Zeile mit 🏠 Home-Button (zur Startseite), Icon-Links zu den
