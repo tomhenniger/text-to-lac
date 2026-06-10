@@ -288,6 +288,21 @@ def join_paths(paths, max_gap=7.0, min_dot=0.25, require_pair=False):
     return paths
 
 
+def chaikin(pts, iterations=2):
+    """Ecken-Schneiden: macht Pixel-Treppen zu weichen Kurven."""
+    p = list(pts)
+    for _ in range(iterations):
+        if len(p) < 3:
+            break
+        q = [p[0]]
+        for a, b in zip(p, p[1:]):
+            q.append((a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25))
+            q.append((a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75))
+        q.append(p[-1])
+        p = q
+    return p
+
+
 def rdp(pts, eps):
     """Ramer-Douglas-Peucker."""
     if len(pts) < 3:
@@ -344,7 +359,7 @@ def cell_to_strokes(patch, cell, units_per_mm):
         # Kreuzungs-Trümmer: was nach dem Verbinden noch winzig ist, fliegt raus
         # (echte Punkte kommen über den DOT_MAX-Zweig, nicht hierher)
         paths.extend(p for p in joined if path_len(p) >= 5)
-    paths = [rdp(smooth_path(p), 1.0) for p in paths]
+    paths = [rdp(chaikin(rdp(smooth_path(p), 0.8)), 0.3) for p in paths]
     paths = [p for p in paths if len(p) >= 2]
     if not paths:
         return None

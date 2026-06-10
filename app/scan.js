@@ -361,6 +361,21 @@ window.ScanImport = (function () {
     return a;
   }
 
+  function chaikin(p, iter = 2) {     // Ecken-Schneiden: macht Pixel-Treppen zu weichen Kurven
+    for (let k = 0; k < iter; k++) {
+      if (p.length < 3) break;
+      const q = [p[0]];
+      for (let i = 0; i < p.length - 1; i++) {
+        const a = p[i], b = p[i + 1];
+        q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
+        q.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+      }
+      q.push(p[p.length - 1]);
+      p = q;
+    }
+    return p;
+  }
+
   function rdp(pts, eps) {
     if (pts.length < 3) return pts;
     const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
@@ -414,7 +429,7 @@ window.ScanImport = (function () {
       joined = joinPaths(joined, 3.5, -1.0, false);
       paths.push(...joined.filter(p => pathLen(p) >= 5));
     }
-    paths = paths.map(p => rdp(smoothPath(p), 1.0)).filter(p => p.length >= 2);
+    paths = paths.map(p => rdp(chaikin(rdp(smoothPath(p), 0.8)), 0.3)).filter(p => p.length >= 2);
     if (!paths.length) return null;
 
     let minX = 1e9, maxX = 0;

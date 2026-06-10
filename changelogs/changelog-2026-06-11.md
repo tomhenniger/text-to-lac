@@ -21,6 +21,15 @@
 
 ## UI-Änderungen
 
+- Handschrift-Erfassung: ⏎ Enter speichert die Variante und bleibt beim
+  Zeichen (für weitere Varianten), ⇧⏎ Shift+Enter speichert und springt zum
+  nächsten leeren Zeichen — die Auto-Sprung-Checkbox entfällt; zwei
+  schwebende Buttons an der Zeichenfläche machen beides klickbar
+- Varianten-Leiste: Klick auf ein Thumbnail zeigt die Variante nur noch im
+  Editor an (nicht mehr destruktiv herausnehmen), gelöscht wird über einen
+  🗑-Button
+
+
 - Variante speichern deutlich klarer: schwebender „✓ Speichern"-Button direkt
   an der Zeichenfläche, ⏎ Enter als Shortcut (Cmd/Ctrl+Z = Strich rückgängig),
   und im leeren Canvas steht jetzt eine Kurzanleitung
@@ -33,6 +42,12 @@
 - Tour-Neustart-Button deutlicher beschriftet („❓ Tour")
 
 ## Bugfixes
+
+- Gescannte Handschrift war deutlich kantiger als mit dem Trackpad
+  gezeichnete Buchstaben → Chaikin-Kurvenglättung nach der Pfadvereinfachung
+  (Browser- und CLI-Importer) macht aus den Pixel-Treppen des Skeletts
+  weiche Kurven
+
 
 - Hilfslinien-Beschriftungen im Zeichen-Canvas (Großbuchstaben, x-Höhe,
   Grundlinie, Unterlänge, Vorlauf) werden jetzt mitübersetzt

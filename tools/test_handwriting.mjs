@@ -16,7 +16,6 @@ await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) 
 await page.goto(appDir + '/handschrift.html');
 await page.evaluate(() => localStorage.clear());
 await page.reload();
-await page.uncheck('#inpAutoNext');
 
 const bb = await page.locator('#draw').boundingBox();
 async function stroke(pts) {

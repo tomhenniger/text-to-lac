@@ -46,8 +46,8 @@
          background: #fff; flex: 0 0 auto; cursor: pointer; }
   .vth:hover { border-color: var(--accent); }
   .vth canvas { width: 100%; height: 100%; }
-  .vth .del { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; border-radius: 9px;
-              background: #dc2626; color: #fff; border: none; font-size: 11px; line-height: 16px;
+  .vth .del { position: absolute; top: -8px; right: -8px; width: 21px; height: 21px; border-radius: 11px;
+              background: #dc2626; border: none; font-size: 11px; line-height: 20px; text-align: center;
               padding: 0; cursor: pointer; }
   #varLabel { font-size: 12px; color: var(--muted); flex: 0 0 auto; }
   .checkrow { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; font-size: 12.5px; }
@@ -77,7 +77,6 @@
   <input type="number" id="inpSpaceAdv" value="350" min="50" max="900" step="10">
 
   <div class="checkrow"><input type="checkbox" id="inpSmooth" checked><span>Striche glätten</span></div>
-  <div class="checkrow"><input type="checkbox" id="inpAutoNext" checked><span>Nach Speichern zum nächsten Zeichen ohne Variante springen</span></div>
 
   <label>Stiftbreite Vorschau</label>
   <div class="slider"><input type="range" id="inpPen" min="2" max="14" step="1" value="6"><span class="val" id="valPen">6</span></div>
@@ -109,7 +108,8 @@
   <div id="drawWrap"><canvas id="draw"></canvas>
     <div style="position:absolute;right:12px;bottom:12px;display:flex;gap:8px;align-items:center">
       <button id="btnUndo2" title="Strich rückgängig">↩</button>
-      <button class="primary" id="btnSaveVar2" style="padding:9px 16px;width:auto;margin:0">✓ Variante speichern (⏎)</button>
+      <button class="primary" id="btnSaveVar2" style="padding:9px 16px;width:auto;margin:0">✓ Speichern (⏎)</button>
+      <button class="primary" id="btnSaveNext" style="padding:9px 16px;width:auto;margin:0">✓ + nächstes Zeichen (⇧⏎)</button>
     </div></div>
   <div id="variantBar"><span id="varLabel">Noch keine Varianten</span></div>
 </div>
@@ -211,8 +211,8 @@ function draw() {
     ctx.textAlign = "center";
     ctx.fillText(UI.t(`„${curChar}“ mit der Maus auf die Grundlinie schreiben`,
                       `Write "${curChar}" on the baseline with your mouse`), w / 2, 30);
-    ctx.fillText(UI.t("dann unten rechts ✓ Speichern (oder ⏎ drücken)",
-                      "then hit ✓ Save at the bottom right (or press ⏎)"), w / 2, 50);
+    ctx.fillText(UI.t("⏎ = speichern & weitere Variante schreiben · ⇧⏎ = speichern & nächstes Zeichen",
+                      "⏎ = save & write another variant · ⇧⏎ = save & next character"), w / 2, 50);
     ctx.textAlign = "left";
   }
   // Striche
@@ -299,7 +299,8 @@ function buildVariantBar() {
   vars.forEach((v, i) => {
     const d = document.createElement("div");
     d.className = "vth";
-    d.title = "Klicken: in den Editor laden (zum Überarbeiten)";
+    d.title = UI.t("Ansehen/Bearbeiten — „Speichern“ legt danach eine neue Variante an",
+                   "View/edit — hitting save afterwards adds a new variant");
     const c = document.createElement("canvas");
     c.width = 156; c.height = 156;
     const g = c.getContext("2d");
@@ -313,9 +314,10 @@ function buildVariantBar() {
     g.stroke();
     d.appendChild(c);
     const del = document.createElement("button");
-    del.className = "del"; del.textContent = "×";
+    del.className = "del"; del.textContent = "🗑";
+    del.title = UI.t("Variante löschen", "Delete variant");
     del.onclick = ev => { ev.stopPropagation(); removeVariant(i); };
-    d.onclick = () => loadVariant(i);
+    d.onclick = () => viewVariant(i);
     d.appendChild(del);
     bar.appendChild(d);
   });
@@ -329,14 +331,13 @@ function persist(mutate) {
 function removeVariant(i) {
   persist(f => { f.glyphsVar[curChar].splice(i, 1); if (!f.glyphsVar[curChar].length) delete f.glyphsVar[curChar]; });
 }
-function loadVariant(i) {
+function viewVariant(i) {
   const v = variants(curChar)[i];
   strokes = v.strokes.map(st => st.map(p => [...p]));
   advance = v.adv;
-  removeVariant(i);
   draw();
 }
-function saveVariant() {
+function saveVariant(jump) {
   if (!strokes.length) { alert(UI.t("Erst etwas zeichnen :)", "Draw something first :)")); return; }
   const adv = effAdv();
   const data = { adv, strokes: strokes.map(st => st.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10])) };
@@ -345,19 +346,20 @@ function saveVariant() {
     f.glyphsVar[" "] = [{ adv: +$("inpSpaceAdv").value, strokes: [] }];
   });
   strokes = []; advance = null; draw();
-  if ($("inpAutoNext").checked) {
+  if (jump) {
     const cs = [...$("inpCharset").value];
     const next = cs.find(c => !variants(c).length);
     if (next) selectChar(next);
   }
 }
-$("btnSaveVar").onclick = saveVariant;
-$("btnSaveVar2").onclick = saveVariant;
+$("btnSaveVar").onclick = () => saveVariant(false);
+$("btnSaveVar2").onclick = () => saveVariant(false);
+$("btnSaveNext").onclick = () => saveVariant(true);
 $("btnUndo2").onclick = () => { strokes.pop(); draw(); };
 document.addEventListener("keydown", e => {
   if (e.target.matches("input, textarea, select")) return;
   if (document.querySelector(".tour-card")) return;   // Tour nutzt Enter selbst
-  if (e.key === "Enter") { e.preventDefault(); saveVariant(); }
+  if (e.key === "Enter") { e.preventDefault(); saveVariant(e.shiftKey); }
   else if ((e.metaKey || e.ctrlKey) && e.key === "z") { e.preventDefault(); strokes.pop(); draw(); }
 });
 $("btnUndo").onclick = () => { strokes.pop(); draw(); };
@@ -425,7 +427,7 @@ const TOUR = [
   { el: "#drawWrap", title: "3 · Schreiben",
     text: "Zeichne das Zeichen mit Maus/Trackpad auf die <b>Grundlinie</b> — kleine Buchstaben bis zur x-Höhe, große bis zur oberen Linie. Die grüne gestrichelte Linie ist der <b>Vorlauf</b> (Abstand zum nächsten Buchstaben), am Griff unten ziehbar." },
   { el: "#btnSaveVar2", title: "4 · Variante speichern",
-    text: "Zeichnung fertig? <b>✓ Speichern unten rechts an der Zeichenfläche</b> (oder einfach <b>⏎ Enter</b> drücken) — danach geht es automatisch zum nächsten leeren Zeichen. In der Leiste unten siehst du alle Varianten: Klick lädt eine zurück in den Editor, × löscht sie." },
+    text: "<b>⏎ Enter</b> speichert die Variante und du bleibst beim Zeichen — gleich noch eine schreiben! <b>⇧ Shift+Enter</b> speichert und springt zum nächsten leeren Zeichen. In der Leiste unten siehst du alle Varianten: Klick zeigt eine groß im Editor (zum Ansehen oder Überarbeiten), 🗑 löscht sie." },
   { el: "#btnVorlage", title: "5 · Oder: auf Papier schreiben",
     text: "Bequemer mit echtem Stift: <b>Papier-Vorlage drucken</b> (öffnet in neuem Tab), ausfüllen, abfotografieren oder scannen und die Bilder direkt hier über <b>„Scans einlesen“</b> importieren — alles läuft im Browser. Danach kannst du jede Glyphe prüfen und nachbessern." },
   { el: "#btnUse", title: "6 · Verwenden & sichern",
@@ -472,7 +474,7 @@ const TOUR_EN = [
   { el: "#drawWrap", title: "3 · Write",
     text: "Draw the character with mouse/trackpad onto the <b>baseline</b> — lowercase up to the x-height, capitals up to the top line. The dashed green line is the <b>advance width</b> (spacing to the next letter), draggable at its handle." },
   { el: "#btnSaveVar2", title: "4 · Save variant",
-    text: "Done drawing? <b>Hit ✓ Save at the bottom right of the canvas</b> (or just press <b>⏎ Enter</b>) — it then jumps to the next empty character automatically. The bar below shows all variants: click one to load it back into the editor, × deletes it." },
+    text: "<b>⏎ Enter</b> saves the variant and keeps the character selected — write another one right away! <b>⇧ Shift+Enter</b> saves and jumps to the next empty character. The bar below shows all variants: click one to view or rework it in the editor, 🗑 deletes it." },
   { el: "#btnVorlage", title: "5 · Or: write on paper",
     text: "More comfortable with a real pen: <b>print the paper template</b> (opens in a new tab), fill it in, photograph or scan it and import the images right here via <b>Import scans</b> — everything runs in your browser. Then review and touch up every glyph." },
   { el: "#btnUse", title: "6 · Use & back up",
@@ -491,7 +493,8 @@ const I18N_EN = {
   'Nach Speichern zum nächsten Zeichen ohne Variante springen': 'After saving, jump to the next character without a variant',
   'Stiftbreite Vorschau': 'Pen width preview',
   '✓ Variante speichern': '✓ Save variant',
-  '✓ Variante speichern (⏎)': '✓ Save variant (⏎)',
+  '✓ Speichern (⏎)': '✓ Save (⏎)',
+  '✓ + nächstes Zeichen (⇧⏎)': '✓ + next character (⇧⏎)',
   '↩ Strich rückgängig': '↩ Undo stroke',
   'Leeren': 'Clear',
   'Lieber auf Papier schreiben?': 'Prefer writing on paper?',
