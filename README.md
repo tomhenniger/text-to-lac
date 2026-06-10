@@ -35,15 +35,21 @@ exportiert ein `.handschrift.json` als Backup bzw. zum Weitergeben.
 
 Bequemer als Maus/Trackpad: die Vorlage drucken und mit echtem Stift ausfüllen.
 
+Die Vorlage (`vorlage.pdf`, in der Erfassungsseite verlinkt) drucken
+(100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, abfotografieren
+oder scannen — und die Bilder direkt in `app/handschrift.html` über
+**„📷 Ausgefüllte Scans einlesen"** importieren. Die komplette Bildverarbeitung
+läuft im Browser (`app/scan.js`); erkannte Buchstaben landen als Varianten in
+der aktuellen Schrift, wo sich jede Glyphe prüfen und nachbessern lässt.
+
+Alternativ gibt es denselben Importer als CLI:
+
 ```bash
-python3 tools/handschrift_vorlage.py --varianten 3   # erzeugt vorlage.pdf
-# … drucken (100%, tatsächliche Größe), ausfüllen, scannen/abfotografieren …
-python3 tools/handschrift_scan.py scan1.jpg scan2.jpg scan3.jpg --name "Meine Handschrift"
+python3 tools/handschrift_vorlage.py --varianten 3   # erzeugt vorlage.pdf neu
+python3 tools/handschrift_scan.py scan1.jpg scan2.jpg --name "Meine Handschrift"
 ```
 
-Ergebnis ist eine `.handschrift.json`, die in `app/handschrift.html` über
-„Laden …" importiert wird — dort jede Glyphe prüfen/nachbessern, dann
-„In der Schreib-App verwenden". Die Eckmarker auf der Vorlage entzerren
+Die Eckmarker auf der Vorlage entzerren
 Schräglage, Perspektive und Druck-Skalierung automatisch; die Seiten-ID-Boxen
 erkennen, welche Seite fotografiert wurde (Reihenfolge egal). Leere Kästchen
 werden übersprungen. Die Tinte wird auf ihre Mittellinie skelettiert —
@@ -63,6 +69,8 @@ Parallele Linien, Kreuzschraffur, Wellenlinien (Squiggle), Spirale, ASCII-Art
 - `app/handschrift.html` — Handschrift-Erfassung (Varianten pro Buchstabe)
 - `app/bild.html` — Bild-Plotter (sechs Zeichen-Stile)
 - `app/lac.js` — gemeinsamer .lac-Export (ZIP-Writer, PathObjects, Prozesse)
+- `app/scan.js` — Scan-Import im Browser (Port von handschrift_scan.py)
+- `app/ui.js` — Dark Mode, Onboarding-Touren, Sprach-Umschaltung (DE/EN)
 - `app/fonts.js` — generierte Fontdaten (nicht von Hand editieren)
 - `app/configs.js` — generierte Maschinen-/Material-/Prozess-Configs (A2L)
 - `tools/convert_fonts.py` — SVG-Fonts → `fonts.js`

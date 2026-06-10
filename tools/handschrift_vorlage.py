@@ -181,8 +181,15 @@ def main():
     }
     out.with_suffix(".pdf").with_name(out.name + "_layout.json").write_text(
         json.dumps(layout, ensure_ascii=False), encoding="utf-8")
+    # Layout zusätzlich als JS für den Browser-Import (app/handschrift.html)
+    app_js = Path(__file__).parent.parent / "app" / "vorlage_layout.js"
+    app_js.write_text(
+        "// generiert von tools/handschrift_vorlage.py — nicht von Hand editieren\n"
+        "window.VORLAGE_LAYOUT = " + json.dumps(layout, ensure_ascii=False) + ";\n",
+        encoding="utf-8")
     print(f"→ {out}.pdf  ({n_pages} Seiten, {len(args.charset)} Zeichen × {args.varianten} Varianten)")
     print(f"→ {out}_layout.json (für handschrift_scan.py)")
+    print(f"→ {app_js} (für den Browser-Import)")
 
 
 if __name__ == "__main__":

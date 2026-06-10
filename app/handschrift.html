@@ -89,7 +89,9 @@
 
   <label>Lieber auf Papier schreiben?</label>
   <div class="btnrow"><a id="btnVorlage" href="../vorlage.pdf" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none;color:var(--text);padding:8px 12px;font-size:13px;border:1px solid var(--border);border-radius:6px;background:var(--panel);display:block">📄 Papier-Vorlage (PDF) öffnen</a></div>
-  <div class="hint">Vorlage drucken (100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, scannen/abfotografieren und mit <code>tools/handschrift_scan.py</code> einlesen — die erzeugte Datei dann hier über „Laden …“ importieren.</div>
+  <div class="btnrow"><button id="btnScan">📷 Ausgefüllte Scans einlesen …</button></div>
+  <input type="file" id="fileScan" accept="image/*" multiple style="display:none">
+  <div class="hint" id="scanStatus">Vorlage drucken (100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, abfotografieren oder scannen und die Bilder hier einlesen — die erkannten Buchstaben landen direkt in dieser Schrift.</div>
 
   <div class="btnrow" style="margin-top:14px"><button class="primary" id="btnUse">In der Schreib-App verwenden</button></div>
   <div class="btnrow"><button id="btnExport">Als Datei sichern (.json)</button><button id="btnImport">Laden …</button></div>
@@ -109,6 +111,8 @@
 </div>
 
 <script src="ui.js?v=2"></script>
+<script src="vorlage_layout.js"></script>
+<script src="scan.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -397,10 +401,41 @@ const TOUR = [
   { el: "#btnSaveVar", title: "4 · Variante speichern",
     text: "Speichert die Zeichnung als Variante und springt automatisch zum nächsten leeren Zeichen. In der Leiste unten siehst du alle Varianten — Klick lädt eine zurück in den Editor, × löscht sie." },
   { el: "#btnVorlage", title: "5 · Oder: auf Papier schreiben",
-    text: "Bequemer mit echtem Stift: <b>Papier-Vorlage drucken</b> (öffnet in neuem Tab), ausfüllen, scannen und mit <code>tools/handschrift_scan.py</code> einlesen. Die erzeugte Datei importierst du über „Laden …“ — und kannst hier jede Glyphe prüfen und nachbessern." },
+    text: "Bequemer mit echtem Stift: <b>Papier-Vorlage drucken</b> (öffnet in neuem Tab), ausfüllen, abfotografieren oder scannen und die Bilder direkt hier über <b>„Scans einlesen“</b> importieren — alles läuft im Browser. Danach kannst du jede Glyphe prüfen und nachbessern." },
   { el: "#btnUse", title: "6 · Verwenden & sichern",
     text: "„In der Schreib-App verwenden“ wechselt direkt rüber mit deiner Schrift ausgewählt. Alles speichert sich automatisch im Browser; „Als Datei sichern“ erstellt ein Backup zum Weitergeben." },
 ];
+/* ====== Scan-Import (Papier-Vorlage) ====== */
+$("btnScan").onclick = () => $("fileScan").click();
+$("fileScan").onchange = async e => {
+  const files = [...e.target.files];
+  e.target.value = "";
+  if (!files.length) return;
+  $("btnScan").disabled = true;
+  const status = $("scanStatus");
+  try {
+    const { glyphsVar, log } = await ScanImport.processFiles(
+      files, window.VORLAGE_LAYOUT, msg => { status.textContent = msg; });
+    const chars = Object.keys(glyphsVar);
+    if (!chars.length) {
+      status.textContent = UI.t("Keine Zeichen erkannt — Fotos zu schräg/unscharf? ", "No characters recognized — photos too skewed/blurry? ") + log.join(" · ");
+      return;
+    }
+    persist(f => {
+      for (const [ch, vars] of Object.entries(glyphsVar))
+        f.glyphsVar[ch] = (f.glyphsVar[ch] || []).concat(vars);
+      if (!f.glyphsVar[" "]) f.glyphsVar[" "] = [{ adv: +$("inpSpaceAdv").value, strokes: [] }];
+    });
+    const total = chars.reduce((a, c) => a + glyphsVar[c].length, 0);
+    status.textContent = `✓ ${chars.length} ${UI.t("Zeichen", "characters")}, ${total} ${UI.t("Varianten übernommen", "variants imported")} — ${log.join(" · ")}`;
+  } catch (err) {
+    console.error(err);
+    status.textContent = UI.t("Fehler beim Einlesen: ", "Import error: ") + err.message;
+  } finally {
+    $("btnScan").disabled = false;
+  }
+};
+
 const TOUR_EN = [
   { el: null, title: "Welcome to handwriting capture!",
     text: "Here you build your own single-line font — with <b>multiple variants per letter</b> that the writer app later picks at random. That is what makes plotted text look genuinely handwritten. (← → to browse, Esc closes.)" },
@@ -413,7 +448,7 @@ const TOUR_EN = [
   { el: "#btnSaveVar", title: "4 · Save variant",
     text: "Saves the drawing as a variant and jumps to the next empty character. The bar below shows all variants — click one to load it back into the editor, × deletes it." },
   { el: "#btnVorlage", title: "5 · Or: write on paper",
-    text: "More comfortable with a real pen: <b>print the paper template</b> (opens in a new tab), fill it in, scan it and import it with <code>tools/handschrift_scan.py</code>. Load the resulting file via the Load button — then review and touch up every glyph here." },
+    text: "More comfortable with a real pen: <b>print the paper template</b> (opens in a new tab), fill it in, photograph or scan it and import the images right here via <b>Import scans</b> — everything runs in your browser. Then review and touch up every glyph." },
   { el: "#btnUse", title: "6 · Use & back up",
     text: "Use in writer app switches right over with your font selected. Everything saves automatically in the browser; Save as file creates a backup you can share." },
 ];
@@ -436,6 +471,9 @@ const I18N_EN = {
   '📄 Papier-Vorlage (PDF) öffnen': '📄 Open paper template (PDF)',
   'Vorlage drucken (100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, scannen/abfotografieren und mit': 'Print the template (100 %, actual size), fill it in with a dark pen, scan/photograph it and import it with',
   'einlesen — die erzeugte Datei dann hier über "Laden …" importieren.': '— then load the resulting file here via "Load …".',
+  '📷 Ausgefüllte Scans einlesen …': '📷 Import filled-in scans …',
+  'Vorlage drucken (100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, abfotografieren oder scannen und die Bilder hier einlesen — die erkannten Buchstaben landen direkt in dieser Schrift.':
+    'Print the template (100 %, actual size), fill it in with a dark pen, photograph or scan it and import the images here — recognized letters go straight into this font.',
   'In der Schreib-App verwenden': 'Use in writer app',
   'Als Datei sichern (.json)': 'Save as file (.json)',
   'Laden …': 'Load …',

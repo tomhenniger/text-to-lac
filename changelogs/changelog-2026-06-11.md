@@ -2,6 +2,13 @@
 
 ## Neue Features
 
+- Scan-Import läuft jetzt komplett im Browser: ausgefüllte Papier-Vorlagen
+  direkt in der Handschrift-Erfassung über „📷 Ausgefüllte Scans einlesen"
+  importieren — kein Python mehr nötig (`app/scan.js`, JS-Port der gesamten
+  Pipeline: Marker-Entzerrung, Seiten-ID, Hilfslinien-Filter, Skelettierung,
+  Pfadverfolgung; liefert identische Ergebnisse wie die CLI und braucht für
+  drei 600-dpi-Scans ~5 Sekunden)
+
 - Onboarding-Touren für alle drei Tools: Schritt-für-Schritt-Präsentation mit
   Hervorhebung der Bedienelemente, startet automatisch beim ersten Besuch und
   ist jederzeit über den ❓-Button neu startbar (Pfeiltasten/Esc-Steuerung)

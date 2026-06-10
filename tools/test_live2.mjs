@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch();
+const page = await browser.newPage();
+let errors = 0;
+page.on('pageerror', e => { errors++; console.log('EXC:', e.message); });
+await page.goto('https://tomhenniger.github.io/text-to-lac/');
+await page.waitForTimeout(500);
+console.log('Landing — Sprache:', await page.evaluate(() => UI.lang()), '| Fehler:', errors);
+await page.goto('https://tomhenniger.github.io/text-to-lac/app/index.html');
+await page.waitForTimeout(800);
+const tour = await page.locator('.tour-card h3').textContent().catch(() => 'keine');
+console.log('Text-App — Tour:', JSON.stringify(tour), '| Fehler gesamt:', errors);
+await browser.close();
