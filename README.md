@@ -1,6 +1,6 @@
 # Handschrift — pen plotter tools for Bambu Lab
 
-🇩🇪 **[Deutsche Version](README.de.md)** · Live: https://tomhenniger.github.io/text-to-lac/
+🇩🇪 **[Deutsche Version](README.de.md)** · Live: **https://handschrift.art**
 
 **Handschrift** (German for "handwriting") is a web app suite that turns text
 and images into `.lac` project files for Bambu Suite — for writing with the
