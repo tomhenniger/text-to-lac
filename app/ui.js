@@ -46,7 +46,48 @@ window.UI = (function () {
     });
   }
 
+  // Basis-Politur: Interaktions-Feedback, Fokus-Ringe, reduzierte Bewegung
+  let baseCssDone = false;
+  function injectBaseCss() {
+    if (baseCssDone) return;
+    baseCssDone = true;
+    const s = document.createElement("style");
+    s.textContent = `
+      button, select, summary, a, label[for], .vth { cursor: pointer; }
+      button, select, a.nav, a.card, summary, .vth, input[type=text], input[type=number], textarea {
+        transition: background-color .15s cubic-bezier(.25,.46,.45,.94),
+                    border-color .15s cubic-bezier(.25,.46,.45,.94),
+                    color .15s cubic-bezier(.25,.46,.45,.94),
+                    box-shadow .15s cubic-bezier(.25,.46,.45,.94);
+      }
+      button:not(.primary):not(.del):hover { border-color: var(--muted); }
+      input[type=text]:hover, input[type=number]:hover, textarea:hover, select:hover { border-color: var(--muted); }
+      input[type=text]:focus, input[type=number]:focus, textarea:focus, select:focus {
+        border-color: var(--accent); outline: none; }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      input[type=text]:focus-visible, input[type=number]:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; }
+      #sidebar { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+      #sidebar::-webkit-scrollbar { width: 8px; }
+      #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      #sidebar::-webkit-scrollbar-track { background: transparent; }
+      details > summary { list-style: none; position: relative; padding-right: 32px; }
+      details > summary::-webkit-details-marker { display: none; }
+      details > summary::after {
+        content: ""; position: absolute; right: 13px; top: 50%; width: 7px; height: 7px;
+        border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted);
+        transform: translateY(-70%) rotate(45deg);
+        transition: transform .18s cubic-bezier(.25,.46,.45,.94);
+      }
+      details[open] > summary::after { transform: translateY(-30%) rotate(225deg); }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
   function initTheme() {
+    injectBaseCss();
     let saved = null;
     try { saved = localStorage.getItem(THEME_KEY); } catch {}
     apply(saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));

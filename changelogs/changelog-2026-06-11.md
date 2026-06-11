@@ -27,6 +27,17 @@
 
 ## UI-Änderungen
 
+- UI-Feinschliff (sehr cleanes UI): getönte Neutraltöne Richtung Markengrün
+  statt reinem Weiß/Schwarz, sanfte Hover-Transitions (150 ms) auf allen
+  Bedienelementen, sichtbare Fokus-Ringe für Tastaturnavigation,
+  prefers-reduced-motion respektiert, dezente Sidebar-Scrollbar, einheitliche
+  Chevrons an den Sektionen statt Browser-Dreiecken, klarere
+  Titel-Hierarchie; Landing: Wortmarke „schreibt sich selbst"
+  (Stroke-Animation), festes 3-Spalten-Raster; PRODUCT.md/DESIGN.md
+  dokumentieren Produkt- und Design-Sprache
+- handschrift.js.org beantragt (js-org/js.org PR #11585), CNAME konfiguriert
+
+
 - Emojis durch einheitliche SVG-Strich-Icons ersetzt (Navigation, Theme,
   Tour, Werkzeuge, Papierkorb, Kamera, Würfel ...) — Icon-Set in app/ui.js,
   erbt die Textfarbe und passt zum Stift-Thema

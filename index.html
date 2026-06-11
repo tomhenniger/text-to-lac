@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Handschrift — Pen-Plotter-Tools für Bambu Lab</title>
 <style>
-  :root { --accent: #00ae42; --text: #1c1e21; --muted: #6b7280; --bg: #f4f5f7;
-          --panel: #ffffff; --border: #d9dce1; }
-  html[data-theme="dark"] { --text: #e7eaee; --muted: #9aa3af; --bg: #15171b;
-          --panel: #1f232a; --border: #353b45; }
+  :root { --accent: #00ae42; --text: #1b201d; --muted: #68716c; --bg: #f4f6f5;
+          --panel: #fcfdfc; --border: #d8ddda; }
+  html[data-theme="dark"] { --text: #e6eae7; --muted: #98a29c; --bg: #141715;
+          --panel: #1d2220; --border: #343b37; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; color: var(--text);
          background: var(--bg); display: flex; min-height: 100vh; align-items: center; justify-content: center; }
   #btnTheme { position: fixed; top: 14px; right: 14px; padding: 6px 10px; font-size: 15px;
@@ -16,16 +16,20 @@
   main { max-width: 720px; padding: 40px 24px; }
   h1 { font-size: 28px; margin: 0 0 6px; }
   .wordmark { height: 58px; width: auto; max-width: 100%; color: var(--text); display: block; }
+  .wordmark path { stroke-dasharray: 6000; stroke-dashoffset: 6000;
+                   animation: hsdraw 2.4s cubic-bezier(.22,.61,.36,1) .2s forwards; }
+  @keyframes hsdraw { to { stroke-dashoffset: 0; } }
   p.brand { color: var(--muted); margin: 4px 0 0; font-size: 15px; }
-  p.sub { color: var(--muted); margin: 0 0 28px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  p.sub { color: var(--muted); margin: 0 0 30px; max-width: 56ch; line-height: 1.55; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
   a.card { display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
            padding: 18px 16px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
   a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
   .card .icon { color: var(--accent); }
-  .card h2 { font-size: 16px; margin: 8px 0 4px; }
+  .card h2 { font-size: 15.5px; margin: 10px 0 5px; }
   .card p { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.5; }
-  footer { margin-top: 30px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  footer { margin-top: 34px; font-size: 12px; color: var(--muted); line-height: 1.6; }
   footer a { color: var(--accent); }
 </style>
 </head>
@@ -56,7 +60,7 @@
   </footer>
 </main>
 <span style="position:fixed;top:14px;right:14px;display:flex;gap:8px"><button id="btnLang" style="padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer">EN</button><button id="btnTheme" style="position:static;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer"></button></span>
-<script src="app/ui.js?v=4"></script>
+<script src="app/ui.js?v=5"></script>
 <script>
 UI.initTheme();
 function applyLangDefaults() {
