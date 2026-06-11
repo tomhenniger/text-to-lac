@@ -35,7 +35,6 @@
   Titel-Hierarchie; Landing: Wortmarke „schreibt sich selbst"
   (Stroke-Animation), festes 3-Spalten-Raster; PRODUCT.md/DESIGN.md
   dokumentieren Produkt- und Design-Sprache
-- handschrift.js.org beantragt (js-org/js.org PR #11585), CNAME konfiguriert
 
 
 - Emojis durch einheitliche SVG-Strich-Icons ersetzt (Navigation, Theme,
