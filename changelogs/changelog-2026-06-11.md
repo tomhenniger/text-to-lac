@@ -119,6 +119,11 @@
 
 ## Sonstiges
 
+- README jetzt zweisprachig: README.md auf Englisch (Standard für
+  GitHub-Besucher, mit Live-Link), deutsche Fassung als README.de.md —
+  beide untereinander verlinkt
+
+
 - Projekt auf GitHub veröffentlicht: https://github.com/tomhenniger/text-to-lac
   (persönlicher Account, öffentlich) mit Landing-Page (`index.html` im Root)
 - GitHub Pages aktiviert und verifiziert: https://tomhenniger.github.io/text-to-lac/

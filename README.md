@@ -1,110 +1,116 @@
-# Handschrift — Pen-Plotter-Tools für Bambu Lab
+# Handschrift — pen plotter tools for Bambu Lab
 
-**Handschrift** ist eine Webapp-Suite, die Text und Bilder in `.lac`-Projektdateien für die Bambu Suite umwandelt —
-zum Schreiben mit dem Pen Holder des A2L. Mit Live-Vorschau, frei wählbaren
-Schriften und Handschrift-Variation (kein Buchstabe gleicht dem anderen).
+🇩🇪 **[Deutsche Version](README.de.md)** · Live: https://tomhenniger.github.io/text-to-lac/
 
-## Benutzung
+**Handschrift** (German for "handwriting") is a web app suite that turns text
+and images into `.lac` project files for Bambu Suite — for writing with the
+pen holder of the A2L. Live preview, a library of single-line fonts, and
+per-letter handwriting variation (no two characters look alike). No server,
+no build step: everything runs in your browser.
 
-`app/index.html` im Browser öffnen (Doppelklick genügt, kein Server nötig).
+## Usage
 
-1. **Text** eingeben (mehrzeilig, Umlaute und ß funktionieren)
-2. **Schrift** wählen — 18 eingebaute Ein-Linien-Fonts (Hershey/EMS, ideal für
-   Stifte), die **eigene Handschrift** (siehe unten) oder TTF/OTF
-   (wird als Umriss gezeichnet, braucht Internet)
-3. **Handschrift-Variation** einstellen: Drehung, Größe, Grundlinie, Abstand,
-   Neigung und Linien-Zittern streuen pro Buchstabe (deterministisch über Seed,
-   „Neu würfeln" erzeugt eine neue Variante)
-4. **Positionieren**: Zeile ziehen = Zeile verschieben, Shift+Ziehen = ganzer
-   Text, Mausrad = Zoom
-5. **Als .lac exportieren** → Datei in der Bambu Suite öffnen. Der Prozess
-   „Stift zeichnen" (KCPenDraw) und das Material „Generic 80g Printer Paper"
-   sind bereits zugewiesen; Material lässt sich in der Suite einfach ändern.
+Open `app/index.html` in a browser (double-click works, no server needed) —
+or use the hosted version linked above.
 
-## Eigene Handschrift erfassen
+1. Enter your **text** (multi-line; umlauts and ß work)
+2. Pick a **font** — 18 built-in single-line fonts (Hershey/EMS, ideal for
+   pens), your **own handwriting** (see below), or a TTF/OTF
+   (drawn as outline, needs internet)
+3. Tune the **handwriting variation**: rotation, size, baseline, spacing,
+   slant and line jitter scatter per letter (deterministic via seed,
+   "Reroll" creates a new variation)
+4. **Arrange**: drag letters individually, click a letter to cycle its
+   captured variants, drag a line or the whole block, wheel to zoom
+5. **Export as .lac** and open the file in Bambu Suite. The pen-draw process
+   (KCPenDraw) and the material "Generic 80g Printer Paper" are pre-assigned;
+   the material is easy to change inside the Suite.
 
-`app/handschrift.html` (oder Button „🖊 Eigene Handschrift erfassen" in der App):
-Jeden Buchstaben mit Maus/Trackpad/Stift auf die Hilfslinien schreiben und
-**mehrere Varianten pro Buchstabe** speichern — beim Schreiben wählt die App
-pro Vorkommen zufällig eine Variante (zusätzlich zur normalen Variation).
-Die grüne gestrichelte Linie bestimmt den Vorlauf (Buchstabenbreite).
-Gespeichert wird automatisch im Browser (localStorage); „Als Datei sichern"
-exportiert ein `.handschrift.json` als Backup bzw. zum Weitergeben.
+## Capture your own handwriting
 
-## Handschrift per Papier-Vorlage erfassen (PDF → Stift → Scan)
+`app/handschrift.html` (or the "Capture your handwriting" button in the app):
+write each letter with mouse/trackpad/stylus onto the guide lines and save
+**multiple variants per character** — when writing, the app picks a random
+variant per occurrence (on top of the regular variation). The dashed green
+line sets the advance width. Everything autosaves in the browser
+(localStorage); "Save as file" exports a `.handschrift.json` backup.
 
-Bequemer als Maus/Trackpad: die Vorlage drucken und mit echtem Stift ausfüllen.
+## Capture handwriting via paper template (PDF → pen → scan)
 
-Die Vorlage (`vorlage.pdf`, in der Erfassungsseite verlinkt) drucken
-(100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, abfotografieren
-oder scannen — und die Bilder direkt in `app/handschrift.html` über
-**„📷 Ausgefüllte Scans einlesen"** importieren. Die komplette Bildverarbeitung
-läuft im Browser (`app/scan.js`); erkannte Buchstaben landen als Varianten in
-der aktuellen Schrift, wo sich jede Glyphe prüfen und nachbessern lässt.
+More comfortable than a trackpad: print the template and fill it in with a
+real pen.
 
-Alternativ gibt es denselben Importer als CLI:
+Print the template (`vorlage.pdf`, linked inside the capture page) at 100 %
+scale, fill it in with a dark pen, photograph or scan it — and import the
+images right in `app/handschrift.html` via **"Import filled-in scans"**. The
+entire image pipeline runs in the browser (`app/scan.js`); recognized letters
+land as variants in the current font, where every glyph can be reviewed and
+touched up.
 
-```bash
-python3 tools/handschrift_vorlage.py --varianten 3   # erzeugt vorlage.pdf neu
-python3 tools/handschrift_scan.py scan1.jpg scan2.jpg --name "Meine Handschrift"
-```
-
-Die Eckmarker auf der Vorlage entzerren
-Schräglage, Perspektive und Druck-Skalierung automatisch; die Seiten-ID-Boxen
-erkennen, welche Seite fotografiert wurde (Reihenfolge egal). Leere Kästchen
-werden übersprungen. Die Tinte wird auf ihre Mittellinie skelettiert —
-der Stift fährt also echte Schreiblinien, keine Umrisse.
-
-## Bild-Plotter
-
-`app/bild.html`: wandelt ein Foto/Bild in Stift-Zeichenpfade um. Sechs Stile:
-Parallele Linien, Kreuzschraffur, Wellenlinien (Squiggle), Spirale, ASCII-Art
-(gezeichnet mit Ein-Linien-Fonts oder der eigenen Handschrift) und Konturen
-(Kantenerkennung). Mit Helligkeit/Kontrast/Invertieren, Live-Vorschau und
-.lac-/SVG-Export wie im Text-Schreiber.
-
-## Projektstruktur
-
-- `app/index.html` — die komplette App (Vorschau, Variation, .lac-/SVG-Export)
-- `app/handschrift.html` — Handschrift-Erfassung (Varianten pro Buchstabe)
-- `app/bild.html` — Bild-Plotter (sechs Zeichen-Stile)
-- `app/lac.js` — gemeinsamer .lac-Export (ZIP-Writer, PathObjects, Prozesse)
-- `app/scan.js` — Scan-Import im Browser (Port von handschrift_scan.py)
-- `app/ui.js` — Dark Mode, Onboarding-Touren, Sprach-Umschaltung (DE/EN)
-- `app/fonts.js` — generierte Fontdaten (nicht von Hand editieren)
-- `app/configs.js` — generierte Maschinen-/Material-/Prozess-Configs (A2L)
-- `tools/convert_fonts.py` — SVG-Fonts → `fonts.js`
-- `tools/build_configs.py` — Suite-Presets → `configs.js`
-- `tools/handschrift_vorlage.py` — druckbare PDF-Vorlage + Layout-Datei
-- `tools/handschrift_scan.py` — Scan → Mittellinien-Strokes → `.handschrift.json`
-- `tools/test_export.mjs` — End-to-End-Test (Playwright): Vorschau + Export
-- `tools/test_handwriting.mjs` / `test_scan.py` / `test_scan_import.mjs` — Tests
-  für Handschrift-Erfassung und Scan-Pipeline
-- `tools/svg_fonts/` — Quell-Fonts (Hershey/EMS, SIL OFL, aus techninja/hersheytextjs)
-
-## .lac-Format (Kurzfassung, reverse-engineered)
-
-Eine `.lac` ist ein ZIP (OPC) mit:
-
-- `2D/2dmodel.json` — `canvas_list` mit `obj_list` (Objekte) und `components`
-  (Platzierung als Affine `"a b c d tx ty"`). Vektorpfade sind `PathObject`s
-  mit `path_data` (`M x y L x y …`, absolute Koordinaten in mm, y nach unten,
-  Ursprung = Arbeitsbereich oben links; mehrere `M` = mehrere Teilpfade).
-- `Metadata2D/project_settings.json` — `object_settings` (`process_type`, z.B.
-  `KCPenDraw`), `making_batch_list` (Material + Plattenplatzierung,
-  `process_category: 4` = DRAW). **Darf nicht leer sein**, sonst verweigert
-  die Suite das Laden.
-- `Metadata2D/*.config` — geflachte Maschinen-/Material-/Prozess-Presets.
-  Die Maschinen-Config muss die von der Suite angereicherte Version sein
-  (Presets auf Platte sind unvollständig); `build_configs.py` zieht sie aus
-  dem neuesten Suite-Autosave-Projekt.
-
-## Neu generieren
+The same importer also exists as a CLI:
 
 ```bash
-python3 tools/convert_fonts.py    # Fonts neu konvertieren
-python3 tools/build_configs.py   # Configs neu aus Suite-Presets ziehen
-node tools/test_export.mjs       # E2E-Test (Screenshot + .lac nach /tmp/lac_test)
+python3 tools/handschrift_vorlage.py --varianten 3   # regenerates vorlage.pdf
+python3 tools/handschrift_scan.py scan1.jpg scan2.jpg --name "My Handwriting"
 ```
 
-Getestet mit Bambu Suite 1.3 (FileVersion 01.03.00.00) auf macOS, Juni 2026.
+The corner markers on the template automatically correct skew, perspective
+and print scaling; the page-ID boxes detect which page was photographed
+(order does not matter). Empty cells are skipped. The ink is skeletonized to
+its centerline — the pen draws real writing strokes, not outlines.
+
+## Image plotter
+
+`app/bild.html`: converts a photo/image into pen-drawing paths. Six styles:
+parallel lines, cross hatching, squiggle lines, spiral, ASCII art (drawn with
+single-line fonts or your own handwriting) and contours (edge detection).
+With brightness/contrast/invert controls, live preview and .lac/SVG export
+like the text writer.
+
+## Project structure
+
+- `app/index.html` — the text writer (preview, variation, .lac/SVG export)
+- `app/handschrift.html` — handwriting capture (variants per character)
+- `app/bild.html` — image plotter (six drawing styles)
+- `app/lac.js` — shared .lac export (ZIP writer, PathObjects, processes)
+- `app/scan.js` — in-browser scan import (port of handschrift_scan.py)
+- `app/ui.js` — dark mode, onboarding tours, language switching (DE/EN)
+- `app/fonts.js` — generated font data (do not edit by hand)
+- `app/configs.js` — generated machine/material/process configs (A2L)
+- `tools/convert_fonts.py` — SVG fonts → `fonts.js`
+- `tools/build_configs.py` — Bambu Suite presets → `configs.js`
+- `tools/handschrift_vorlage.py` — printable PDF template + layout file
+- `tools/handschrift_scan.py` — scan → centerline strokes → `.handschrift.json`
+- `tools/test_export.mjs` — end-to-end test (Playwright): preview + export
+- `tools/test_handwriting.mjs` / `test_scan.py` / `test_scan_import.mjs` —
+  tests for handwriting capture and the scan pipeline
+- `tools/svg_fonts/` — source fonts (Hershey/EMS, SIL OFL, from
+  techninja/hersheytextjs)
+
+## The .lac format (short version, reverse-engineered)
+
+A `.lac` file is a ZIP (OPC) containing:
+
+- `2D/2dmodel.json` — `canvas_list` with `obj_list` (objects) and
+  `components` (placement as affine `"a b c d tx ty"`). Vector paths are
+  `PathObject`s with `path_data` (`M x y L x y …`, absolute coordinates in
+  mm, y pointing down, origin at the top-left of the work area; multiple `M`
+  commands = multiple subpaths).
+- `Metadata2D/project_settings.json` — `object_settings` (`process_type`,
+  e.g. `KCPenDraw`) and `making_batch_list` (material + plate placement,
+  `process_category: 4` = DRAW). **Must not be empty**, otherwise the Suite
+  refuses to load the file.
+- `Metadata2D/*.config` — flattened machine/material/process presets. The
+  machine config must be the runtime-enriched version the Suite writes
+  itself (the presets on disk are incomplete); `build_configs.py` pulls it
+  from the most recent Suite autosave project.
+
+## Regenerating
+
+```bash
+python3 tools/convert_fonts.py    # re-convert the fonts
+python3 tools/build_configs.py   # re-pull configs from Bambu Suite presets
+node tools/test_export.mjs       # E2E test (screenshot + .lac to /tmp/lac_test)
+```
+
+Tested with Bambu Suite 1.3 (FileVersion 01.03.00.00) on macOS, June 2026.
