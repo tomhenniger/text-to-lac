@@ -21,8 +21,9 @@
   @keyframes hsdraw { to { stroke-dashoffset: 0; } }
   p.brand { color: var(--muted); margin: 4px 0 0; font-size: 15px; }
   p.sub { color: var(--muted); margin: 0 0 30px; max-width: 56ch; line-height: 1.55; }
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
+  .cards { display: flex; flex-wrap: wrap; gap: 14px; }
+  a.card { flex: 1 1 calc((100% - 14px) / 2); min-width: 0; }
+  @media (max-width: 560px) { a.card { flex-basis: 100%; } }
   a.card { display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
            padding: 18px 16px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
   a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
@@ -65,7 +66,7 @@
   </footer>
 </main>
 <span style="position:fixed;top:14px;right:14px;display:flex;gap:8px"><button id="btnLang" style="padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer">EN</button><button id="btnTheme" style="position:static;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer"></button></span>
-<script src="app/ui.js?v=5"></script>
+<script src="app/ui.js?v=6"></script>
 <script>
 UI.initTheme();
 function applyLangDefaults() {
