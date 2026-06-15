@@ -2087,7 +2087,15 @@ function prettifyFileInputs() {
     inp.parentNode.insertBefore(wrap, inp);
     wrap.appendChild(inp); wrap.appendChild(btn); wrap.appendChild(name);
     btn.onclick = () => inp.click();
-    inp.addEventListener("change", () => { name.textContent = inp.files[0] ? inp.files[0].name : UI.t("keine Datei", "no file"); });
+    inp.addEventListener("change", () => {
+      const f = inp.files[0];
+      name.textContent = f ? f.name : UI.t("keine Datei", "no file");
+      if (f) {   // Dateiname-Feld automatisch aus der importierten Datei füllen
+        const base = f.name.replace(/\.[^.]+$/, "").trim();
+        const fn = $("inpFname");
+        if (fn && base) fn.value = base;
+      }
+    });
   });
   if (window.UI && UI.initIcons) UI.initIcons();
 }
