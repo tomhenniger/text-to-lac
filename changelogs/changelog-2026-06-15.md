@@ -28,6 +28,16 @@
 
 ## UI-Änderungen
 
+- Misc Tools: native File-Inputs (SVG-/Bild-/Audio-Import) durch gestylten „Datei wählen"-Button mit Datei-Icon und Dateinamen ersetzt.
+- Misc Tools: Abstand/Stil des „Neu würfeln"-Buttons im Labyrinth korrigiert (volle Breite, sauberer Abstand).
+- Misc Tools: SVG-Import zeichnet (und exportiert) die Elemente in genau ihrer Dokument-Reihenfolge — Pen-Tool-Strichreihenfolge bleibt erhalten; Hinweis im Tool ergänzt.
+
+## Bugfixes
+
+- Misc Tools / Audio-Waveform: Der „Bars/Auflösung"-Slider wirkte nach dem Laden nicht mehr (Buckets wurden nur einmal beim Dekodieren berechnet). Jetzt werden hochauflösende Peaks gespeichert und bei jeder Slider-Änderung neu auf die gewählte Auflösung heruntergerechnet. Außerdem doppeltes Schließen des `AudioContext` behoben.
+
+## UI-Änderungen (Bild)
+
 - Neuer Eintrag „Strichzeichnung (Mittellinie)" in der Stil-Auswahl des Bild-Modus inkl. eigenem Parameter-Block (Otsu-Checkbox, Schwelle, Auflösung, Mindest-Strichlänge) und Hilfetext (DE/EN).
 - Neue „Multicolor"-Sektion mit Paletten-Editor, Farb-Legende (Zeichen-Reihenfolge) und farbiger Vorschau pro Gruppe.
 - **Einstellbare Hintergrundfarbe der Vorschau-Platte** (Standard Weiß) im Bild-Modus *und* im Text-Writer. Die Platte folgt nicht mehr dem Dark/Light-Theme, sondern der gewählten Papierfarbe — so stimmen die Farbkontraste (besonders im Multicolor) immer (Papier-WYSIWYG). Rand, Raster und Einfarb-Tinte leiten sich automatisch aus der Helligkeit der Hintergrundfarbe ab (heller Hintergrund → dunkle Tinte und umgekehrt).

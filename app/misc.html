@@ -64,6 +64,11 @@
   .toolopts.active { display: block; }
   .qrsub { display: none; }
   .qrsub.active { display: block; }
+  .filepick { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .filepick input[type=file] { display: none; }
+  .filebtn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; }
+  .filepick .fname { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #inpMazeShuffle { width: 100%; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 </style>
 </head>
 <body>
@@ -182,6 +187,7 @@
 <div class="slider"><input type="range" id="inpSvgSimplify" min="0" max="0.5" step="0.01" value="0.05"><span class="val" id="valSvgSimplify"></span></div>
 <div class="checkrow"><input type="checkbox" id="inpSvgClose"><span>Offene Formen schließen</span></div>
 <div class="hint">Nur Umrisse / Linien werden gezeichnet — Füllungen und Farben werden ignoriert. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> sowie <code>&lt;g&gt;</code>-Transformationen werden unterstützt. Die längste Seite wird auf die eingestellte Größe skaliert.</div>
+<div class="hint">Die Elemente werden in genau der Reihenfolge gezeichnet, in der sie in der SVG stehen — schreibst du z. B. mit dem Pen-Tool, bleibt deine Strichreihenfolge erhalten.</div>
       </div>
       <div class="toolopts" data-tool="paper">
 <div class="row"><div><label>Höhe (mm)</label><input type="number" id="inpPaperH" min="10" max="2000" step="1" value="200"></div><div><label>Art</label><select id="inpPaperType"><option value="dots">Punktraster</option><option value="lines">Linien</option><option value="karo" selected>Karo</option><option value="iso">Isometrisch</option><option value="noten">Notenlinien</option><option value="mm">Millimeterpapier</option></select></div></div><label>Abstand (mm)</label><div class="slider"><input type="range" id="inpPaperSpace" min="2" max="20" step="0.5" value="5"><span class="val" id="valPaperSpace"></span></div><div class="hint">Breite = Größe oben. Gerade Linien werden für einen Stift gezeichnet.</div>
@@ -1827,22 +1833,21 @@ function initWave(){
       var done = function(audio){
         if(handled) return; handled = true;
         try{ ctx.close(); }catch(e){}
-        var nBars = Math.max(2, Math.round(+$("inpWaveBars").value) || 160);
         var data = audio.getChannelData(0);
         var len = data.length;
         if(len < 1){ __waveData = null; setStatus(UI.t("Leere Audiospur.","Empty audio track.")); window.__miscRecompute(); return; }
-        var buckets = new Float64Array(nBars);
+        var HR = Math.min(len, 4000);                 // Hochauflösende Peaks; buildWave resampelt daraus
+        var peaks = new Float64Array(HR);
         for(var i=0;i<len;i++){
-          var b = Math.floor(i / len * nBars);
-          if(b >= nBars) b = nBars - 1;
+          var b = Math.floor(i / len * HR);
+          if(b >= HR) b = HR - 1;
           var a = data[i]; if(a < 0) a = -a;
-          if(a > buckets[b]) buckets[b] = a;
+          if(a > peaks[b]) peaks[b] = a;
         }
         var mx = 0;
-        for(var k=0;k<nBars;k++) if(buckets[k] > mx) mx = buckets[k];
-        var norm = new Float64Array(nBars);
-        if(mx > 0) for(var j=0;j<nBars;j++) norm[j] = buckets[j] / mx;
-        __waveData = { amps: norm, bars: nBars };
+        for(var k=0;k<HR;k++) if(peaks[k] > mx) mx = peaks[k];
+        if(mx > 0) for(var j=0;j<HR;j++) peaks[j] = peaks[j] / mx;
+        __waveData = { peaks: peaks };
         window.__miscRecompute();
       };
       var fail = function(){
@@ -1863,7 +1868,7 @@ function initWave(){
 }
 
 function buildWave(){
-  if(!__waveData || !__waveData.amps || __waveData.amps.length < 2){
+  if(!__waveData || !__waveData.peaks || __waveData.peaks.length < 2){
     S.strokes = []; S.cw = 0; S.ch = 0;
     setStatus(UI.t("Audio laden.","Load audio."));
     return;
@@ -1875,9 +1880,18 @@ function buildWave(){
   var penMm = +$("inpPenW").value;
   if(!(penMm > 0)) penMm = 0.4;
 
+  var hw = $("hintWave"); if(hw) hw.textContent = "";   // "Dekodiere…"-Hinweis entfernen
   var style = $("inpWaveStyle").value;
-  var amps = __waveData.amps;
-  var n = amps.length;
+  var N = Math.max(2, Math.round(+$("inpWaveBars").value) || 160);   // Auflösung aus Slider
+  var peaks = __waveData.peaks, HR = peaks.length;
+  var amps = new Float64Array(N);
+  for(var bi=0;bi<N;bi++){
+    var s0 = Math.floor(bi / N * HR), e0 = Math.floor((bi + 1) / N * HR);
+    if(e0 <= s0) e0 = s0 + 1; if(e0 > HR) e0 = HR;
+    var mxb = 0; for(var kk=s0;kk<e0;kk++) if(peaks[kk] > mxb) mxb = peaks[kk];
+    amps[bi] = mxb;
+  }
+  var n = N;
   var mid = height / 2;
   var minHalf = penMm / 2;
   var strokes = [];
@@ -2050,6 +2064,25 @@ function showToolOpts() {
   const tool = $("inpTool").value;
   document.querySelectorAll(".toolopts").forEach(el => el.classList.toggle("active", el.dataset.tool === tool));
 }
+// Native File-Inputs durch gestylten Button + Dateiname ersetzen
+function prettifyFileInputs() {
+  document.querySelectorAll('input[type=file]').forEach(inp => {
+    if (inp.dataset.pretty) return;
+    inp.dataset.pretty = "1";
+    const wrap = document.createElement("div");
+    wrap.className = "filepick";
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "filebtn";
+    btn.innerHTML = '<span data-icon="file"></span> ' + UI.t("Datei wählen …", "Choose file …");
+    const name = document.createElement("span");
+    name.className = "fname"; name.textContent = UI.t("keine Datei", "no file");
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp); wrap.appendChild(btn); wrap.appendChild(name);
+    btn.onclick = () => inp.click();
+    inp.addEventListener("change", () => { name.textContent = inp.files[0] ? inp.files[0].name : UI.t("keine Datei", "no file"); });
+  });
+  if (window.UI && UI.initIcons) UI.initIcons();
+}
 $("inpTool").addEventListener("input", () => { showToolOpts(); recompute(); });
 $("btnSpLoad").onclick = async () => {
   busy = true; $("btnSpLoad").disabled = true;
@@ -2121,6 +2154,7 @@ const I18N_EN = {
 const I18N_GROUPS = { 'Codes': 'Codes', 'Vorlagen & Utility': 'Templates & utility',
   'Generative Kunst': 'Generative art', 'Audio': 'Audio' };
 Object.assign(I18N_EN, {"SVG-Import":"SVG import","SVG-Datei":"SVG file","Noch keine Datei geladen.":"No file loaded yet.","Kurven-Auflösung (Genauigkeit)":"Curve resolution (accuracy)","Vereinfachung (Punkte reduzieren)":"Simplification (reduce points)","Offene Formen schließen":"Close open shapes","Nur Umrisse / Linien werden gezeichnet — Füllungen und Farben werden ignoriert. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> sowie <code>&lt;g&gt;</code>-Transformationen werden unterstützt. Die längste Seite wird auf die eingestellte Größe skaliert.":"Only outlines / lines are drawn — fills and colors are ignored. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> and <code>&lt;g&gt;</code> transforms are supported. The longest side is scaled to the chosen size.","SVG-Datei laden.":"Load an SVG file.","SVG konnte nicht gelesen werden.":"Could not read SVG.","Fehler beim Parsen: ":"Parse error: ","Datei konnte nicht gelesen werden.":"Could not read file.","Keine zeichenbaren Pfade in der SVG gefunden.":"No drawable paths found in the SVG.","SVG hat keine messbare Geometrie.":"SVG has no measurable geometry.","Nach Vereinfachung keine Linien übrig.":"No lines left after simplification.","Pfade":"paths","Punkte":"Points","Höhe (mm)":"Height (mm)","Art":"Type","Punktraster":"Dot grid","Linien":"Lines","Karo":"Squares","Isometrisch":"Isometric","Notenlinien":"Staff lines","Millimeterpapier":"Graph paper","Abstand (mm)":"Spacing (mm)","Breite = Größe oben. Gerade Linien werden für einen Stift gezeichnet.":"Width = size above. Straight lines drawn for a single pen.","Raster zu fein/groß für diese Maße.":"Grid too fine/large for these dimensions."," Linien":" lines","Kalibrierblatt: Breite = Größe, Höhe automatisch. Findet Voll-Füll-Abstand, Maßgenauigkeit und Rundlauf.":"Calibration sheet: width = size, height auto. Finds solid-fill spacing, dimensional accuracy and round travel.","Quadrat-Größe":"Square size","Skala-Länge":"Scale length","Konzentrische Kreise":"Concentric circles","Element-Abstand":"Element spacing","Passkreuze in den Ecken":"Registration crosses in corners","Füllung als durchgehender Pfad (weniger Stiftheber)":"Fill as continuous path (fewer pen-ups)","Kurventyp":"Curve type","Moore (geschlossen)":"Moore (closed)","Drachenkurve":"Dragon curve","Ordnung":"Order","Höhere Ordnung = viel dichter. Eine einzige durchgehende Linie. Peano wird ab Ordnung 6 begrenzt; die Drachenkurve füllt ihre eigene Bounding-Box in das Zielmaß.":"Higher order = much denser. A single continuous line. Peano is capped from order 6 on; the dragon curve fits its own bounding box into the target size.","Keine Punkte erzeugt.":"No points generated.","(Ordnung auf 5 begrenzt)":"(order capped at 5)","Spirograph (Hypotrochoide)":"Spirograph (hypotrochoid)","Lissajous-Figur":"Lissajous figure","Guilloché (Banknoten-Rosette)":"Guilloché (banknote rosette)","Parameter A":"Parameter A","Parameter B":"Parameter B","Parameter C":"Parameter C","Umläufe":"Revolutions","Detailgrad (Punkte)":"Detail (points)","A, B und C werden je nach Typ unterschiedlich gedeutet. Spirograph: R=A, r=B, d=C. Lissajous: Frequenzen A & B, Phase aus C. Guilloché: Welligkeit A, Rotation B, Amplitude C. Eine einzige durchgehende Linie — ideal für einen Stift.":"A, B and C are interpreted differently per type. Spirograph: R=A, r=B, d=C. Lissajous: frequencies A & B, phase from C. Guilloché: ripple A, rotation B, amplitude C. A single continuous line — ideal for one pen.","Ungültige Parameter — keine Kurve erzeugt.":"Invalid parameters — no curve produced.","Kurve entartet (zu klein) — Parameter anpassen.":"Curve degenerate (too small) — adjust parameters.","Kurve entartet — Parameter anpassen.":"Curve degenerate — adjust parameters."," pts":" pts","Spalten":"Columns","Höhe":"Height","Seed":"Seed","Neu würfeln":"Reshuffle","Rechteckiges Labyrinth (Recursive Backtracker). Eingang oben links, Ausgang unten rechts. Wände werden zu langen Linien zusammengefasst, um Stiftwechsel zu minimieren.":"Rectangular maze (recursive backtracker). Entrance top-left, exit bottom-right. Walls are merged into long lines to minimise pen-ups.","Ungültige Breite.":"Invalid width.","Kein Labyrinth erzeugt.":"No maze generated.","Labyrinth":"Maze"," Zellen":" cells","×":"×","Funktion y = f(x)":"Function y = f(x)","Erlaubt: + - * / ^, Klammern, x, pi, e und sin cos tan asin acos atan exp ln log sqrt abs floor ceil round sign. Beispiel: sin(x)*exp(-abs(x)/4)":"Allowed: + - * / ^, parentheses, x, pi, e and sin cos tan asin acos atan exp ln log sqrt abs floor ceil round sign. Example: sin(x)*exp(-abs(x)/4)","x von":"x from","x bis":"x to","Achsen, Gitter und Teilstriche zeichnen":"Draw axes, grid and ticks","x bis muss größer als x von sein.":"x to must be greater than x from.","Parsefehler: ":"Parse error: ","Funktion liefert keine endlichen Werte im Bereich.":"Function yields no finite values in range.","Nichts zu zeichnen.":"Nothing to draw.","y-Bereich ":"y range ","TSP- / Stipple-Art":"TSP / stipple art","Bild":"Image","Invertieren (helle Bereiche füllen)":"Invert (fill bright areas)","Verteilt Punkte nach Helligkeit (dunkle Bereiche dichter) und verbindet sie zu einer einzigen, durchgehenden Linie (Travelling-Salesman-Art). Lädt am besten ein kontrastreiches Motiv. Die Optimierung kann einen Moment dauern und ist eine Näherung. Deterministisch pro Bild + Punktzahl.":"Distributes points by brightness (denser in dark areas) and connects them into a single continuous line (travelling-salesman art). Works best with a high-contrast image. Optimisation may take a moment and is an approximation. Deterministic per image + point count.","Bild konnte nicht geladen werden.":"Could not load image.","Bild laden.":"Load an image.","Zu wenig Kontrast – anderes Bild oder mehr Punkte.":"Too little contrast – try another image or more points.","Zu wenig Punkte.":"Too few points.","Audiodatei":"Audio file","Audio laden.":"Load audio.","Stil":"Style","Balken":"Bars","Hüllkurve":"Envelope","Linie":"Line","Balken / Auflösung":"Bars / resolution","Dekodiere …":"Decoding …","Web Audio nicht verfügbar.":"Web Audio unavailable.","Leere Audiospur.":"Empty audio track.","Audio konnte nicht dekodiert werden.":"Could not decode audio.","bars":"bars","envelope":"envelope","line":"line"});
+I18N_EN["Die Elemente werden in genau der Reihenfolge gezeichnet, in der sie in der SVG stehen — schreibst du z. B. mit dem Pen-Tool, bleibt deine Strichreihenfolge erhalten."] = "Elements are drawn in exactly the order they appear in the SVG — if you write with the pen tool, your stroke order is preserved.";
 UI.initTheme();
 UI.onThemeChange(() => draw());
 function applyLangDefaults() {
@@ -2133,6 +2167,7 @@ UI.initLang(I18N_EN);
 applyLangDefaults();
 UI.onLangChange(() => { applyLangDefaults(); recompute(); });
 showToolOpts();
+prettifyFileInputs();
 resize();
 recompute();
 </script>
