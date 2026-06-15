@@ -14,159 +14,116 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
-         color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-  #sidebar { width: 320px; min-width: 320px; background: var(--panel); border-right: 1px solid var(--border);
-             overflow-y: auto; padding: 14px 16px 40px; }
-  #main { flex: 1; position: relative; }
+         color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; font-size: 13px; }
+  /* Menüleiste */
+  #menubar { display: flex; align-items: center; gap: 2px; height: 34px; padding: 0 8px; background: var(--panel);
+             border-bottom: 1px solid var(--border); flex: none; position: relative; z-index: 100; }
+  .menubtn { padding: 5px 10px; border: 0; background: none; color: var(--text); font-size: 13px; border-radius: 5px; cursor: pointer; }
+  .menubtn:hover, .menubtn.open { background: var(--hover); }
+  #menubar .sp { flex: 1; }
+  #menubar .nav, #menubar .tb { width: 30px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+              border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--muted); cursor: pointer; text-decoration: none; padding: 0; font-size: 12px; }
+  #menubar .nav:hover, #menubar .tb:hover { border-color: var(--accent); color: var(--text); }
+  .menu { position: absolute; top: 32px; min-width: 210px; background: var(--panel); border: 1px solid var(--border);
+          border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.22); padding: 5px; display: none; z-index: 101; }
+  .menu.open { display: block; }
+  .menu .mi { padding: 6px 10px; border-radius: 5px; cursor: pointer; display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+  .menu .mi:hover { background: var(--hover); }
+  .menu .chk { width: 14px; color: var(--accent); flex: none; }
+  .menu .sep { height: 1px; background: var(--border); margin: 5px 4px; }
+  /* Arbeitsbereich */
+  #workspace { flex: 1; display: flex; min-height: 0; }
+  #toolbar { width: 54px; flex: none; background: var(--panel); border-right: 1px solid var(--border);
+             padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; overflow-y: auto; }
+  .toolbtn { width: 40px; height: 40px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text);
+             cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .toolbtn:hover { background: var(--hover); border-color: var(--border); }
+  .tbsep { width: 28px; height: 1px; background: var(--border); margin: 3px 0; }
+  #main { flex: 1; position: relative; min-width: 0; }
   canvas { display: block; width: 100%; height: 100%; cursor: default; }
-  .topnav { display: flex; gap: 6px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
-  .topnav a.nav { font-size: 13.5px; color: var(--muted); text-decoration: none; padding: 5px 8px;
-                  border: 1px solid var(--border); border-radius: 6px; background: var(--panel); white-space: nowrap; }
-  .topnav a.nav:hover { border-color: var(--accent); color: var(--text); }
-  .topnav button { padding: 5px 8px; font-size: 12.5px; }
-  .topnav .sp { flex: 1; }
-  h1 { font-size: 17px; letter-spacing: -0.01em; margin: 2px 0 14px; }
-  h1 small { color: var(--muted); font-weight: 400; font-size: 11.5px; display: block; margin-top: 3px; }
-  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--panel); }
-  details summary { cursor: pointer; padding: 9px 12px; font-weight: 600; font-size: 13px; user-select: none; }
-  details[open] summary { border-bottom: 1px solid var(--border); }
-  .body { padding: 10px 12px; }
-  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
-  label:first-child { margin-top: 0; }
-  select, input[type=text], input[type=number] { width: 100%; padding: 6px 8px; font-size: 13px;
-             border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
-  .row { display: flex; gap: 8px; } .row > div { flex: 1; }
-  button { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
-           background: var(--panel); color: var(--text); cursor: pointer; }
-  button:hover { background: var(--hover); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
-                   width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
-  button.primary:hover { background: var(--accent-dark); }
-  .hint { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
-  .checkrow { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; font-size: 12.5px; }
-  .checkrow input { accent-color: var(--accent); }
-  .btnrow { display: flex; gap: 8px; margin-top: 8px; } .btnrow button { flex: 1; }
-  /* Layer-Liste */
+  /* Rechtes Panel */
+  #rightpanel { width: 360px; flex: none; background: var(--panel); border-left: 1px solid var(--border);
+                display: flex; flex-direction: column; min-height: 0; }
+  .panelhead { padding: 8px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
+  .panelhead .sp { flex: 1; }
+  #layersPanel { display: flex; flex-direction: column; max-height: 42%; min-height: 120px; border-bottom: 1px solid var(--border); }
+  #layersBody { overflow-y: auto; padding: 8px 10px; }
   #layerList { display: flex; flex-direction: column; gap: 4px; }
   .lrow { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border: 1px solid var(--border);
           border-radius: 6px; font-size: 12.5px; cursor: pointer; background: var(--panel); }
   .lrow.sel { border-color: var(--accent); background: var(--hover); }
   .lrow .ln { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lrow .ic { width: 22px; height: 24px; padding: 0; font-size: 13px; line-height: 1; border-radius: 5px; }
-  #statusbar { position: fixed; bottom: 0; left: 320px; right: 0; padding: 4px 12px; font-size: 11px;
-               color: var(--muted); background: var(--panel); border-top: 1px solid var(--border); z-index: 5; }
-  /* Editor-Panel (eingebettetes Tool) */
-  #editor { position: fixed; top: 0; right: 0; width: 380px; height: 100vh; background: var(--panel);
-            border-left: 1px solid var(--border); z-index: 60; display: none; flex-direction: column; }
-  #editor.open { display: flex; }
-  #editorHead { padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border);
-                font-weight: 600; font-size: 13px; }
-  #editorHead .sp { flex: 1; }
-  #editorBody { flex: 1; position: relative; }
+  #propsPanel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #propsForm { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  #editorBody { flex: 1; position: relative; min-height: 0; }
   .toolframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: var(--bg); }
   .toolframe.active { display: block; }
+  /* gemeinsame Inputs */
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  label:first-child { margin-top: 0; }
+  select, input[type=text], input[type=number] { width: 100%; padding: 6px 8px; font-size: 13px;
+             border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
+  .row { display: flex; gap: 8px; } .row > div { flex: 1; }
+  button { padding: 7px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); cursor: pointer; }
+  button:hover { background: var(--hover); }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
+  .btnrow { display: flex; gap: 8px; margin-top: 8px; } .btnrow button { flex: 1; }
+  #statusbar { flex: none; padding: 4px 12px; font-size: 11px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--border); }
+  #hidden { display: none; }
 </style>
 </head>
 <body>
-<div id="sidebar">
-  <div class="topnav">
-    <a class="nav" href="../index.html" title="Home" data-icon="home"></a>
-    <a class="nav" href="index.html" title="Text" data-icon="text"></a>
-    <a class="nav" href="bild.html" title="Bild" data-icon="image"></a>
-    <a class="nav" href="misc.html" title="Misc" data-icon="tools"></a>
-    <span class="sp"></span>
-    <button id="btnLang">EN</button><button id="btnTheme"></button>
-  </div>
-  <h1>Layer-Studio<small>Werkzeuge als Layer kombinieren — Export als .lac</small></h1>
-
-  <details open>
-    <summary>Layer</summary>
-    <div class="body">
-      <select id="addSel">
-        <option value="">+ Layer hinzufügen …</option>
-        <optgroup label="Inhalt">
-          <option value="text">Text</option>
-          <option value="image">Bild</option>
-          <option value="misc:model">3D-Modell</option>
-        </optgroup>
-        <optgroup label="Misc" id="miscOpts"></optgroup>
-      </select>
-      <div id="layerList" style="margin-top:10px"></div>
-      <div class="hint" id="layerHint">Noch keine Layer. Oben hinzufügen, dann auf der Fläche ziehen (Skalieren/Drehen an den Griffen).</div>
-    </div>
-  </details>
-
-  <details open id="selDetails" style="display:none">
-    <summary>Ausgewählter Layer</summary>
-    <div class="body">
-      <button id="btnEdit" style="width:100%">✎ Tool öffnen / bearbeiten</button>
-      <div class="row" style="margin-top:8px">
-        <div><label>X (mm)</label><input type="number" id="inLx" step="1"></div>
-        <div><label>Y (mm)</label><input type="number" id="inLy" step="1"></div>
-      </div>
-      <div class="row">
-        <div><label>Skalierung</label><input type="number" id="inLs" step="0.05" min="0.05"></div>
-        <div><label>Drehung (°)</label><input type="number" id="inLr" step="1"></div>
-      </div>
-      <div class="btnrow">
-        <button id="btnDup">Duplizieren</button>
-        <button id="btnDel">Löschen</button>
-      </div>
-      <div class="hint">Eckgriffe = skalieren (gegenüberliegende Ecke bleibt fix; Alt/Cmd = um die Mitte). Kreis oben = drehen (Shift = 15°).</div>
-    </div>
-  </details>
-
-  <details open>
-    <summary>Arbeitsfläche</summary>
-    <div class="body">
-      <div class="row">
-        <div><label>Breite (mm)</label><input type="number" id="inMatW" value="300" min="50" max="600"></div>
-        <div><label>Höhe (mm)</label><input type="number" id="inMatH" value="300" min="50" max="600"></div>
-      </div>
-      <label>Referenz-Blatt</label>
-      <select id="inPaper">
-        <option value="none">keins</option>
-        <option value="A4P" selected>A4 hoch</option>
-        <option value="A4L">A4 quer</option>
-        <option value="A5P">A5 hoch</option>
-        <option value="A3P">A3 hoch</option>
-        <option value="Letter">Letter</option>
-      </select>
-      <div class="checkrow"><input type="checkbox" id="inSnap" checked><span>Einrasten (Snapping)</span></div>
-      <div class="hint">Rastet an Build-Plate, A4-Blatt und anderen Layern ein (Kanten + Mitte). Shift gedrückt halten = Snapping vorübergehend aus.</div>
-    </div>
-  </details>
-
-  <details open>
-    <summary>Export</summary>
-    <div class="body">
-      <label>Dateiname</label>
-      <input type="text" id="inFname" value="Komposition">
-      <button class="primary" id="btnExport">Als .lac exportieren</button>
-      <div class="btnrow"><button id="btnSvg">Als SVG exportieren</button></div>
-      <div class="hint">Alle sichtbaren Layer werden als benannte Objekte in eine .lac gepackt (Prozess: Stift zeichnen).</div>
-    </div>
-  </details>
-
-  <details open>
-    <summary>Projekt</summary>
-    <div class="body">
-      <div class="btnrow">
-        <button id="btnSave">Layout speichern</button>
-        <button id="btnLoad">Layout laden</button>
-      </div>
-      <input type="file" id="fileLoad" accept=".handschrift,application/json" style="display:none">
-      <div class="hint">Speichert das Layout als <code>.handschrift</code>-Datei (Layer, Position, Parameter und Striche). Zum Weitermachen oder Weitergeben.</div>
-    </div>
-  </details>
+<div id="menubar">
+  <button class="menubtn" data-menu="file">Datei</button>
+  <button class="menubtn" data-menu="edit">Bearbeiten</button>
+  <button class="menubtn" data-menu="view">Ansicht</button>
+  <span class="sp"></span>
+  <a class="nav" href="../index.html" title="Home" data-icon="home"></a>
+  <button class="tb" id="btnLang">EN</button>
+  <button class="tb" id="btnTheme"></button>
 </div>
 
-<div id="main"><canvas id="cv"></canvas></div>
+<div id="workspace">
+  <div id="toolbar"></div>
+  <div id="main"><canvas id="cv"></canvas></div>
+  <div id="rightpanel">
+    <div id="layersPanel">
+      <div class="panelhead">Ebenen</div>
+      <div id="layersBody">
+        <div id="layerList"></div>
+        <div class="hint" id="layerHint">Noch keine Ebenen. Werkzeug links anklicken, um eine Ebene anzulegen, dann auf der Fläche ziehen.</div>
+      </div>
+    </div>
+    <div id="propsPanel">
+      <div class="panelhead">Eigenschaften <span class="sp"></span><span id="propLabel" style="font-weight:400;color:var(--muted)"></span></div>
+      <div id="propsForm">
+        <div id="selDetails" style="display:none">
+          <div class="row">
+            <div><label>X (mm)</label><input type="number" id="inLx" step="1"></div>
+            <div><label>Y (mm)</label><input type="number" id="inLy" step="1"></div>
+          </div>
+          <div class="row">
+            <div><label>Skalierung</label><input type="number" id="inLs" step="0.05" min="0.05"></div>
+            <div><label>Drehung (°)</label><input type="number" id="inLr" step="1"></div>
+          </div>
+          <div class="btnrow"><button id="btnDup">Duplizieren</button><button id="btnDel">Löschen</button></div>
+          <div class="hint">Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°).</div>
+        </div>
+        <div class="hint" id="noSel">Keine Ebene ausgewählt. Werkzeug links wählen oder Ebene oben anklicken.</div>
+      </div>
+      <div id="editorBody"></div>
+    </div>
+  </div>
+</div>
 <div id="statusbar"><span id="stInfo">Bereit</span></div>
 
-<div id="editor">
-  <div id="editorHead"><span id="editorTitle">Tool</span><span class="sp"></span><button id="btnEditClose">Schließen</button></div>
-  <div id="editorBody"></div>
+<div id="hidden">
+  <input type="number" id="inMatW" value="300"><input type="number" id="inMatH" value="300">
+  <select id="inPaper"><option value="none">keins</option><option value="A4P" selected>A4 hoch</option><option value="A4L">A4 quer</option><option value="A5P">A5 hoch</option><option value="A3P">A3 hoch</option><option value="Letter">Letter</option></select>
+  <input type="checkbox" id="inSnap" checked>
+  <input type="text" id="inFname" value="Komposition">
+  <input type="file" id="fileLoad" accept=".handschrift,application/json">
 </div>
 
 <script src="configs.js"></script>
@@ -371,17 +328,23 @@ function ensureFrame(L) {            // iframe erst bei Bedarf erzeugen (lazy)
 }
 function addLayer(type, tool) {
   const L = makeLayer(type, tool); S.layers.push(L);
-  ensureFrame(L); selectLayer(L.id); openEditor(); renderList(); redraw();
+  selectLayer(L.id);
 }
 function selectLayer(id) {
-  S.selId = id; renderList();
-  const L = sel(); $("selDetails").style.display = L ? "" : "none";
-  // aktives iframe umschalten
-  document.querySelectorAll(".toolframe").forEach(fr => fr.classList.toggle("active", L && +fr.dataset.lid === id));
-  if (L) { $("editorTitle").textContent = L.label; syncSelInputs(); }
-  redraw();
+  S.selId = id; const L = sel();
+  if (L) ensureFrame(L);
+  document.querySelectorAll(".toolframe").forEach(fr => fr.classList.toggle("active", L && L._frame && fr === L._frame));
+  $("selDetails").style.display = L ? "" : "none";
+  $("noSel").style.display = L ? "none" : "";
+  $("propLabel").textContent = L ? L.label : "";
+  if (L) syncSelInputs();
+  renderList(); redraw();
 }
-function deleteLayer(id) { const i = S.layers.findIndex(L => L.id === id); if (i < 0) return; const L = S.layers[i]; if (L._frame) L._frame.remove(); S.layers.splice(i, 1); if (S.selId === id) { S.selId = null; closeEditor(); } renderList(); redraw(); }
+function deleteLayer(id) {
+  const i = S.layers.findIndex(L => L.id === id); if (i < 0) return;
+  const L = S.layers[i]; if (L._frame) L._frame.remove(); S.layers.splice(i, 1);
+  selectLayer(S.layers.length ? S.layers[Math.min(i, S.layers.length - 1)].id : null);
+}
 function duplicateLayer(id) {
   const L = S.layers.find(x => x.id === id); if (!L) return;
   const N = makeLayer(L.type, L.tool); N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
@@ -407,13 +370,6 @@ function renderList() {
     box.appendChild(row);
   }
 }
-function openEditor() {
-  const L = sel(); if (!L) return;
-  ensureFrame(L);
-  document.querySelectorAll(".toolframe").forEach(fr => fr.classList.toggle("active", fr === L._frame));
-  $("editor").classList.add("open");
-}
-function closeEditor() { $("editor").classList.remove("open"); }
 
 /* ---------- Speichern / Laden (.handschrift) ---------- */
 function saveLayout() {
@@ -427,7 +383,7 @@ function saveLayout() {
 }
 function loadLayout(obj) {
   if (!obj || obj.format !== "handschrift-studio") { alert(UI.t("Keine gültige .handschrift-Datei.", "Not a valid .handschrift file.")); return; }
-  S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; S.selId = null; closeEditor();
+  S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; S.selId = null;
   S.matW = +obj.matW || 300; S.matH = +obj.matH || 300; S.paper = obj.paper || "none";
   $("inMatW").value = S.matW; $("inMatH").value = S.matH; $("inPaper").value = S.paper;
   for (const d of (obj.layers || [])) {
@@ -439,7 +395,8 @@ function loadLayout(obj) {
     L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
     S.layers.push(L);   // iframe wird erst beim Bearbeiten erzeugt (lazy)
   }
-  $("selDetails").style.display = "none"; renderList(); fitView(); redraw();
+  $("selDetails").style.display = "none"; $("noSel").style.display = ""; $("propLabel").textContent = "";
+  renderList(); fitView(); redraw();
   setStatus(S.layers.length + " " + UI.t("Layer geladen", "layers loaded"));
 }
 function syncSelInputs() { const L = sel(); if (!L) return; $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y); $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI); }
@@ -485,41 +442,127 @@ function makeThumb() {
     c.toBlob(b => b.arrayBuffer().then(buf => res(new Uint8Array(buf))), "image/png");
   });
 }
-$("btnExport").onclick = async () => {
+async function exportLac() {
   const groups = buildGroups();
   if (!groups.length) { alert(UI.t("Keine sichtbaren Layer mit Inhalt.", "No visible layers with content.")); return; }
   const thumb = await makeThumb();
   const bytes = window.LacExport.makeLac(groups, { matW: S.matW, matH: S.matH, processType: "KCPenDraw", thumbnail: thumb });
   window.LacExport.download(bytes, ($("inFname").value || "komposition") + ".lac");
-};
-$("btnSvg").onclick = () => {
+}
+function exportSvg() {
   const groups = buildGroups(); if (!groups.length) { alert(UI.t("Keine sichtbaren Layer mit Inhalt.", "No visible layers with content.")); return; }
   let d = ""; for (const grp of groups) for (const st of grp.strokes) d += "M " + st.map(p => p[0].toFixed(2) + " " + p[1].toFixed(2)).join(" L ") + " ";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S.matW}mm" height="${S.matH}mm" viewBox="0 0 ${S.matW} ${S.matH}"><g fill="none" stroke="#000" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></g></svg>`;
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })); a.download = ($("inFname").value || "komposition") + ".svg"; a.click(); URL.revokeObjectURL(a.href);
-};
+}
+function newDoc() {
+  if (S.layers.length && !confirm(UI.t("Neues Projekt — aktuelles Layout verwerfen?", "New project — discard current layout?"))) return;
+  S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; selectLayer(null); fitView();
+}
+function setPaper(k) { S.paper = k; $("inPaper").value = k; redraw(); }
+function toggleSnap() { S.snap = !S.snap; $("inSnap").checked = S.snap; }
+function editMat() {
+  const v = prompt(UI.t("Arbeitsfläche Breite × Höhe (mm)", "Work area width × height (mm)"), S.matW + " x " + S.matH);
+  if (!v) return; const m = v.match(/([\d.]+)\s*[x×*,]\s*([\d.]+)/); if (!m) return;
+  S.matW = +m[1] || 300; S.matH = +m[2] || 300; $("inMatW").value = S.matW; $("inMatH").value = S.matH; fitView();
+}
+function renameDoc() { const n = prompt(UI.t("Dateiname", "File name"), $("inFname").value); if (n != null) $("inFname").value = n.trim() || "Komposition"; }
+function zoomBy(f) { const r = cv.getBoundingClientRect(), cxp = r.width / 2, cyp = r.height / 2, ns = Math.min(40, Math.max(0.4, S.view.scale * f)); S.view.ox = cxp - (cxp - S.view.ox) * ns / S.view.scale; S.view.oy = cyp - (cyp - S.view.oy) * ns / S.view.scale; S.view.scale = ns; redraw(); }
 
 /* ---------- Wiring ---------- */
-const miscOpts = $("miscOpts"); for (const [v, l] of MISC_TOOLS) { const o = document.createElement("option"); o.value = "misc:" + v; o.textContent = l; miscOpts.appendChild(o); }
-$("addSel").addEventListener("change", e => { const v = e.target.value; e.target.value = ""; if (!v) return;
-  if (v === "text") addLayer("text"); else if (v === "image") addLayer("image"); else if (v.startsWith("misc:")) addLayer("misc", v.slice(5)); });
-$("btnEdit").onclick = () => { if (sel()) openEditor(); };
-$("btnEditClose").onclick = closeEditor;
+// Werkzeug-Icons (24x24 Strichgrafik)
+const TICONS = {
+  text: '<path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M9 20h6"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15.5 16 10.5 5 19.5"/>',
+  model: '<path d="M12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v9"/>',
+  qr: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M21 17v4M17 21h4"/>',
+  spotify: '<circle cx="12" cy="12" r="9"/><path d="M7 10c3-1 7-.5 10 1"/><path d="M7.5 13.2c2.4-.8 5.6-.3 8 1"/><path d="M8 16c2-.5 4.3-.2 6 .8"/>',
+  svg: '<path d="M4 18C8 6 16 6 20 18"/><rect x="2" y="16" width="4" height="4"/><rect x="18" y="16" width="4" height="4"/>',
+  paper: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 3v18M15 3v18M4 9h16M4 15h16"/>',
+  pentest: '<circle cx="12" cy="12" r="8"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/>',
+  spacefill: '<path d="M5 5h14v4H9v4h10v4H5"/>',
+  spiro: '<circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="6" r="2.6"/><circle cx="12" cy="18" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="12" r="2.6"/>',
+  maze: '<rect x="3" y="3" width="18" height="18"/><path d="M3 8h13M9 8v9M9 13h12M15 8v6"/>',
+  fxplot: '<path d="M4 4v16h16"/><path d="M4 16C8 8 12 20 20 8"/>',
+  tsp: '<path d="M6 7l5-2 6 4-9 5 5 3"/><circle cx="6" cy="7" r="1.2"/><circle cx="11" cy="5" r="1.2"/><circle cx="17" cy="9" r="1.2"/><circle cx="8" cy="14" r="1.2"/><circle cx="13" cy="17" r="1.2"/>',
+  wave: '<path d="M4 12v2M7 9v6M10 5v14M13 9v6M16 7v10M19 11v2"/>',
+};
+const TOOLBAR = [{ type: "text", label: "Text" }, { type: "image", label: "Bild" }, { type: "misc", tool: "model", label: "3D-Modell" }, { sep: 1 },
+  ...MISC_TOOLS.map(([v, l]) => ({ type: "misc", tool: v, label: l }))];
+const tb = $("toolbar");
+for (const t of TOOLBAR) {
+  if (t.sep) { const s = document.createElement("div"); s.className = "tbsep"; tb.appendChild(s); continue; }
+  const ic = t.type === "text" ? TICONS.text : t.type === "image" ? TICONS.image : (TICONS[t.tool] || TICONS.paper);
+  const b = document.createElement("button"); b.className = "toolbtn"; b.title = t.label;
+  b.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`;
+  b.onclick = () => t.type === "misc" ? addLayer("misc", t.tool) : addLayer(t.type);
+  tb.appendChild(b);
+}
+
+// Auswahl-Transform + Buttons
 $("btnDel").onclick = () => { if (sel()) deleteLayer(sel().id); };
 $("btnDup").onclick = () => { if (sel()) duplicateLayer(sel().id); };
 for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLs", "scale"], ["inLr", "rot"]])
   $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; if (key === "scale") v = Math.max(0.05, v || 1); L.transform[key] = v; redraw(); });
-$("inMatW").addEventListener("input", () => { S.matW = +$("inMatW").value || 300; fitView(); });
-$("inMatH").addEventListener("input", () => { S.matH = +$("inMatH").value || 300; fitView(); });
-$("inPaper").addEventListener("input", () => { S.paper = $("inPaper").value; redraw(); });
-$("inSnap").addEventListener("input", () => { S.snap = $("inSnap").checked; });
-$("btnSave").onclick = saveLayout;
-$("btnLoad").onclick = () => $("fileLoad").click();
 $("fileLoad").addEventListener("change", () => {
   const f = $("fileLoad").files[0]; if (!f) return;
   const rd = new FileReader();
   rd.onload = () => { try { loadLayout(JSON.parse(rd.result)); } catch (e) { alert(UI.t("Datei konnte nicht gelesen werden.", "Could not read file.")); } $("fileLoad").value = ""; };
   rd.readAsText(f);
+});
+
+// Menüs (Datei / Bearbeiten / Ansicht)
+const PAPER_LABELS = { none: "keins", A4P: "A4 hoch", A4L: "A4 quer", A5P: "A5 hoch", A3P: "A3 hoch", Letter: "Letter" };
+const MENUS = {
+  file: () => [
+    { l: UI.t("Neu", "New"), a: newDoc },
+    { l: UI.t("Öffnen …", "Open …"), a: () => $("fileLoad").click() },
+    { l: UI.t("Speichern (.handschrift)", "Save (.handschrift)"), a: saveLayout },
+    { l: UI.t("Dateiname …", "File name …"), a: renameDoc },
+    { sep: 1 },
+    { l: UI.t("Exportieren als .lac", "Export as .lac"), a: exportLac },
+    { l: UI.t("Exportieren als SVG", "Export as SVG"), a: exportSvg },
+  ],
+  edit: () => [
+    { l: UI.t("Ebene duplizieren", "Duplicate layer"), a: () => sel() && duplicateLayer(sel().id) },
+    { l: UI.t("Ebene löschen", "Delete layer"), a: () => sel() && deleteLayer(sel().id) },
+    { sep: 1 },
+    { l: UI.t("Auswahl aufheben", "Deselect"), a: () => selectLayer(null) },
+  ],
+  view: () => [
+    { l: UI.t("Einpassen", "Fit"), a: fitView },
+    { l: UI.t("Vergrößern", "Zoom in"), a: () => zoomBy(1.2) },
+    { l: UI.t("Verkleinern", "Zoom out"), a: () => zoomBy(1 / 1.2) },
+    { sep: 1 },
+    ...Object.keys(PAPERS).map(k => ({ l: UI.t("Blatt: ", "Sheet: ") + UI.t(PAPER_LABELS[k], { none: "none", A4P: "A4 portrait", A4L: "A4 landscape", A5P: "A5 portrait", A3P: "A3 portrait", Letter: "Letter" }[k]), a: () => setPaper(k), chk: S.paper === k })),
+    { l: UI.t("Arbeitsfläche …", "Work area …"), a: editMat },
+    { sep: 1 },
+    { l: UI.t("Einrasten", "Snapping"), a: toggleSnap, chk: S.snap },
+  ],
+};
+const dd = document.createElement("div"); dd.className = "menu"; $("menubar").appendChild(dd);
+let openMenu = null;
+function closeMenu() { openMenu = null; dd.classList.remove("open"); document.querySelectorAll(".menubtn.open").forEach(b => b.classList.remove("open")); }
+function showMenu(btn) {
+  const key = btn.dataset.menu; if (openMenu === key) { closeMenu(); return; }
+  closeMenu(); openMenu = key; dd.innerHTML = "";
+  for (const it of MENUS[key]()) {
+    if (it.sep) { const s = document.createElement("div"); s.className = "sep"; dd.appendChild(s); continue; }
+    const mi = document.createElement("div"); mi.className = "mi";
+    mi.innerHTML = '<span class="chk">' + (it.chk ? "✓" : "") + '</span><span>' + it.l + '</span>';
+    mi.onclick = () => { closeMenu(); it.a(); };
+    dd.appendChild(mi);
+  }
+  const r = btn.getBoundingClientRect(); dd.style.left = r.left + "px"; dd.classList.add("open"); btn.classList.add("open");
+}
+document.querySelectorAll(".menubtn").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); showMenu(b); }));
+dd.addEventListener("click", e => e.stopPropagation());
+document.addEventListener("click", closeMenu);
+// Tastatur: Entf löscht, Cmd/Ctrl+S speichert
+window.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  if ((e.key === "Delete" || e.key === "Backspace") && sel()) { e.preventDefault(); deleteLayer(sel().id); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveLayout(); }
 });
 
 UI.initTheme();
@@ -540,6 +583,13 @@ const I18N_EN = {
   "Export": "Export", "Dateiname": "File name", "Als .lac exportieren": "Export as .lac", "Als SVG exportieren": "Export as SVG",
   "Alle sichtbaren Layer werden als benannte Objekte in eine .lac gepackt (Prozess: Stift zeichnen).": "All visible layers are packed as named objects into one .lac (pen-draw process).",
   "Tool": "Tool", "Schließen": "Close", "Bereit": "Ready",
+  "Datei": "File", "Bearbeiten": "Edit", "Ansicht": "View", "Ebenen": "Layers", "Eigenschaften": "Properties",
+  "Noch keine Ebenen. Werkzeug links anklicken, um eine Ebene anzulegen, dann auf der Fläche ziehen.":
+    "No layers yet. Click a tool on the left to add a layer, then drag it on the canvas.",
+  "Keine Ebene ausgewählt. Werkzeug links wählen oder Ebene oben anklicken.":
+    "No layer selected. Pick a tool on the left or click a layer above.",
+  "Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°).":
+    "Corner handles = scale (opposite corner fixed; Alt/Cmd = center). Circle = rotate (Shift = 15°).",
   "Keine sichtbaren Layer mit Inhalt.": "No visible layers with content.",
   "Projekt": "Project", "Layout speichern": "Save layout", "Layout laden": "Load layout",
   "Speichert das Layout als <code>.handschrift</code>-Datei (Layer, Position, Parameter und Striche). Zum Weitermachen oder Weitergeben.":

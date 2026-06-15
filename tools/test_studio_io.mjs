@@ -31,15 +31,15 @@ const HARNESS = path.join(appDir, '_io_harness.html');
   const errs = []; page.on('pageerror', e => errs.push(e.message));
   await page.goto('file://' + path.join(appDir, 'studio.html'));
   await page.waitForTimeout(300);
-  await page.selectOption('#addSel', 'misc:qr');
-  await page.waitForFunction(() => S.layers.length && S.layers[0].strokesCache.length > 0, { timeout: 20000 });
+  await page.evaluate(() => addLayer('misc', 'qr'));
+  await page.waitForFunction(() => S.layers.length && S.layers[0].strokesCache.length > 0, null, { timeout: 20000 });
   await page.evaluate(() => { S.layers[0].transform = { x: 80, y: 55, scale: 0.7, rot: 0.3 }; redraw(); });
   const pre = await page.evaluate(() => ({ n: S.layers.length, cache: S.layers[0].strokesCache.length, x: S.layers[0].transform.x, sc: S.layers[0].transform.scale, label: S.layers[0].label }));
   console.log('vor Save:', JSON.stringify(pre));
 
   fs.mkdirSync('/tmp/studio_test', { recursive: true });
   const savePath = '/tmp/studio_test/layout.handschrift';
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btnSave')]);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => saveLayout())]);
   await dl.saveAs(savePath);
   const saved = JSON.parse(fs.readFileSync(savePath, 'utf8'));
   console.log('Datei: format=' + saved.format + ' layers=' + saved.layers.length + ' hatTransform=' + !!saved.layers[0].transform + ' hatGroupsOderStrokes=' + (!!saved.layers[0].groups || !!saved.layers[0].strokes));

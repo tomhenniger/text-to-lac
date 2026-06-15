@@ -31,16 +31,15 @@ let ok = true;
   await page.goto('file://' + path.join(appDir, 'studio.html'));
   await page.waitForTimeout(400);
 
-  async function addAndWait(value, label) {
-    await page.selectOption('#addSel', value);
-    // warten bis der zuletzt hinzugefügte Layer Striche gecacht hat
+  async function addAndWait(call, label) {
+    await page.evaluate(call);   // z.B. () => addLayer('misc','qr')
     await page.waitForFunction(() => S.layers.length && S.layers[S.layers.length - 1].strokesCache.length > 0, null, { timeout: 20000 });
     const n = await page.evaluate(() => S.layers[S.layers.length - 1].strokesCache.length);
     console.log('Layer "' + label + '" Striche=' + n);
     if (!(n > 0)) ok = false;
   }
-  await addAndWait('misc:qr', 'QR');
-  await addAndWait('text', 'Text');
+  await addAndWait(() => addLayer('misc', 'qr'), 'QR');
+  await addAndWait(() => addLayer('text'), 'Text');
 
   const layers = await page.evaluate(() => S.layers.map(L => ({ type: L.type, tool: L.tool, n: L.strokesCache.length, cw: +L.cw.toFixed(1), ch: +L.ch.toFixed(1) })));
   console.log('Layer:', JSON.stringify(layers));
@@ -54,10 +53,10 @@ let ok = true;
   console.log('QR transform:', JSON.stringify(tf));
   if (!(tf.x === 60 && Math.abs(tf.scale - 0.6) < 1e-6 && Math.abs(tf.rot - Math.PI / 6) < 1e-3)) { console.log('FAIL transform'); ok = false; }
 
-  // Export
+  // Export (Dateiname-Feld liegt im versteckten Container, Export via Menü-Funktion)
   fs.mkdirSync('/tmp/studio_test', { recursive: true });
-  await page.fill('#inFname', 'KompoTest');
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btnExport')]);
+  await page.evaluate(() => { $('inFname').value = 'KompoTest'; });
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportLac())]);
   await dl.saveAs('/tmp/studio_test/k.lac');
   execSync('cd /tmp/studio_test && rm -rf out && mkdir out && unzip -oq k.lac -d out');
   const objs = JSON.parse(fs.readFileSync('/tmp/studio_test/out/2D/2dmodel.json', 'utf8')).canvas_list[0].obj_list;
