@@ -147,6 +147,18 @@
       <div class="hint">Alle sichtbaren Layer werden als benannte Objekte in eine .lac gepackt (Prozess: Stift zeichnen).</div>
     </div>
   </details>
+
+  <details open>
+    <summary>Projekt</summary>
+    <div class="body">
+      <div class="btnrow">
+        <button id="btnSave">Layout speichern</button>
+        <button id="btnLoad">Layout laden</button>
+      </div>
+      <input type="file" id="fileLoad" accept=".handschrift,application/json" style="display:none">
+      <div class="hint">Speichert das Layout als <code>.handschrift</code>-Datei (Layer, Position, Parameter und Striche). Zum Weitermachen oder Weitergeben.</div>
+    </div>
+  </details>
 </div>
 
 <div id="main"><canvas id="cv"></canvas></div>
@@ -350,11 +362,15 @@ function snapMove(L) {
 }
 
 /* ---------- Layer-Verwaltung ---------- */
+function ensureFrame(L) {            // iframe erst bei Bedarf erzeugen (lazy)
+  if (L._frame) return L._frame;
+  const f = document.createElement("iframe"); f.className = "toolframe"; f.dataset.lid = L.id; f.src = embedUrl(L);
+  if (L.params) L._pendingParams = L.params;
+  $("editorBody").appendChild(f); L._frame = f; return f;
+}
 function addLayer(type, tool) {
   const L = makeLayer(type, tool); S.layers.push(L);
-  const f = document.createElement("iframe"); f.className = "toolframe"; f.dataset.lid = L.id; f.src = embedUrl(L);
-  $("editorBody").appendChild(f); L._frame = f;
-  selectLayer(L.id); openEditor(); renderList(); redraw();
+  ensureFrame(L); selectLayer(L.id); openEditor(); renderList(); redraw();
 }
 function selectLayer(id) {
   S.selId = id; renderList();
@@ -369,10 +385,7 @@ function duplicateLayer(id) {
   const L = S.layers.find(x => x.id === id); if (!L) return;
   const N = makeLayer(L.type, L.tool); N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
   N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
-  S.layers.push(N);
-  const f = document.createElement("iframe"); f.className = "toolframe"; f.dataset.lid = N.id; f.src = embedUrl(N);
-  // Params übernehmen, sobald das iframe bereit ist
-  N._pendingParams = L.params; $("editorBody").appendChild(f); N._frame = f;
+  S.layers.push(N); ensureFrame(N);
   selectLayer(N.id); renderList(); redraw();
 }
 function renderList() {
@@ -393,8 +406,41 @@ function renderList() {
     box.appendChild(row);
   }
 }
-function openEditor() { $("editor").classList.add("open"); }
+function openEditor() {
+  const L = sel(); if (!L) return;
+  ensureFrame(L);
+  document.querySelectorAll(".toolframe").forEach(fr => fr.classList.toggle("active", fr === L._frame));
+  $("editor").classList.add("open");
+}
 function closeEditor() { $("editor").classList.remove("open"); }
+
+/* ---------- Speichern / Laden (.handschrift) ---------- */
+function saveLayout() {
+  const data = { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper,
+    layers: S.layers.map(L => ({ type: L.type, tool: L.tool, label: L.label, visible: L.visible,
+      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch,
+      groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+  a.download = ($("inFname").value || "komposition") + ".handschrift"; a.click(); URL.revokeObjectURL(a.href);
+}
+function loadLayout(obj) {
+  if (!obj || obj.format !== "handschrift-studio") { alert(UI.t("Keine gültige .handschrift-Datei.", "Not a valid .handschrift file.")); return; }
+  S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; S.selId = null; closeEditor();
+  S.matW = +obj.matW || 300; S.matH = +obj.matH || 300; S.paper = obj.paper || "none";
+  $("inMatW").value = S.matW; $("inMatH").value = S.matH; $("inPaper").value = S.paper;
+  for (const d of (obj.layers || [])) {
+    const L = makeLayer(d.type, d.tool);
+    L.label = d.label || L.label; L.visible = d.visible !== false;
+    if (d.transform) L.transform = d.transform;
+    L.params = d.params || null; L.cw = +d.cw || 0; L.ch = +d.ch || 0;
+    L.groups = d.groups || null;
+    L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
+    S.layers.push(L);   // iframe wird erst beim Bearbeiten erzeugt (lazy)
+  }
+  $("selDetails").style.display = "none"; renderList(); fitView(); redraw();
+  setStatus(S.layers.length + " " + UI.t("Layer geladen", "layers loaded"));
+}
 function syncSelInputs() { const L = sel(); if (!L) return; $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y); $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI); }
 
 /* ---------- Embed-Nachrichten von den Tool-iframes ---------- */
@@ -466,6 +512,14 @@ $("inMatW").addEventListener("input", () => { S.matW = +$("inMatW").value || 300
 $("inMatH").addEventListener("input", () => { S.matH = +$("inMatH").value || 300; fitView(); });
 $("inPaper").addEventListener("input", () => { S.paper = $("inPaper").value; redraw(); });
 $("inSnap").addEventListener("input", () => { S.snap = $("inSnap").checked; });
+$("btnSave").onclick = saveLayout;
+$("btnLoad").onclick = () => $("fileLoad").click();
+$("fileLoad").addEventListener("change", () => {
+  const f = $("fileLoad").files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { try { loadLayout(JSON.parse(rd.result)); } catch (e) { alert(UI.t("Datei konnte nicht gelesen werden.", "Could not read file.")); } $("fileLoad").value = ""; };
+  rd.readAsText(f);
+});
 
 UI.initTheme();
 UI.onThemeChange(() => { redraw(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setTheme", theme: UI.theme() }, "*"); }); });
@@ -486,6 +540,11 @@ const I18N_EN = {
   "Alle sichtbaren Layer werden als benannte Objekte in eine .lac gepackt (Prozess: Stift zeichnen).": "All visible layers are packed as named objects into one .lac (pen-draw process).",
   "Tool": "Tool", "Schließen": "Close", "Bereit": "Ready",
   "Keine sichtbaren Layer mit Inhalt.": "No visible layers with content.",
+  "Projekt": "Project", "Layout speichern": "Save layout", "Layout laden": "Load layout",
+  "Speichert das Layout als <code>.handschrift</code>-Datei (Layer, Position, Parameter und Striche). Zum Weitermachen oder Weitergeben.":
+    "Saves the layout as a <code>.handschrift</code> file (layers, position, parameters and strokes). To continue later or share.",
+  "Keine gültige .handschrift-Datei.": "Not a valid .handschrift file.",
+  "Datei konnte nicht gelesen werden.": "Could not read file.", "Layer geladen": "layers loaded",
 };
 function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
 UI.initLang(I18N_EN); applyLangDefaults(); UI.onLangChange(() => { applyLangDefaults(); renderList(); });

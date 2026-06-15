@@ -9,7 +9,7 @@
   document.documentElement.classList.add("embed");
   const st = document.createElement("style");
   st.textContent =
-    "html.embed .topnav,html.embed #main,html.embed #statusbar{display:none!important}" +
+    "html.embed .topnav,html.embed #main,html.embed #statusbar,html.embed .embed-hide{display:none!important}" +
     "html.embed #sidebar{width:100%!important;min-width:0!important;border-right:none!important}" +
     "html.embed body{height:auto!important;overflow:auto!important}";
   (document.head || document.documentElement).appendChild(st);
