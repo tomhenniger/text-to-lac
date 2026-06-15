@@ -112,6 +112,7 @@
         <button id="btnDup">Duplizieren</button>
         <button id="btnDel">Löschen</button>
       </div>
+      <div class="hint">Eckgriffe = skalieren (gegenüberliegende Ecke bleibt fix; Alt/Cmd = um die Mitte). Kreis oben = drehen (Shift = 15°).</div>
     </div>
   </details>
 
@@ -288,7 +289,14 @@ cv.addEventListener("mousedown", e => {
     const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
     const rh = rotateHandlePos(c);
     if (Math.hypot(e.offsetX - rh[0], e.offsetY - rh[1]) < 9) { const cen = center(L); drag = { mode: "rot", a0: Math.atan2(my - cen[1], mx - cen[0]), r0: L.transform.rot, cen }; return; }
-    for (let i = 0; i < 4; i++) if (Math.hypot(e.offsetX - c[i][0], e.offsetY - c[i][1]) < 9) { const cen = center(L); drag = { mode: "scale", d0: Math.hypot(mx - cen[0], my - cen[1]) || 1e-6, s0: L.transform.scale, cen }; return; }
+    const wc = layerCorners(L), cen2 = center(L), lc = [[0, 0], [L.cw, 0], [L.cw, L.ch], [0, L.ch]];
+    for (let i = 0; i < 4; i++) if (Math.hypot(e.offsetX - c[i][0], e.offsetY - c[i][1]) < 9) {
+      const grab = wc[i], Ao = wc[(i + 2) % 4], oppL = lc[(i + 2) % 4];   // Ao = gegenüberliegende Ecke (Default-Anker)
+      drag = { mode: "scale", s0: L.transform.scale, rot: L.transform.rot, Ao, Ac: cen2,
+        oppOff: [oppL[0] - L.cw / 2, oppL[1] - L.ch / 2],
+        d0o: Math.hypot(grab[0] - Ao[0], grab[1] - Ao[1]) || 1e-6, d0c: Math.hypot(grab[0] - cen2[0], grab[1] - cen2[1]) || 1e-6 };
+      return;
+    }
   }
   // Layer treffen (oben zuerst)
   for (let i = S.layers.length - 1; i >= 0; i--) { const Li = S.layers[i]; if (Li.visible && pointInLayer(Li, mx, my)) { selectLayer(Li.id); drag = { mode: "move", sx: mx, sy: my }; redraw(); return; } }
@@ -306,10 +314,13 @@ window.addEventListener("mousemove", e => {
     L.transform.x += mx - drag.sx; L.transform.y += my - drag.sy; drag.sx = mx; drag.sy = my;
     snapGuides = null; if (S.snap && !e.shiftKey) snapMove(L);   // Shift gedrückt = Snapping aus
   } else if (drag.mode === "scale") {
-    let s = drag.s0 * (Math.hypot(mx - drag.cen[0], my - drag.cen[1]) / drag.d0);
+    const alt = e.altKey || e.metaKey;          // Alt/Cmd: Mitte als Anker, sonst gegenüberliegende Ecke
+    const A = alt ? drag.Ac : drag.Ao, off = alt ? [0, 0] : drag.oppOff, d0 = alt ? drag.d0c : drag.d0o;
+    let s = drag.s0 * (Math.hypot(mx - A[0], my - A[1]) / d0);
     s = Math.max(0.05, Math.min(50, s));
-    L.transform.scale = s;
-    L.transform.x = drag.cen[0] - (L.cw / 2) * s; L.transform.y = drag.cen[1] - (L.ch / 2) * s;
+    const cos = Math.cos(drag.rot), sin = Math.sin(drag.rot), ox = off[0] * s, oy = off[1] * s;
+    const Cx = A[0] - (ox * cos - oy * sin), Cy = A[1] - (ox * sin + oy * cos);   // Center so, dass Anker fix bleibt
+    L.transform.scale = s; L.transform.x = Cx - (L.cw / 2) * s; L.transform.y = Cy - (L.ch / 2) * s;
   } else if (drag.mode === "rot") {
     let rot = drag.r0 + (Math.atan2(my - drag.cen[1], mx - drag.cen[0]) - drag.a0);
     if (e.shiftKey) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12);
@@ -464,6 +475,8 @@ const I18N_EN = {
   "Noch keine Layer. Oben hinzufügen, dann auf der Fläche ziehen (Skalieren/Drehen an den Griffen).": "No layers yet. Add one above, then drag it on the canvas (scale/rotate via the handles).",
   "Ausgewählter Layer": "Selected layer", "✎ Tool öffnen / bearbeiten": "✎ Open / edit tool", "X (mm)": "X (mm)", "Y (mm)": "Y (mm)",
   "Skalierung": "Scale", "Drehung (°)": "Rotation (°)", "Duplizieren": "Duplicate", "Löschen": "Delete",
+  "Eckgriffe = skalieren (gegenüberliegende Ecke bleibt fix; Alt/Cmd = um die Mitte). Kreis oben = drehen (Shift = 15°).":
+    "Corner handles = scale (opposite corner stays fixed; Alt/Cmd = around center). Top circle = rotate (Shift = 15°).",
   "Arbeitsfläche": "Work area", "Breite (mm)": "Width (mm)", "Höhe (mm)": "Height (mm)", "Referenz-Blatt": "Reference sheet",
   "keins": "none", "A4 hoch": "A4 portrait", "A4 quer": "A4 landscape", "A5 hoch": "A5 portrait", "A3 hoch": "A3 portrait", "Letter": "Letter",
   "Einrasten (Snapping)": "Snapping",
