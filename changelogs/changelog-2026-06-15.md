@@ -2,6 +2,10 @@
 
 ## Neue Features
 
+- **Neue Seite „Misc Tools" (`app/misc.html`)** als Sammelort für Werkzeuge, die nicht zu den bestehenden Modi gehören. Topnav-Link (neues „tools"-Icon) auf allen Seiten, eigene Karte auf der Landing-Page. Geteilte Vorschau (Pan/Zoom, einstellbare Hintergrundfarbe), `.lac`- und SVG-Export.
+- **Misc Tool: Spotify-Code-Generator** — Spotify-Link/URI eingeben, das Tool lädt den **echten** Spotify-Code als Vektor über `scannables.scdn.co` (die Bar-Höhen kommen direkt von Spotify, lokal nicht berechenbar), rastert ihn und wandelt ihn per vertikaler Scanline-Füllung in Stiftlinien. Spotify-Logo optional einbeziehbar. Funktioniert mit Track-/Album-/Playlist-/Künstler-/Episoden-Links.
+- **Misc Tool: QR-Code-Generator** — Text/URL eingeben, wählbare Fehlerkorrektur (L/M/Q/H), erzeugt den QR-Code (vendored `qrcode-generator`-Lib, offline) und füllt die Module als Stiftlinien. Größe und Stiftbreite einstellbar.
+
 - **Bild-Modus „Strichzeichnung (Mittellinie)"**: Neuer Stil in `app/bild.html`, der die Mittellinie (Centerline) jeder gezeichneten Linie nachzieht — ideal für Line Art, Logos und Cartoons. Im Gegensatz zum Kontur-Modus (Sobel-Kanten → Doppellinien) wird das Bild binarisiert, per Zhang-Suen skelettiert und als Polylinien getract, sodass der Stift jede Linie genau einmal fährt. Mit automatischer Schwelle (Otsu), manuellem Schwellen-Override, einstellbarem Detailgrad und Mindest-Strichlänge (Despeckle). Für helle Linien auf dunklem Grund über „Invertieren".
 
 - **Bild-Stil „Flächen füllen + Kontur"**: Neuer Stil in `app/bild.html`, der zusammenhängende Flächen mit dichter Schraffur komplett ausfüllt (Füll-Abstand ≈ Stiftbreite = deckend) und optional die Außenkante einmal als saubere Kontur nachfährt (crispe Ränder). Steuerbar über Flächen-Schwelle, Füll-Abstand, Füll-Winkel, Kontur-Auflösung und Kontur-Checkbox. In Kombination mit dem Multicolor-Modus füllt es jede Farbfläche separat — ideal für flächige Logos, Sticker und Cliparts.

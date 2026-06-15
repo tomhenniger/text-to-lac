@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Misc Tools — Handschrift</title>
+<style>
+  :root {
+    --bg: #f4f6f5; --panel: #fcfdfc; --border: #d8ddda; --text: #1b201d;
+    --muted: #68716c; --accent: #00ae42; --accent-dark: #008f36; --hover: #eef1ef;
+  }
+  html[data-theme="dark"] {
+    --bg: #141715; --panel: #1d2220; --border: #343b37; --text: #e6eae7;
+    --muted: #98a29c; --hover: #272d2a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
+         color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+  #sidebar { width: 340px; min-width: 340px; background: var(--panel); border-right: 1px solid var(--border);
+             overflow-y: auto; padding: 14px 16px 40px; }
+  #main { flex: 1; display: flex; flex-direction: column; }
+  #canvasWrap { flex: 1; position: relative; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  .topnav { display: flex; gap: 6px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
+  .topnav a.nav { font-size: 13.5px; color: var(--muted); text-decoration: none; padding: 5px 8px;
+                  border: 1px solid var(--border); border-radius: 6px; background: var(--panel); white-space: nowrap; }
+  .topnav a.nav:hover, .topnav a.nav.active { border-color: var(--accent); color: var(--text); }
+  .topnav button { padding: 5px 8px; font-size: 12.5px; white-space: nowrap; }
+  .topnav .sp { flex: 1; }
+  h1 { font-size: 17px; letter-spacing: -0.01em; margin: 2px 0 14px; }
+  h1 small { color: var(--muted); font-weight: 400; font-size: 11.5px; letter-spacing: 0; display: block; margin-top: 3px; }
+  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--panel); }
+  details summary { cursor: pointer; padding: 9px 12px; font-weight: 600; font-size: 13px; user-select: none; }
+  details[open] summary { border-bottom: 1px solid var(--border); }
+  .body { padding: 10px 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  label:first-child { margin-top: 0; }
+  select, input[type=text], input[type=number], textarea { width: 100%; padding: 6px 8px; font-size: 13px;
+             border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); font-family: inherit; }
+  textarea { resize: vertical; min-height: 56px; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  .slider { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .val { font-size: 11px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  button { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
+           background: var(--panel); color: var(--text); cursor: pointer; }
+  button:hover { background: var(--hover); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+                   width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
+  button.primary:hover { background: var(--accent-dark); }
+  button:disabled { opacity: .5; cursor: default; }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
+  .btnrow { display: flex; gap: 8px; margin-top: 8px; }
+  .btnrow button { flex: 1; }
+  .checkrow { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; font-size: 12.5px; }
+  .checkrow input { accent-color: var(--accent); }
+  .colorrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .colorrow input[type=color] { width: 36px; height: 26px; padding: 0; border: 1px solid var(--border);
+                                border-radius: 5px; background: none; cursor: pointer; }
+  .colorrow span { font-size: 12.5px; }
+  #statusbar { padding: 5px 14px; font-size: 11px; color: var(--muted); background: var(--panel);
+               border-top: 1px solid var(--border); display: flex; gap: 18px; }
+  .toolopts { display: none; }
+  .toolopts.active { display: block; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <div class="topnav">
+    <a class="nav" href="../index.html" title="Handschrift — Home" data-icon="home"></a>
+    <a class="nav" href="index.html" title="Text-Schreiber" data-icon="text"></a>
+    <a class="nav" href="handschrift.html" title="Handschrift erfassen" data-icon="pen"></a>
+    <a class="nav" href="bild.html" title="Bild-Plotter" data-icon="image"></a>
+    <a class="nav active" href="misc.html" title="Misc Tools" data-icon="tools"></a>
+    <span class="sp"></span>
+    <button id="btnLang">EN</button><button id="btnTheme"></button>
+  </div>
+  <h1>Misc Tools<small>Werkzeuge rund ums Plotten — Export als .lac</small></h1>
+
+  <details open>
+    <summary>Werkzeug</summary>
+    <div class="body">
+      <select id="inpTool">
+        <option value="spotify">Spotify-Code</option>
+        <option value="qr">QR-Code</option>
+      </select>
+
+      <div class="toolopts active" data-tool="spotify">
+        <label>Spotify-Link oder URI</label>
+        <input type="text" id="inpSpLink" placeholder="https://open.spotify.com/track/…">
+        <button type="button" id="btnSpLoad" style="margin-top:8px;width:100%">Code laden</button>
+        <div class="checkrow"><input type="checkbox" id="inpSpLogo" checked><span>Spotify-Logo einbeziehen</span></div>
+        <div class="hint">Lädt den echten Spotify-Code (die Bar-Höhen kommen direkt von Spotify) als Vektor und wandelt ihn in Stiftlinien. Funktioniert mit Track-, Album-, Playlist-, Künstler- und Episoden-Links.</div>
+      </div>
+
+      <div class="toolopts" data-tool="qr">
+        <label>Text oder URL</label>
+        <textarea id="inpQrText" placeholder="https://…">https://handschrift.art</textarea>
+        <label>Fehlerkorrektur</label>
+        <select id="inpQrEc">
+          <option value="L">L — niedrig (7 %)</option>
+          <option value="M" selected>M — mittel (15 %)</option>
+          <option value="Q">Q — hoch (25 %)</option>
+          <option value="H">H — höchste (30 %)</option>
+        </select>
+        <div class="hint">Mehr Fehlerkorrektur = robuster lesbar, aber dichteres Muster (mehr Stiftweg). Lass rundherum etwas weißen Rand frei (Ruhezone), damit Scanner den Code finden.</div>
+      </div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Layout</summary>
+    <div class="body">
+      <label>Größe des Codes (mm)</label>
+      <div class="slider"><input type="range" id="inpSize" min="20" max="280" step="2" value="120"><span class="val" id="valSize"></span></div>
+      <div class="row">
+        <div><label>Arbeitsbereich Breite (mm)</label><input type="number" id="inpMatW" value="300" min="50" max="600"></div>
+        <div><label>Höhe (mm)</label><input type="number" id="inpMatH" value="300" min="50" max="600"></div>
+      </div>
+      <label>Stiftbreite / Füll-Abstand (mm)</label>
+      <div class="slider"><input type="range" id="inpPenW" min="0.25" max="1.2" step="0.05" value="0.45"><span class="val" id="valPenW"></span></div>
+      <div class="colorrow"><input type="color" id="inpBg" value="#ffffff"><span>Hintergrund (Vorschau-Papier)</span></div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Export</summary>
+    <div class="body">
+      <label>Dateiname</label>
+      <input type="text" id="inpFname" value="Code">
+      <button class="primary" id="btnExport">Als .lac exportieren</button>
+      <div class="btnrow"><button id="btnSvg">Als SVG exportieren</button></div>
+      <div class="hint">Prozess „Stift zeichnen" (KCPenDraw) ist zugewiesen.</div>
+    </div>
+  </details>
+</div>
+
+<div id="main">
+  <div id="canvasWrap"><canvas id="cv"></canvas></div>
+  <div id="statusbar"><span id="stInfo">Bereit</span><span id="stCalc"></span></div>
+</div>
+
+<script src="configs.js"></script>
+<script src="lac.js?v=4"></script>
+<script src="qrcode.js"></script>
+<script src="ui.js?v=5"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+const S = {
+  view: { scale: 3, ox: 40, oy: 40 },
+  strokes: [],                 // mm, Ursprung = Code oben links
+  cw: 0, ch: 0,                // Code-Maße (mm)
+  spCache: null,               // gecachte Spotify-Rasterdaten {ink, gw, gh, barsMinXpx}
+};
+
+/* ---------- Hilfen ---------- */
+function matPalette(bgHex) {
+  const n = parseInt(bgHex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const dark = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+  return {
+    mat: bgHex,
+    matBorder: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.22)",
+    grid: dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
+    ink: dark ? "#f0f3f8" : "#16243d",
+  };
+}
+// Vertikale Scanline-Füllung eines Binärrasters → Stiftlinien (mm, relativ zur Bbox oben links)
+function fillVertical(ink, gw, gh, bbox, sx, sy, penMm) {
+  const stepPx = Math.max(1, Math.round(penMm / sx));
+  const out = [];
+  for (let x = bbox.minX; x <= bbox.maxX; x += stepPx) {
+    let y = bbox.minY, run = null;
+    while (y <= bbox.maxY) {
+      const on = ink[y * gw + x];
+      if (on) { if (run === null) run = y; }
+      else if (run !== null) {
+        out.push([[(x - bbox.minX) * sx, (run - bbox.minY) * sy], [(x - bbox.minX) * sx, (y - 1 - bbox.minY) * sy]]);
+        run = null;
+      }
+      y++;
+    }
+    if (run !== null) out.push([[(x - bbox.minX) * sx, (run - bbox.minY) * sy], [(x - bbox.minX) * sx, (bbox.maxY - bbox.minY) * sy]]);
+  }
+  return out;
+}
+
+/* ---------- Spotify-Code ---------- */
+function spotifyUri(link) {
+  link = (link || "").trim();
+  const m = link.match(/(track|album|playlist|artist|episode|show)[:/]([A-Za-z0-9]+)/i);
+  return m ? "spotify:" + m[1].toLowerCase() + ":" + m[2] : null;
+}
+async function loadSpotify() {
+  const uri = spotifyUri($("inpSpLink").value);
+  if (!uri) { setStatus(UI.t("Ungültiger Spotify-Link.", "Invalid Spotify link.")); return false; }
+  setStatus(UI.t("Lade Code …", "Loading code …"));
+  const url = "https://scannables.scdn.co/uri/plain/svg/ffffff/black/640/" + encodeURIComponent(uri);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const svg = await res.text();
+  // Bars finden (schmale rects), linke Bar-Kante für Logo-Umschaltung
+  let barsMinXvb = Infinity, bars = 0;
+  for (const r of svg.matchAll(/<rect\s+x="([\d.]+)"\s+y="[\d.]+"\s+width="([\d.]+)"/g)) {
+    const x = +r[1], w = +r[2];
+    if (w < 50) { barsMinXvb = Math.min(barsMinXvb, x); bars++; }
+  }
+  if (bars < 8) throw new Error(UI.t("Kein gültiger Code", "No valid code"));
+  // SVG rastern
+  const RW = 1600, RH = 400;
+  const img = new Image();
+  const blobUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = blobUrl; });
+  const c = document.createElement("canvas"); c.width = RW; c.height = RH;
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, RW, RH);
+  g.drawImage(img, 0, 0, RW, RH);
+  URL.revokeObjectURL(blobUrl);
+  const data = g.getImageData(0, 0, RW, RH).data;
+  const ink = new Uint8Array(RW * RH);
+  for (let i = 0; i < RW * RH; i++) {
+    const l = (data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]) / 3;
+    ink[i] = l < 128 ? 1 : 0;
+  }
+  S.spCache = { ink, gw: RW, gh: RH, barsMinXpx: Math.floor(barsMinXvb * RW / 400) - 2 };
+  buildSpotify();
+  return true;
+}
+function buildSpotify() {
+  const cache = S.spCache;
+  if (!cache) return;
+  const { ink, gw, gh } = cache;
+  const cropX = $("inpSpLogo").checked ? 0 : Math.max(0, cache.barsMinXpx);
+  // Bbox der Tinte
+  let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
+  for (let y = 0; y < gh; y++) for (let x = cropX; x < gw; x++) if (ink[y * gw + x]) {
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  if (maxX < 0) { setStatus(UI.t("Kein Inhalt", "No content")); return; }
+  const W = +$("inpSize").value;
+  const s = W / (maxX - minX);                 // mm pro Rasterpixel (gleich in x & y)
+  S.strokes = fillVertical(ink, gw, gh, { minX, minY, maxX, maxY }, s, s, +$("inpPenW").value);
+  S.cw = (maxX - minX) * s; S.ch = (maxY - minY) * s;
+  finishCompute();
+}
+
+/* ---------- QR-Code ---------- */
+function buildQR() {
+  const text = $("inpQrText").value;
+  if (!text) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Text eingeben.", "Enter text.")); draw(); return; }
+  let qr;
+  try { qr = qrcode(0, $("inpQrEc").value); qr.addData(text); qr.make(); }
+  catch (e) { setStatus(UI.t("Text zu lang für QR.", "Text too long for QR.")); return; }
+  const cnt = qr.getModuleCount();
+  const W = +$("inpSize").value, pen = +$("inpPenW").value;
+  const moduleMm = W / cnt;
+  const ppm = Math.max(2, Math.round(moduleMm / pen));
+  const gw = cnt * ppm, gh = cnt * ppm;
+  const ink = new Uint8Array(gw * gh);
+  for (let r = 0; r < cnt; r++) for (let col = 0; col < cnt; col++) {
+    if (!qr.isDark(r, col)) continue;
+    for (let dy = 0; dy < ppm; dy++) {
+      const base = (r * ppm + dy) * gw + col * ppm;
+      for (let dx = 0; dx < ppm; dx++) ink[base + dx] = 1;
+    }
+  }
+  const s = moduleMm / ppm;
+  S.strokes = fillVertical(ink, gw, gh, { minX: 0, minY: 0, maxX: gw - 1, maxY: gh - 1 }, s, s, pen);
+  S.cw = gw * s; S.ch = gh * s;
+  finishCompute(cnt + "×" + cnt + " " + UI.t("Module", "modules"));
+}
+
+/* ---------- gemeinsam ---------- */
+let busy = false;
+async function recompute() {
+  const tool = $("inpTool").value;
+  try {
+    if (tool === "spotify") { if (S.spCache) buildSpotify(); else { draw(); return; } }
+    else buildQR();
+  } catch (e) { console.error(e); setStatus(UI.t("Fehler: ", "Error: ") + e.message); }
+}
+function finishCompute(extra) {
+  const pts = S.strokes.reduce((a, s) => a + s.length, 0);
+  const len = S.strokes.reduce((a, s) => a + segLen(s), 0);
+  setStatus(`${S.strokes.length.toLocaleString("de")} ${UI.t("Linien", "lines")} · ~${(len / 1000).toFixed(1)} m ${UI.t("Stiftweg", "pen travel")}` + (extra ? " · " + extra : ""));
+  fitView();
+}
+function segLen(p) { let l = 0; for (let i = 1; i < p.length; i++) l += Math.hypot(p[i][0] - p[i-1][0], p[i][1] - p[i-1][1]); return l; }
+function setStatus(t) { $("stInfo").textContent = t; }
+
+/* ---------- Vorschau ---------- */
+function matStrokes() {
+  const W = +$("inpMatW").value, H = +$("inpMatH").value;
+  const ox = (W - S.cw) / 2, oy = (H - S.ch) / 2;
+  return S.strokes.map(st => st.map(([x, y]) => [ox + x, oy + y]));
+}
+function draw() {
+  const W = +$("inpMatW").value, H = +$("inpMatH").value;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.save();
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.translate(S.view.ox, S.view.oy);
+  ctx.scale(S.view.scale, S.view.scale);
+  const P = matPalette($("inpBg").value);
+  ctx.fillStyle = P.mat;
+  ctx.strokeStyle = P.matBorder; ctx.lineWidth = 0.4;
+  ctx.beginPath(); ctx.roundRect(0, 0, W, H, 3); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = P.grid; ctx.lineWidth = 0.15;
+  ctx.beginPath();
+  for (let x = 10; x < W; x += 10) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = 10; y < H; y += 10) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  ctx.strokeStyle = P.ink;
+  ctx.lineWidth = +$("inpPenW").value;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath();
+  for (const st of matStrokes()) {
+    ctx.moveTo(st[0][0], st[0][1]);
+    for (let i = 1; i < st.length; i++) ctx.lineTo(st[i][0], st[i][1]);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+function fitView() {
+  const W = +$("inpMatW").value, H = +$("inpMatH").value;
+  const r = cv.getBoundingClientRect();
+  const sc = Math.min(r.width / (W + 30), r.height / (H + 30));
+  S.view.scale = sc;
+  S.view.ox = (r.width - W * sc) / 2; S.view.oy = (r.height - H * sc) / 2;
+  draw();
+}
+function resize() {
+  const r = cv.parentElement.getBoundingClientRect();
+  cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio;
+  draw();
+}
+window.addEventListener("resize", resize);
+// Pan & Zoom
+let drag = null;
+cv.addEventListener("mousedown", e => { drag = { sx: e.offsetX, sy: e.offsetY, ox: S.view.ox, oy: S.view.oy }; });
+window.addEventListener("mousemove", e => {
+  if (!drag) return;
+  const r = cv.getBoundingClientRect();
+  S.view.ox = drag.ox + (e.clientX - r.left - drag.sx);
+  S.view.oy = drag.oy + (e.clientY - r.top - drag.sy);
+  draw();
+});
+window.addEventListener("mouseup", () => { drag = null; });
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const ns = Math.min(40, Math.max(0.4, S.view.scale * f));
+  S.view.ox = e.offsetX - (e.offsetX - S.view.ox) * ns / S.view.scale;
+  S.view.oy = e.offsetY - (e.offsetY - S.view.oy) * ns / S.view.scale;
+  S.view.scale = ns;
+  draw();
+}, { passive: false });
+
+/* ---------- Export ---------- */
+function makeThumbnail() {
+  return new Promise(res => {
+    const W = +$("inpMatW").value, H = +$("inpMatH").value;
+    const c = document.createElement("canvas");
+    const sc = 512 / Math.max(W, H);
+    c.width = Math.round(W * sc); c.height = Math.round(H * sc);
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+    g.scale(sc, sc);
+    g.strokeStyle = "#16243d"; g.lineWidth = Math.max(0.4, +$("inpPenW").value);
+    g.lineCap = "round";
+    g.beginPath();
+    for (const st of matStrokes()) { g.moveTo(st[0][0], st[0][1]); for (let i = 1; i < st.length; i++) g.lineTo(st[i][0], st[i][1]); }
+    g.stroke();
+    c.toBlob(b => b.arrayBuffer().then(buf => res(new Uint8Array(buf))), "image/png");
+  });
+}
+$("btnExport").onclick = async () => {
+  if (!S.strokes.length) { alert(UI.t("Nichts zum Exportieren.", "Nothing to export.")); return; }
+  const thumb = await makeThumbnail();
+  const bytes = window.LacExport.makeLac(
+    [{ name: $("inpTool").value === "qr" ? "QR" : "Spotify", strokes: matStrokes() }],
+    { matW: +$("inpMatW").value, matH: +$("inpMatH").value, processType: "KCPenDraw", thumbnail: thumb });
+  window.LacExport.download(bytes, ($("inpFname").value || "code") + ".lac");
+};
+$("btnSvg").onclick = () => {
+  if (!S.strokes.length) { alert(UI.t("Nichts zum Exportieren.", "Nothing to export.")); return; }
+  const W = +$("inpMatW").value, H = +$("inpMatH").value;
+  let d = "";
+  for (const st of matStrokes()) { d += "M " + st.map(p => p[0].toFixed(2) + " " + p[1].toFixed(2)).join(" L ") + " "; }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}">
+<g fill="none" stroke="#000" stroke-width="${$("inpPenW").value}" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></g></svg>`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  a.download = ($("inpFname").value || "code") + ".svg"; a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+/* ---------- UI-Verdrahtung ---------- */
+function showToolOpts() {
+  const tool = $("inpTool").value;
+  document.querySelectorAll(".toolopts").forEach(el => el.classList.toggle("active", el.dataset.tool === tool));
+}
+$("inpTool").addEventListener("input", () => { showToolOpts(); recompute(); });
+$("btnSpLoad").onclick = async () => {
+  busy = true; $("btnSpLoad").disabled = true;
+  try { await loadSpotify(); } catch (e) { setStatus(UI.t("Fehler beim Laden: ", "Load error: ") + e.message); }
+  busy = false; $("btnSpLoad").disabled = false;
+};
+for (const id of ["inpSpLogo", "inpQrText", "inpQrEc"])
+  $(id).addEventListener("input", recompute);
+const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"]];
+for (const [id, vid, unit] of SLIDERS) {
+  const upd = () => { $(vid).textContent = $(id).value + unit; };
+  $(id).addEventListener("input", () => { upd(); recompute(); });
+  upd();
+}
+$("inpBg").addEventListener("input", draw);
+for (const id of ["inpMatW", "inpMatH"]) $(id).addEventListener("input", () => { recompute(); });
+
+/* ---------- i18n / Init ---------- */
+const I18N_EN = {
+  'Misc Tools': 'Misc Tools',
+  'Werkzeuge rund ums Plotten — Export als .lac': 'Plotting utilities — export as .lac',
+  'Werkzeug': 'Tool', 'Spotify-Code': 'Spotify code', 'QR-Code': 'QR code',
+  'Spotify-Link oder URI': 'Spotify link or URI', 'Code laden': 'Load code',
+  'Spotify-Logo einbeziehen': 'Include Spotify logo',
+  'Lädt den echten Spotify-Code (die Bar-Höhen kommen direkt von Spotify) als Vektor und wandelt ihn in Stiftlinien. Funktioniert mit Track-, Album-, Playlist-, Künstler- und Episoden-Links.':
+    'Loads the real Spotify code (bar heights come straight from Spotify) as a vector and turns it into pen lines. Works with track, album, playlist, artist and episode links.',
+  'Text oder URL': 'Text or URL', 'Fehlerkorrektur': 'Error correction',
+  'L — niedrig (7 %)': 'L — low (7%)', 'M — mittel (15 %)': 'M — medium (15%)',
+  'Q — hoch (25 %)': 'Q — high (25%)', 'H — höchste (30 %)': 'H — highest (30%)',
+  'Mehr Fehlerkorrektur = robuster lesbar, aber dichteres Muster (mehr Stiftweg). Lass rundherum etwas weißen Rand frei (Ruhezone), damit Scanner den Code finden.':
+    'More error correction = more robust, but a denser pattern (more pen travel). Leave some white margin around it (quiet zone) so scanners can find the code.',
+  'Layout': 'Layout', 'Größe des Codes (mm)': 'Code size (mm)',
+  'Arbeitsbereich Breite (mm)': 'Work area width (mm)', 'Höhe (mm)': 'Height (mm)',
+  'Stiftbreite / Füll-Abstand (mm)': 'Pen width / fill spacing (mm)',
+  'Hintergrund (Vorschau-Papier)': 'Background (preview paper)',
+  'Export': 'Export', 'Dateiname': 'File name',
+  'Als .lac exportieren': 'Export as .lac', 'Als SVG exportieren': 'Export as SVG',
+  'Prozess „Stift zeichnen" (KCPenDraw) ist zugewiesen.': 'The pen-draw process (KCPenDraw) is assigned.',
+  'Bereit': 'Ready',
+};
+UI.initTheme();
+UI.onThemeChange(() => draw());
+function applyLangDefaults() { document.title = UI.t("Misc Tools — Handschrift", "Misc Tools — Handschrift"); }
+UI.initLang(I18N_EN);
+applyLangDefaults();
+UI.onLangChange(() => { applyLangDefaults(); recompute(); });
+showToolOpts();
+resize();
+recompute();
+</script>
+<script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

@@ -32,6 +32,7 @@ window.UI = (function () {
     camera: '<path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13.3" r="3.2"/>',
     file: '<path d="M6.5 3H14l4.5 4.5V21h-12z"/><path d="M14 3v4.5h4.5"/>',
     undo: '<path d="M8 13 3 8l5-5"/><path d="M3 8h11a6 6 0 0 1 0 12h-4"/>',
+    tools: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   };
 
   function icon(name, size = 15) {
