@@ -143,6 +143,10 @@ geschrieben mit dem Stift.</textarea>
       <div class="hint">Standard: 300 × 300 mm = Arbeitsbereich des A2L (nur als visuelle Hilfe).</div>
       <label>Stiftbreite Vorschau (mm)</label>
       <div class="slider"><input type="range" id="inpPenW" min="0.2" max="1.5" step="0.05" value="0.5"><span class="val" id="valPenW"></span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <input type="color" id="inpBg" value="#ffffff" style="width:36px;height:26px;padding:0;border:1px solid var(--border);border-radius:5px;background:none;cursor:pointer">
+        <span style="font-size:12.5px">Hintergrund (Vorschau-Papier)</span>
+      </div>
     </div>
   </details>
 
@@ -399,6 +403,19 @@ function relayout() { cachedLayout = layout(); draw(); updateStatus(); }
 function mm2px(x, y) { return [(x * S.view.scale + S.view.ox) * devicePixelRatio, (y * S.view.scale + S.view.oy) * devicePixelRatio]; }
 function px2mm(x, y) { return [(x - S.view.ox) / S.view.scale, (y - S.view.oy) / S.view.scale]; }
 
+function matPalette(bgHex) {                          // Vorschau-Palette aus der gewählten Hintergrundfarbe
+  const n = parseInt(bgHex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const dark = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+  return {
+    mat: bgHex,
+    matBorder: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.22)",
+    grid: dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
+    ink: dark ? "#f0f3f8" : "#16243d",
+    marker: "#00ae42",
+  };
+}
+
 function draw() {
   if (!cachedLayout) return;
   const W = +$("inpMatW").value, H = +$("inpMatH").value;
@@ -410,7 +427,7 @@ function draw() {
   ctx.scale(S.view.scale, S.view.scale);
 
   // Matte
-  const P = UI.palette();
+  const P = matPalette($("inpBg").value);           // Vorschau-Papier (frei wählbar, Standard weiß)
   ctx.fillStyle = P.mat;
   ctx.strokeStyle = P.matBorder; ctx.lineWidth = 0.4;
   ctx.beginPath(); ctx.roundRect(0, 0, W, H, 3); ctx.fill(); ctx.stroke();
@@ -735,6 +752,7 @@ for (const [id, vid, unit] of SLIDERS) {
 }
 for (const id of ["inpText", "inpFont", "inpAlign", "inpVarOn", "inpMatW", "inpMatH"])
   $(id).addEventListener("input", relayout);
+$("inpBg").addEventListener("input", draw);
 $("inpText").addEventListener("input", () => { $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
 $("btnReroll").onclick = () => { S.seed = (Math.random() * 1e9) | 0; relayout(); };
 $("btnVarReset").onclick = () => {
@@ -809,6 +827,7 @@ const I18N_EN = {
   'Breite (mm)': 'Width (mm)', 'Höhe (mm)': 'Height (mm)',
   'Standard: 300 × 300 mm = Arbeitsbereich des A2L (nur als visuelle Hilfe).': 'Default: 300 × 300 mm = A2L work area (visual guide only).',
   'Stiftbreite Vorschau (mm)': 'Pen width preview (mm)',
+  'Hintergrund (Vorschau-Papier)': 'Background (preview paper)',
   'Dateiname': 'File name',
   'Objekt-Aufteilung in Bambu Suite': 'Object grouping in Bambu Suite',
   'Alles als ein Objekt (Layout bleibt sicher erhalten)': 'Everything as one object (layout stays intact)',

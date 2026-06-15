@@ -12,4 +12,4 @@
 
 - Neuer Eintrag „Strichzeichnung (Mittellinie)" in der Stil-Auswahl des Bild-Modus inkl. eigenem Parameter-Block (Otsu-Checkbox, Schwelle, Auflösung, Mindest-Strichlänge) und Hilfetext (DE/EN).
 - Neue „Multicolor"-Sektion mit Paletten-Editor, Farb-Legende (Zeichen-Reihenfolge) und farbiger Vorschau pro Gruppe.
-- Im Multicolor-Modus bleibt die Arbeitsplatte in der Vorschau immer hell (auch im Dark Mode), damit die Farbkontraste der Gruppen korrekt beurteilbar sind (Papier-WYSIWYG). Rahmen/Raster/Rand passen sich entsprechend an.
+- **Einstellbare Hintergrundfarbe der Vorschau-Platte** (Standard Weiß) im Bild-Modus *und* im Text-Writer. Die Platte folgt nicht mehr dem Dark/Light-Theme, sondern der gewählten Papierfarbe — so stimmen die Farbkontraste (besonders im Multicolor) immer (Papier-WYSIWYG). Rand, Raster und Einfarb-Tinte leiten sich automatisch aus der Helligkeit der Hintergrundfarbe ab (heller Hintergrund → dunkle Tinte und umgekehrt).

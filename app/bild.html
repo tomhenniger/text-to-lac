@@ -203,6 +203,7 @@
       </div>
       <label>Stiftbreite Vorschau (mm)</label>
       <div class="slider"><input type="range" id="inpPenW" min="0.2" max="1.5" step="0.05" value="0.45"><span class="val" id="valPenW"></span></div>
+      <div class="mcrow" style="margin-top:8px"><input type="color" id="inpBg" value="#ffffff"><span>Hintergrund (Vorschau-Papier)</span></div>
     </div>
   </details>
 
@@ -732,6 +733,17 @@ function hexRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
+function matPalette(bgHex) {                          // Vorschau-Palette aus der gewählten Hintergrundfarbe
+  const [r, g, b] = hexRgb(bgHex);
+  const dark = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+  return {
+    mat: bgHex,
+    matBorder: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.22)",
+    grid: dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
+    frame: dark ? "rgba(255,255,255,0.30)" : "rgba(0,0,0,0.18)",
+    ink: dark ? "#f0f3f8" : "#16243d",
+  };
+}
 function buildColorMasks() {                          // ordnet jeden Pixel der nächsten Palettenfarbe zu
   const pal = MC.map(hexRgb);
   const masks = pal.map(() => new Uint8Array(S.gw * S.gh));
@@ -831,13 +843,9 @@ function draw() {
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.translate(S.view.ox, S.view.oy);
   ctx.scale(S.view.scale, S.view.scale);
-  const P = UI.palette();
-  const groups = S.groups.length ? S.groups : [{ color: P.ink, strokes: S.strokes }];
+  const MAT = matPalette($("inpBg").value);         // Vorschau-Papier (frei wählbar, Standard weiß)
+  const groups = S.groups.length ? S.groups : [{ color: MAT.ink, strokes: S.strokes }];
   const mc = $("inpMC").checked && groups.length > 1;
-  // Im Multicolor die Platte hell halten (Papier-WYSIWYG), damit Farbkontraste stimmen
-  const MAT = mc
-    ? { mat: "#eef3f0", matBorder: "#b9c9bf", grid: "rgba(0,0,0,0.07)", frame: "rgba(0,0,0,0.18)" }
-    : P;
   ctx.fillStyle = MAT.mat;
   ctx.strokeStyle = MAT.matBorder; ctx.lineWidth = 0.4;
   ctx.beginPath(); ctx.roundRect(0, 0, W, H, 3); ctx.fill(); ctx.stroke();
@@ -857,7 +865,7 @@ function draw() {
   ctx.lineWidth = +$("inpPenW").value;
   ctx.lineCap = "round"; ctx.lineJoin = "round";
   for (const g of groups) {
-    ctx.strokeStyle = mc ? g.color : P.ink;
+    ctx.strokeStyle = mc ? g.color : MAT.ink;
     ctx.beginPath();
     for (const st of g.strokes) {
       ctx.moveTo(S.imgX + st[0][0], S.imgY + st[0][1]);
@@ -1003,6 +1011,7 @@ $("btnMCAdd").onclick = () => {
   renderPalette();
   recompute();
 };
+$("inpBg").addEventListener("input", draw);
 $("btnMCExtract").onclick = () => {
   if (!S.rgb) { alert(UI.t("Erst ein Bild laden.", "Load an image first.")); return; }
   const k = Math.max(2, Math.min(8, +$("inpMCN").value || 4));
@@ -1107,6 +1116,7 @@ const I18N_EN = {
   'Arbeitsbereich & Stift': 'Work area & pen',
   'Breite (mm)': 'Width (mm)', 'Höhe (mm)': 'Height (mm)',
   'Stiftbreite Vorschau (mm)': 'Pen width preview (mm)',
+  'Hintergrund (Vorschau-Papier)': 'Background (preview paper)',
   'Dateiname': 'File name',
   'Als .lac exportieren': 'Export as .lac',
   'Als SVG exportieren': 'Export as SVG',
