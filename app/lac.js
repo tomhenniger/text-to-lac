@@ -85,7 +85,7 @@
       const mcx = (minx + maxx) / 2, mcy = (miny + maxy) / 2;
       const local = strokes.map(st => st.map(([x, y]) => [x - mcx, y - mcy]));
       objList.push({
-        color: "0 0 0 255",
+        color: grp.color || "0 0 0 255",
         flags: ["FreeAspectRatio"],
         is_closed: false,
         name: grp.name,

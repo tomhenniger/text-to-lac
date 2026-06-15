@@ -53,6 +53,16 @@
   .btnrow button { flex: 1; }
   .checkrow { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; font-size: 12.5px; }
   .checkrow input { accent-color: var(--accent); }
+  .mcrow { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .mcrow input[type=color] { width: 36px; height: 26px; padding: 0; border: 1px solid var(--border);
+                             border-radius: 5px; background: none; cursor: pointer; }
+  .mcrow span { flex: 1; font-size: 12.5px; }
+  .mcdel { width: 26px; height: 26px; padding: 0; line-height: 1; font-size: 15px; }
+  .mclegend { font-size: 11.5px; color: var(--text); line-height: 1.6; margin-top: 8px; }
+  .mclegend .item { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; }
+  .mcsw { display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+          border: 1px solid rgba(128,128,128,.5); vertical-align: -1px; }
+  .mcarrow { color: var(--muted); margin: 0 4px; }
   #statusbar { padding: 5px 14px; font-size: 11px; color: var(--muted); background: var(--panel);
                border-top: 1px solid var(--border); display: flex; gap: 18px; }
   #dropHint { border: 2px dashed var(--border); border-radius: 8px; padding: 18px 10px; text-align: center;
@@ -153,6 +163,20 @@
   </details>
 
   <details>
+    <summary>Multicolor</summary>
+    <div class="body">
+      <div class="checkrow"><input type="checkbox" id="inpMC"><span>Multicolor-Modus (nach Farben trennen)</span></div>
+      <div id="mcBody" style="display:none">
+        <label>Palette (Zeichen-Reihenfolge von oben nach unten)</label>
+        <div id="mcPalette"></div>
+        <button type="button" id="btnMCAdd" style="margin-top:6px">+ Farbe</button>
+        <div id="mcLegend" class="mclegend"></div>
+        <div class="hint">Jeder Bildpunkt wird der ähnlichsten Paletten-Farbe zugeordnet; pro Farbe entsteht eine eigene Gruppe in der .lac. Reihenfolge oben = Zeichen-Reihenfolge: erst Farbe 1 zeichnen, Stift wechseln, dann Farbe 2 usw. Funktioniert mit jedem Stil (Strichzeichnung für farbige Line Art, Schraffur/Wellen für farbige Flächen).</div>
+      </div>
+    </div>
+  </details>
+
+  <details>
     <summary>Arbeitsbereich &amp; Stift</summary>
     <div class="body">
       <div class="row">
@@ -183,7 +207,7 @@
 
 <script src="fonts.js"></script>
 <script src="configs.js"></script>
-<script src="lac.js?v=3"></script>
+<script src="lac.js?v=4"></script>
 <script src="ui.js?v=5"></script>
 <script>
 "use strict";
@@ -194,9 +218,12 @@ const S = {
   imgX: 75, imgY: 60,                 // Position auf der Matte (mm, oben links)
   view: { scale: 3, ox: 40, oy: 40 },
   gray: null, gw: 0, gh: 0,           // Graustufen-Puffer (0..255), y-down
+  rgb: null,                          // RGB-Puffer (3 Bytes/Pixel), y-down — für Multicolor
   aspect: 1,
-  strokes: [],                        // Ergebnis in Bild-mm (0,0 .. W,H)
+  strokes: [],                        // Ergebnis in Bild-mm (0,0 .. W,H), flach über alle Gruppen
+  groups: [],                         // [{name, color, strokes}] — eine Gruppe pro Farbe
 };
+let activeMask = null;                // Uint8Array gw*gh: lum() liefert außerhalb 1 (weiß)
 
 /* ============================== Bild laden ============================== */
 $("dropHint").onclick = () => $("fileImg").click();
@@ -218,9 +245,13 @@ function loadImage(file) {
     g.drawImage(img, 0, 0, c.width, c.height);
     const data = g.getImageData(0, 0, c.width, c.height).data;
     S.gray = new Float32Array(c.width * c.height);
+    S.rgb = new Uint8Array(c.width * c.height * 3);
     for (let i = 0; i < S.gray.length; i++) {
       const r = data[i * 4], gg = data[i * 4 + 1], b = data[i * 4 + 2], a = data[i * 4 + 3] / 255;
       S.gray[i] = (0.2126 * r + 0.7152 * gg + 0.0722 * b) * a + 255 * (1 - a);
+      S.rgb[i * 3] = r * a + 255 * (1 - a);          // auf Weiß komponiert
+      S.rgb[i * 3 + 1] = gg * a + 255 * (1 - a);
+      S.rgb[i * 3 + 2] = b * a + 255 * (1 - a);
     }
     S.gw = c.width; S.gh = c.height;
     S.aspect = c.height / c.width;
@@ -262,6 +293,7 @@ function lum(xMM, yMM, W, H) {
   const px = xMM / W * (S.gw - 1), py = yMM / H * (S.gh - 1);
   const x0 = Math.max(0, Math.min(S.gw - 1, Math.floor(px)));
   const y0 = Math.max(0, Math.min(S.gh - 1, Math.floor(py)));
+  if (activeMask && !activeMask[y0 * S.gw + x0]) return 1;   // außerhalb der Farbmaske = weiß
   const x1 = Math.min(S.gw - 1, x0 + 1), y1 = Math.min(S.gh - 1, y0 + 1);
   const fx = px - x0, fy = py - y0;
   const v = S.gray[y0 * S.gw + x0] * (1 - fx) * (1 - fy) + S.gray[y0 * S.gw + x1] * fx * (1 - fy)
@@ -610,25 +642,90 @@ function recompute() {
     const W = +$("inpImgW").value, H = W * S.aspect;
     const style = $("inpStyle").value;
     try {
-      S.strokes =
-        style === "hatch" ? styleHatch(W, H, false) :
-        style === "cross" ? styleHatch(W, H, true) :
-        style === "squiggle" ? styleSquiggle(W, H) :
-        style === "spiral" ? styleSpiral(W, H) :
-        style === "ascii" ? styleAscii(W, H) :
-        style === "lineart" ? styleLineart(W, H) :
-        styleContour(W, H);
+      if ($("inpMC").checked && MC.length) {
+        const masks = buildColorMasks();
+        S.groups = MC.map((hex, k) => {
+          activeMask = masks[k];
+          const strokes = computeStyle(W, H, style);
+          return { name: UI.t("Farbe ", "Color ") + (k + 1), color: hex, strokes };
+        }).filter(g => g.strokes.length);
+        activeMask = null;
+      } else {
+        S.groups = [{ name: UI.t("Bild", "Image"), color: UI.palette().ink, strokes: computeStyle(W, H, style) }];
+      }
     } catch (err) {
+      activeMask = null;
       console.error(err);
       $("stInfo").textContent = UI.t("Fehler: ", "Error: ") + err.message;
       return;
     }
+    S.strokes = S.groups.flatMap(g => g.strokes);
     const pts = S.strokes.reduce((a, s) => a + s.length, 0);
     const len = S.strokes.reduce((a, s) => a + segLen(s), 0);
     $("stInfo").textContent = `${S.strokes.length.toLocaleString("de")} ${UI.t("Striche", "strokes")} · ${pts.toLocaleString("de")} ${UI.t("Punkte", "points")} · ~${(len / 1000).toFixed(1)} m ${UI.t("Stiftweg", "pen travel")}`;
     $("stCalc").textContent = UI.t("berechnet in ", "computed in ") + Math.round(performance.now() - t0) + " ms";
+    renderLegend();
     draw();
   }, 120);
+}
+function computeStyle(W, H, style) {
+  return style === "hatch" ? styleHatch(W, H, false) :
+         style === "cross" ? styleHatch(W, H, true) :
+         style === "squiggle" ? styleSquiggle(W, H) :
+         style === "spiral" ? styleSpiral(W, H) :
+         style === "ascii" ? styleAscii(W, H) :
+         style === "lineart" ? styleLineart(W, H) :
+         styleContour(W, H);
+}
+/* --- Multicolor: Palette, Masken, Legende --- */
+let MC = ["#1a1a1a", "#e23b3b", "#2f6fd0"];
+const MC_NEW = ["#1a1a1a", "#e23b3b", "#2f6fd0", "#19a974", "#f2a900", "#7b4dff", "#00897b"];
+function hexRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function buildColorMasks() {                          // ordnet jeden Pixel der nächsten Palettenfarbe zu
+  const pal = MC.map(hexRgb);
+  const masks = pal.map(() => new Uint8Array(S.gw * S.gh));
+  for (let i = 0; i < S.gw * S.gh; i++) {
+    const r = S.rgb[i * 3], g = S.rgb[i * 3 + 1], b = S.rgb[i * 3 + 2];
+    let best = 0, bd = Infinity;
+    for (let k = 0; k < pal.length; k++) {
+      const dr = r - pal[k][0], dg = g - pal[k][1], db = b - pal[k][2];
+      const d = dr * dr + dg * dg + db * db;
+      if (d < bd) { bd = d; best = k; }
+    }
+    masks[best][i] = 1;
+  }
+  return masks;
+}
+function renderPalette() {
+  const box = $("mcPalette");
+  box.innerHTML = "";
+  MC.forEach((hex, k) => {
+    const row = document.createElement("div");
+    row.className = "mcrow";
+    const ci = document.createElement("input");
+    ci.type = "color"; ci.value = hex;
+    ci.oninput = () => { MC[k] = ci.value; recompute(); };
+    const lbl = document.createElement("span");
+    lbl.textContent = UI.t("Farbe ", "Color ") + (k + 1);
+    const rm = document.createElement("button");
+    rm.type = "button"; rm.className = "mcdel"; rm.textContent = "×";
+    rm.title = UI.t("Entfernen", "Remove");
+    rm.onclick = () => { if (MC.length > 1) { MC.splice(k, 1); renderPalette(); recompute(); } };
+    row.append(ci, lbl, rm);
+    box.appendChild(row);
+  });
+}
+function renderLegend() {
+  const el = $("mcLegend");
+  if (!$("inpMC").checked || S.groups.length < 2) { el.innerHTML = ""; return; }
+  el.innerHTML = S.groups.map((g, i) => {
+    const len = g.strokes.reduce((a, s) => a + segLen(s), 0);
+    return `<span class="item"><span class="mcsw" style="background:${g.color}"></span>`
+      + `<b>${i + 1}.</b> ${g.strokes.length} ${UI.t("Striche", "strokes")} · ~${(len / 1000).toFixed(1)} m</span>`;
+  }).join(`<span class="mcarrow">→ ${UI.t("Stift wechseln", "swap pen")} →</span>`);
 }
 
 function resize() {
@@ -663,15 +760,19 @@ function draw() {
     ctx.strokeRect(S.imgX, S.imgY, iw, ih);
     ctx.setLineDash([]);
   }
-  ctx.strokeStyle = P.ink;
   ctx.lineWidth = +$("inpPenW").value;
   ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.beginPath();
-  for (const st of S.strokes) {
-    ctx.moveTo(S.imgX + st[0][0], S.imgY + st[0][1]);
-    for (let i = 1; i < st.length; i++) ctx.lineTo(S.imgX + st[i][0], S.imgY + st[i][1]);
+  const groups = S.groups.length ? S.groups : [{ color: P.ink, strokes: S.strokes }];
+  const mc = $("inpMC").checked && groups.length > 1;
+  for (const g of groups) {
+    ctx.strokeStyle = mc ? g.color : P.ink;
+    ctx.beginPath();
+    for (const st of g.strokes) {
+      ctx.moveTo(S.imgX + st[0][0], S.imgY + st[0][1]);
+      for (let i = 1; i < st.length; i++) ctx.lineTo(S.imgX + st[i][0], S.imgY + st[i][1]);
+    }
+    ctx.stroke();
   }
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -750,8 +851,14 @@ $("btnExport").onclick = async () => {
     return;
   }
   const thumb = await makeThumbnail();
+  const mc = $("inpMC").checked && S.groups.length > 1;
+  const groups = (S.groups.length ? S.groups : [{ name: UI.t("Bild", "Image"), strokes: S.strokes }]).map(g => ({
+    name: g.name,
+    color: mc ? hexRgb(g.color).join(" ") + " 255" : undefined,
+    strokes: g.strokes.map(st => st.map(([x, y]) => [S.imgX + x, S.imgY + y])),
+  }));
   const bytes = window.LacExport.makeLac(
-    [{ name: UI.t("Bild", "Image"), strokes: matStrokes() }],
+    groups,
     { matW: +$("inpMatW").value, matH: +$("inpMatH").value, processType: "KCPenDraw", thumbnail: thumb });
   window.LacExport.download(bytes, ($("inpFname").value || "bild") + ".lac");
 };
@@ -792,6 +899,17 @@ for (const [id, vid, unit] of SLIDERS) {
 }
 for (const id of ["inpInvert", "inpStyle", "inpAsciiFont", "inpARamp", "inpWhiteSkip", "inpCHatch", "inpLAuto", "inpMatW", "inpMatH"])
   $(id).addEventListener("input", () => { showStyleOpts(); recompute(); });
+
+$("inpMC").addEventListener("input", () => {
+  $("mcBody").style.display = $("inpMC").checked ? "block" : "none";
+  recompute();
+});
+$("btnMCAdd").onclick = () => {
+  MC.push(MC_NEW[MC.length % MC_NEW.length]);
+  renderPalette();
+  recompute();
+};
+renderPalette();
 
 function showStyleOpts() {
   const style = $("inpStyle").value;
@@ -869,6 +987,12 @@ const I18N_EN = {
   'Kanten-Schwelle (niedrig = mehr Details)': 'Edge threshold (lower = more detail)',
   'Detailgrad (Auflösung)': 'Level of detail (resolution)',
   'Mit Schraffur kombinieren (dunkle Flächen füllen)': 'Combine with hatching (fill dark areas)',
+  'Multicolor': 'Multicolor',
+  'Multicolor-Modus (nach Farben trennen)': 'Multicolor mode (split by colors)',
+  'Palette (Zeichen-Reihenfolge von oben nach unten)': 'Palette (drawing order top to bottom)',
+  '+ Farbe': '+ Color',
+  'Jeder Bildpunkt wird der ähnlichsten Paletten-Farbe zugeordnet; pro Farbe entsteht eine eigene Gruppe in der .lac. Reihenfolge oben = Zeichen-Reihenfolge: erst Farbe 1 zeichnen, Stift wechseln, dann Farbe 2 usw. Funktioniert mit jedem Stil (Strichzeichnung für farbige Line Art, Schraffur/Wellen für farbige Flächen).':
+    'Each pixel is assigned to the closest palette color; each color becomes its own group in the .lac. Order at the top = drawing order: draw color 1 first, swap the pen, then color 2, and so on. Works with any style (line art for colored line drawings, hatching/squiggle for colored areas).',
   'Arbeitsbereich & Stift': 'Work area & pen',
   'Breite (mm)': 'Width (mm)', 'Höhe (mm)': 'Height (mm)',
   'Stiftbreite Vorschau (mm)': 'Pen width preview (mm)',
@@ -889,7 +1013,7 @@ function applyLangDefaults() {
 }
 UI.initLang(I18N_EN);
 applyLangDefaults();
-UI.onLangChange(() => { applyLangDefaults(); fillAsciiFonts(); recompute(); });
+UI.onLangChange(() => { applyLangDefaults(); fillAsciiFonts(); renderPalette(); recompute(); });
 UI.initTour("bild", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillAsciiFonts();
 showStyleOpts();
