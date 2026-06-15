@@ -832,10 +832,16 @@ function draw() {
   ctx.translate(S.view.ox, S.view.oy);
   ctx.scale(S.view.scale, S.view.scale);
   const P = UI.palette();
-  ctx.fillStyle = P.mat;
-  ctx.strokeStyle = P.matBorder; ctx.lineWidth = 0.4;
+  const groups = S.groups.length ? S.groups : [{ color: P.ink, strokes: S.strokes }];
+  const mc = $("inpMC").checked && groups.length > 1;
+  // Im Multicolor die Platte hell halten (Papier-WYSIWYG), damit Farbkontraste stimmen
+  const MAT = mc
+    ? { mat: "#eef3f0", matBorder: "#b9c9bf", grid: "rgba(0,0,0,0.07)", frame: "rgba(0,0,0,0.18)" }
+    : P;
+  ctx.fillStyle = MAT.mat;
+  ctx.strokeStyle = MAT.matBorder; ctx.lineWidth = 0.4;
   ctx.beginPath(); ctx.roundRect(0, 0, W, H, 3); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = P.grid; ctx.lineWidth = 0.15;
+  ctx.strokeStyle = MAT.grid; ctx.lineWidth = 0.15;
   ctx.beginPath();
   for (let x = 10; x < W; x += 10) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
   for (let y = 10; y < H; y += 10) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
@@ -843,15 +849,13 @@ function draw() {
 
   if (S.gray) {                                     // Bildrahmen
     const iw = +$("inpImgW").value, ih = iw * S.aspect;
-    ctx.strokeStyle = P.frame; ctx.lineWidth = 0.3;
+    ctx.strokeStyle = MAT.frame; ctx.lineWidth = 0.3;
     ctx.setLineDash([2, 2]);
     ctx.strokeRect(S.imgX, S.imgY, iw, ih);
     ctx.setLineDash([]);
   }
   ctx.lineWidth = +$("inpPenW").value;
   ctx.lineCap = "round"; ctx.lineJoin = "round";
-  const groups = S.groups.length ? S.groups : [{ color: P.ink, strokes: S.strokes }];
-  const mc = $("inpMC").checked && groups.length > 1;
   for (const g of groups) {
     ctx.strokeStyle = mc ? g.color : P.ink;
     ctx.beginPath();
