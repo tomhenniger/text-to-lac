@@ -249,6 +249,7 @@ function redraw() {
 function drawSelection(L, P) {
   const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
   ctx.save();
+  ctx.scale(devicePixelRatio, devicePixelRatio);   // Chrome in CSS-px zeichnen (sonst auf Retina verschoben/halb)
   ctx.strokeStyle = P.marker; ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(c[i][0], c[i][1]); ctx.closePath(); ctx.stroke();
   ctx.setLineDash([]);
