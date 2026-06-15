@@ -89,7 +89,13 @@
         <label>Spotify-Link oder URI</label>
         <input type="text" id="inpSpLink" placeholder="https://open.spotify.com/track/…">
         <button type="button" id="btnSpLoad" style="margin-top:8px;width:100%">Code laden</button>
+        <label>Linien-Modus</label>
+        <select id="inpSpMode">
+          <option value="multi">Gefüllt (Multiline)</option>
+          <option value="single">Einzellinie pro Stripe</option>
+        </select>
         <div class="checkrow"><input type="checkbox" id="inpSpLogo" checked><span>Spotify-Logo einbeziehen</span></div>
+        <div class="checkrow"><input type="checkbox" id="inpSpOutline" checked><span>Kontur nachfahren (crispe Kanten)</span></div>
         <div class="hint">Lädt den echten Spotify-Code (die Bar-Höhen kommen direkt von Spotify) als Vektor und wandelt ihn in Stiftlinien. Funktioniert mit Track-, Album-, Playlist-, Künstler- und Episoden-Links.</div>
       </div>
 
@@ -103,6 +109,7 @@
           <option value="Q">Q — hoch (25 %)</option>
           <option value="H">H — höchste (30 %)</option>
         </select>
+        <div class="checkrow"><input type="checkbox" id="inpQrOutline" checked><span>Kontur nachfahren (crispe Kanten)</span></div>
         <div class="hint">Mehr Fehlerkorrektur = robuster lesbar, aber dichteres Muster (mehr Stiftweg). Lass rundherum etwas weißen Rand frei (Ruhezone), damit Scanner den Code finden.</div>
       </div>
     </div>
@@ -188,6 +195,108 @@ function fillVertical(ink, gw, gh, bbox, sx, sy, penMm) {
   return out;
 }
 
+// Kontur eines Binärrasters → crispe Randlinien (mm, relativ zur Bbox oben links)
+function outlineStrokes(ink, gw, gh, bbox, sx, sy) {
+  const edge = new Uint8Array(gw * gh);
+  const x0 = Math.max(1, bbox.minX), x1 = Math.min(gw - 2, bbox.maxX);
+  const y0 = Math.max(1, bbox.minY), y1 = Math.min(gh - 2, bbox.maxY);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const i = y * gw + x;
+    if (!ink[i]) continue;
+    if (!ink[i - 1] || !ink[i + 1] || !ink[i - gw] || !ink[i + gw]) edge[i] = 1;  // Randpixel
+  }
+  thin(edge, gw, gh);
+  return traceBinary(edge, gw, gh)
+    .map(p => rdp(p, 1.2))                              // Treppenstufen glätten (px)
+    .filter(p => p.length >= 2)
+    .map(p => p.map(([x, y]) => [(x - bbox.minX) * sx, (y - bbox.minY) * sy]));
+}
+function thin(img, w, h) {                           // Zhang-Suen
+  let changed = true;
+  const idx = (x, y) => y * w + x;
+  while (changed) {
+    changed = false;
+    for (const step of [0, 1]) {
+      const kill = [];
+      for (let y = 1; y < h - 1; y++)
+        for (let x = 1; x < w - 1; x++) {
+          if (!img[idx(x, y)]) continue;
+          const p = [img[idx(x,y-1)],img[idx(x+1,y-1)],img[idx(x+1,y)],img[idx(x+1,y+1)],
+                     img[idx(x,y+1)],img[idx(x-1,y+1)],img[idx(x-1,y)],img[idx(x-1,y-1)]];
+          const B = p.reduce((a, b) => a + b, 0);
+          if (B < 2 || B > 6) continue;
+          let A = 0;
+          for (let i = 0; i < 8; i++) if (!p[i] && p[(i + 1) % 8]) A++;
+          if (A !== 1) continue;
+          if (step === 0 ? (p[0]*p[2]*p[4] || p[2]*p[4]*p[6]) : (p[0]*p[2]*p[6] || p[0]*p[4]*p[6])) continue;
+          kill.push(idx(x, y));
+        }
+      if (kill.length) { changed = true; for (const i of kill) img[i] = 0; }
+    }
+  }
+}
+function traceBinary(img, w, h) {
+  const pts = new Set();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (img[y * w + x]) pts.add(y * 100000 + x);
+  const key = (y, x) => y * 100000 + x;
+  const NB = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  function nbrs(y, x) {
+    const out = [];
+    for (const [dy, dx] of NB) {
+      if (!pts.has(key(y + dy, x + dx))) continue;
+      if (dy && dx && (pts.has(key(y + dy, x)) || pts.has(key(y, x + dx)))) continue;
+      out.push([y + dy, x + dx]);
+    }
+    return out;
+  }
+  const deg = new Map();
+  for (const k of pts) deg.set(k, nbrs(Math.floor(k / 100000), k % 100000).length);
+  const used = new Set();
+  const ekey = (a, b) => a < b ? a + "|" + b : b + "|" + a;
+  const paths = [];
+  function walk(sy, sx, ny, nx) {
+    const path = [[sx, sy], [nx, ny]];
+    used.add(ekey(key(sy, sx), key(ny, nx)));
+    let cy = ny, cx = nx, py = sy, px = sx;
+    while (deg.get(key(cy, cx)) === 2) {
+      const cand = nbrs(cy, cx).filter(([qy, qx]) => !(qy === py && qx === px) &&
+        !used.has(ekey(key(cy, cx), key(qy, qx))));
+      if (!cand.length) break;
+      [py, px] = [cy, cx];
+      [cy, cx] = cand[0];
+      used.add(ekey(key(py, px), key(cy, cx)));
+      path.push([cx, cy]);
+    }
+    return path;
+  }
+  const all = [...pts].sort((a, b) => a - b);
+  for (const pass of [0, 1]) {
+    for (const k of all) {
+      const y = Math.floor(k / 100000), x = k % 100000;
+      if (pass === 0 && deg.get(k) === 2) continue;
+      for (const [qy, qx] of nbrs(y, x))
+        if (!used.has(ekey(k, key(qy, qx)))) paths.push(walk(y, x, qy, qx));
+    }
+  }
+  return paths;
+}
+function rdp(pts, eps) {
+  if (pts.length < 3) return pts;
+  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
+  const dx = bx - ax, dy = by - ay, n = Math.hypot(dx, dy);
+  let mi = 0, md = -1;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = n ? Math.abs(dx * (ay - pts[i][1]) - dy * (ax - pts[i][0])) / n
+                : Math.hypot(pts[i][0] - ax, pts[i][1] - ay);
+    if (d > md) { md = d; mi = i; }
+  }
+  if (md > eps) {
+    const l = rdp(pts.slice(0, mi + 1), eps), r = rdp(pts.slice(mi), eps);
+    return l.slice(0, -1).concat(r);
+  }
+  return [pts[0], pts[pts.length - 1]];
+}
+
 /* ---------- Spotify-Code ---------- */
 function spotifyUri(link) {
   link = (link || "").trim();
@@ -202,15 +311,19 @@ async function loadSpotify() {
   const res = await fetch(url);
   if (!res.ok) throw new Error("HTTP " + res.status);
   const svg = await res.text();
-  // Bars finden (schmale rects), linke Bar-Kante für Logo-Umschaltung
-  let barsMinXvb = Infinity, bars = 0;
-  for (const r of svg.matchAll(/<rect\s+x="([\d.]+)"\s+y="[\d.]+"\s+width="([\d.]+)"/g)) {
-    const x = +r[1], w = +r[2];
-    if (w < 50) { barsMinXvb = Math.min(barsMinXvb, x); bars++; }
+  // Bars finden (schmale rects): exakte Geometrie für Einzellinien-Modus
+  const RW = 1600, RH = 400, PX = RW / 400, PY = RH / 100;
+  let barsMinXvb = Infinity;
+  const bars = [];
+  for (const r of svg.matchAll(/<rect\s+x="([\d.]+)"\s+y="([\d.]+)"\s+width="([\d.]+)"\s+height="([\d.]+)"/g)) {
+    const x = +r[1], y = +r[2], w = +r[3], h = +r[4];
+    if (w < 50) {
+      barsMinXvb = Math.min(barsMinXvb, x);
+      bars.push({ cx: (x + w / 2) * PX, top: y * PY, bot: (y + h) * PY });   // Pixel-Koordinaten
+    }
   }
-  if (bars < 8) throw new Error(UI.t("Kein gültiger Code", "No valid code"));
+  if (bars.length < 8) throw new Error(UI.t("Kein gültiger Code", "No valid code"));
   // SVG rastern
-  const RW = 1600, RH = 400;
   const img = new Image();
   const blobUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
   await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = blobUrl; });
@@ -225,16 +338,20 @@ async function loadSpotify() {
     const l = (data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]) / 3;
     ink[i] = l < 128 ? 1 : 0;
   }
-  S.spCache = { ink, gw: RW, gh: RH, barsMinXpx: Math.floor(barsMinXvb * RW / 400) - 2 };
+  S.spCache = { ink, gw: RW, gh: RH, bars, barsMinXpx: Math.floor(barsMinXvb * PX) - 2 };
   buildSpotify();
   return true;
 }
 function buildSpotify() {
   const cache = S.spCache;
   if (!cache) return;
-  const { ink, gw, gh } = cache;
-  const cropX = $("inpSpLogo").checked ? 0 : Math.max(0, cache.barsMinXpx);
-  // Bbox der Tinte
+  const { ink, gw, gh, bars } = cache;
+  const logoOn = $("inpSpLogo").checked;
+  const single = $("inpSpMode").value === "single";
+  const wantOutline = $("inpSpOutline").checked;
+  const pen = +$("inpPenW").value;
+  const cropX = logoOn ? 0 : Math.max(0, cache.barsMinXpx);
+  // Bbox der Tinte (deckt Bars + ggf. Logo ab)
   let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
   for (let y = 0; y < gh; y++) for (let x = cropX; x < gw; x++) if (ink[y * gw + x]) {
     if (x < minX) minX = x; if (x > maxX) maxX = x;
@@ -242,10 +359,24 @@ function buildSpotify() {
   }
   if (maxX < 0) { setStatus(UI.t("Kein Inhalt", "No content")); return; }
   const W = +$("inpSize").value;
-  const s = W / (maxX - minX);                 // mm pro Rasterpixel (gleich in x & y)
-  S.strokes = fillVertical(ink, gw, gh, { minX, minY, maxX, maxY }, s, s, +$("inpPenW").value);
+  const s = W / (maxX - minX);                 // mm pro Rasterpixel
+  const out = [];
+  if (single) {
+    // Eine Linie pro Stripe (Mittellinie) — mit dickem Stift in einem Zug zeichenbar
+    for (const b of bars) out.push([[(b.cx - minX) * s, (b.top - minY) * s], [(b.cx - minX) * s, (b.bot - minY) * s]]);
+    if (logoOn) {                              // Logo bleibt gefüllt
+      const lb = { minX, minY, maxX: Math.min(maxX, cache.barsMinXpx - 1), maxY };
+      out.push(...fillVertical(ink, gw, gh, lb, s, s, pen));
+      if (wantOutline) out.push(...outlineStrokes(ink, gw, gh, lb, s, s));
+    }
+  } else {
+    const bb = { minX, minY, maxX, maxY };
+    out.push(...fillVertical(ink, gw, gh, bb, s, s, pen));
+    if (wantOutline) out.push(...outlineStrokes(ink, gw, gh, bb, s, s));
+  }
+  S.strokes = out;
   S.cw = (maxX - minX) * s; S.ch = (maxY - minY) * s;
-  finishCompute();
+  finishCompute(single ? UI.t("Einzellinie", "single line") : undefined);
 }
 
 /* ---------- QR-Code ---------- */
@@ -269,7 +400,9 @@ function buildQR() {
     }
   }
   const s = moduleMm / ppm;
-  S.strokes = fillVertical(ink, gw, gh, { minX: 0, minY: 0, maxX: gw - 1, maxY: gh - 1 }, s, s, pen);
+  const bb = { minX: 0, minY: 0, maxX: gw - 1, maxY: gh - 1 };
+  S.strokes = fillVertical(ink, gw, gh, bb, s, s, pen);
+  if ($("inpQrOutline").checked) S.strokes.push(...outlineStrokes(ink, gw, gh, bb, s, s));
   S.cw = gw * s; S.ch = gh * s;
   finishCompute(cnt + "×" + cnt + " " + UI.t("Module", "modules"));
 }
@@ -411,7 +544,7 @@ $("btnSpLoad").onclick = async () => {
   try { await loadSpotify(); } catch (e) { setStatus(UI.t("Fehler beim Laden: ", "Load error: ") + e.message); }
   busy = false; $("btnSpLoad").disabled = false;
 };
-for (const id of ["inpSpLogo", "inpQrText", "inpQrEc"])
+for (const id of ["inpSpLogo", "inpSpMode", "inpSpOutline", "inpQrText", "inpQrEc", "inpQrOutline"])
   $(id).addEventListener("input", recompute);
 const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"]];
 for (const [id, vid, unit] of SLIDERS) {
@@ -429,6 +562,10 @@ const I18N_EN = {
   'Werkzeug': 'Tool', 'Spotify-Code': 'Spotify code', 'QR-Code': 'QR code',
   'Spotify-Link oder URI': 'Spotify link or URI', 'Code laden': 'Load code',
   'Spotify-Logo einbeziehen': 'Include Spotify logo',
+  'Linien-Modus': 'Line mode',
+  'Gefüllt (Multiline)': 'Filled (multiline)',
+  'Einzellinie pro Stripe': 'Single line per stripe',
+  'Kontur nachfahren (crispe Kanten)': 'Trace outline (crisp edges)',
   'Lädt den echten Spotify-Code (die Bar-Höhen kommen direkt von Spotify) als Vektor und wandelt ihn in Stiftlinien. Funktioniert mit Track-, Album-, Playlist-, Künstler- und Episoden-Links.':
     'Loads the real Spotify code (bar heights come straight from Spotify) as a vector and turns it into pen lines. Works with track, album, playlist, artist and episode links.',
   'Text oder URL': 'Text or URL', 'Fehlerkorrektur': 'Error correction',
