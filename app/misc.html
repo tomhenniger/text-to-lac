@@ -62,6 +62,8 @@
                border-top: 1px solid var(--border); display: flex; gap: 18px; }
   .toolopts { display: none; }
   .toolopts.active { display: block; }
+  .qrsub { display: none; }
+  .qrsub.active { display: block; }
 </style>
 </head>
 <body>
@@ -81,8 +83,25 @@
     <summary>Werkzeug</summary>
     <div class="body">
       <select id="inpTool">
-        <option value="spotify">Spotify-Code</option>
-        <option value="qr">QR-Code</option>
+        <optgroup label="Codes" data-de="Codes">
+          <option value="spotify">Spotify-Code</option>
+          <option value="qr">QR-Code</option>
+        </optgroup>
+        <optgroup label="Vorlagen &amp; Utility" data-de="Vorlagen &amp; Utility">
+          <option value="svg">SVG-Import</option>
+          <option value="paper">Papier / Raster</option>
+          <option value="pentest">Stift-Test / Kalibrierung</option>
+        </optgroup>
+        <optgroup label="Generative Kunst" data-de="Generative Kunst">
+          <option value="spacefill">Space-Filling-Kurven</option>
+          <option value="spiro">Spirograph / Lissajous</option>
+          <option value="maze">Labyrinth</option>
+          <option value="fxplot">Funktionsplotter</option>
+          <option value="tsp">TSP- / Stipple-Art</option>
+        </optgroup>
+        <optgroup label="Audio" data-de="Audio">
+          <option value="wave">Audio-Waveform</option>
+        </optgroup>
       </select>
 
       <div class="toolopts active" data-tool="spotify">
@@ -100,8 +119,49 @@
       </div>
 
       <div class="toolopts" data-tool="qr">
-        <label>Text oder URL</label>
-        <textarea id="inpQrText" placeholder="https://…">https://handschrift.art</textarea>
+        <label>Inhalt</label>
+        <select id="inpQrType">
+          <option value="text" selected>Text / URL</option>
+          <option value="wifi">WLAN-Zugang</option>
+          <option value="vcard">Kontakt (vCard)</option>
+          <option value="email">E-Mail</option>
+          <option value="tel">Telefon</option>
+          <option value="sms">SMS</option>
+          <option value="geo">Standort</option>
+        </select>
+        <div class="qrsub active" data-qt="text">
+          <label>Text oder URL</label>
+          <textarea id="inpQrText" placeholder="https://…">https://handschrift.art</textarea>
+        </div>
+        <div class="qrsub" data-qt="wifi">
+          <label>WLAN-Name (SSID)</label><input type="text" id="inpQrWifiSsid">
+          <label>Passwort</label><input type="text" id="inpQrWifiPass">
+          <label>Verschlüsselung</label>
+          <select id="inpQrWifiEnc"><option value="WPA">WPA/WPA2</option><option value="WEP">WEP</option><option value="nopass">Offen</option></select>
+          <div class="checkrow"><input type="checkbox" id="inpQrWifiHidden"><span>Verstecktes Netzwerk</span></div>
+        </div>
+        <div class="qrsub" data-qt="vcard">
+          <label>Name</label><input type="text" id="inpQrVcName">
+          <label>Firma</label><input type="text" id="inpQrVcOrg">
+          <label>Telefon</label><input type="text" id="inpQrVcPhone">
+          <label>E-Mail</label><input type="text" id="inpQrVcEmail">
+          <label>Website</label><input type="text" id="inpQrVcUrl">
+        </div>
+        <div class="qrsub" data-qt="email">
+          <label>An</label><input type="text" id="inpQrEmTo">
+          <label>Betreff</label><input type="text" id="inpQrEmSub">
+          <label>Nachricht</label><textarea id="inpQrEmBody"></textarea>
+        </div>
+        <div class="qrsub" data-qt="tel">
+          <label>Telefonnummer</label><input type="text" id="inpQrTel" placeholder="+49…">
+        </div>
+        <div class="qrsub" data-qt="sms">
+          <label>Nummer</label><input type="text" id="inpQrSmsNum" placeholder="+49…">
+          <label>Nachricht</label><input type="text" id="inpQrSmsBody">
+        </div>
+        <div class="qrsub" data-qt="geo">
+          <div class="row"><div><label>Breite</label><input type="text" id="inpQrGeoLat" placeholder="52.52"></div><div><label>Länge</label><input type="text" id="inpQrGeoLng" placeholder="13.405"></div></div>
+        </div>
         <label>Fehlerkorrektur</label>
         <select id="inpQrEc">
           <option value="L">L — niedrig (7 %)</option>
@@ -111,6 +171,113 @@
         </select>
         <div class="checkrow"><input type="checkbox" id="inpQrOutline" checked><span>Kontur nachfahren (crispe Kanten)</span></div>
         <div class="hint">Mehr Fehlerkorrektur = robuster lesbar, aber dichteres Muster (mehr Stiftweg). Lass rundherum etwas weißen Rand frei (Ruhezone), damit Scanner den Code finden.</div>
+      </div>
+            <div class="toolopts" data-tool="svg">
+<label>SVG-Datei</label>
+<input type="file" id="inpSvgFile" accept=".svg,image/svg+xml">
+<div class="hint" id="svgFileInfo">Noch keine Datei geladen.</div>
+<label>Kurven-Auflösung (Genauigkeit)</label>
+<div class="slider"><input type="range" id="inpSvgRes" min="0.1" max="1.5" step="0.05" value="0.3"><span class="val" id="valSvgRes"></span></div>
+<label>Vereinfachung (Punkte reduzieren)</label>
+<div class="slider"><input type="range" id="inpSvgSimplify" min="0" max="0.5" step="0.01" value="0.05"><span class="val" id="valSvgSimplify"></span></div>
+<div class="checkrow"><input type="checkbox" id="inpSvgClose"><span>Offene Formen schließen</span></div>
+<div class="hint">Nur Umrisse / Linien werden gezeichnet — Füllungen und Farben werden ignoriert. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> sowie <code>&lt;g&gt;</code>-Transformationen werden unterstützt. Die längste Seite wird auf die eingestellte Größe skaliert.</div>
+      </div>
+      <div class="toolopts" data-tool="paper">
+<div class="row"><div><label>Höhe (mm)</label><input type="number" id="inpPaperH" min="10" max="2000" step="1" value="200"></div><div><label>Art</label><select id="inpPaperType"><option value="dots">Punktraster</option><option value="lines">Linien</option><option value="karo" selected>Karo</option><option value="iso">Isometrisch</option><option value="noten">Notenlinien</option><option value="mm">Millimeterpapier</option></select></div></div><label>Abstand (mm)</label><div class="slider"><input type="range" id="inpPaperSpace" min="2" max="20" step="0.5" value="5"><span class="val" id="valPaperSpace"></span></div><div class="hint">Breite = Größe oben. Gerade Linien werden für einen Stift gezeichnet.</div>
+      </div>
+      <div class="toolopts" data-tool="pentest">
+<div class="hint">Kalibrierblatt: Breite = Größe, Höhe automatisch. Findet Voll-Füll-Abstand, Maßgenauigkeit und Rundlauf.</div>
+<label>Quadrat-Größe</label>
+<div class="slider"><input type="range" id="ptSqSize" min="10" max="30" step="1" value="18"><span class="val" id="valPtSqSize"></span></div>
+<label>Skala-Länge</label>
+<div class="slider"><input type="range" id="ptScaleLen" min="50" max="200" step="10" value="100"><span class="val" id="valPtScaleLen"></span></div>
+<label>Konzentrische Kreise</label>
+<div class="slider"><input type="range" id="ptRings" min="2" max="8" step="1" value="5"><span class="val" id="valPtRings"></span></div>
+<label>Element-Abstand</label>
+<div class="slider"><input type="range" id="ptGap" min="4" max="20" step="1" value="8"><span class="val" id="valPtGap"></span></div>
+<div class="checkrow"><input type="checkbox" id="ptRegistration" checked><span>Passkreuze in den Ecken</span></div>
+<div class="checkrow"><input type="checkbox" id="ptSerpentine" checked><span>Füllung als durchgehender Pfad (weniger Stiftheber)</span></div>
+      </div>
+      <div class="toolopts" data-tool="spacefill">
+<label>Kurventyp</label>
+<select id="inpSfType">
+  <option value="Hilbert">Hilbert</option>
+  <option value="Moore">Moore (geschlossen)</option>
+  <option value="Peano">Peano</option>
+  <option value="Drachenkurve">Drachenkurve</option>
+</select>
+<label>Ordnung</label>
+<div class="slider"><input type="range" id="inpSfOrder" min="1" max="7" step="1" value="5"><span class="val" id="valInpSfOrder"></span></div>
+<div class="hint">Höhere Ordnung = viel dichter. Eine einzige durchgehende Linie. Peano wird ab Ordnung 6 begrenzt; die Drachenkurve füllt ihre eigene Bounding-Box in das Zielmaß.</div>
+      </div>
+      <div class="toolopts" data-tool="spiro">
+<label>Kurventyp</label>
+<select id="inpSpType">
+  <option value="spiro">Spirograph (Hypotrochoide)</option>
+  <option value="lissa">Lissajous-Figur</option>
+  <option value="guil">Guilloché (Banknoten-Rosette)</option>
+</select>
+<div class="row">
+  <div><label>Parameter A</label><div class="slider"><input type="range" id="inpSpA" min="1" max="200" step="1" value="80"><span class="val" id="valSpA"></span></div></div>
+  <div><label>Parameter B</label><div class="slider"><input type="range" id="inpSpB" min="1" max="200" step="1" value="50"><span class="val" id="valSpB"></span></div></div>
+</div>
+<label>Parameter C</label>
+<div class="slider"><input type="range" id="inpSpC" min="1" max="200" step="1" value="30"><span class="val" id="valSpC"></span></div>
+<label>Umläufe</label>
+<div class="slider"><input type="range" id="inpSpTurns" min="1" max="400" step="1" value="60"><span class="val" id="valSpTurns"></span></div>
+<label>Detailgrad (Punkte)</label>
+<div class="slider"><input type="range" id="inpSpDetail" min="500" max="12000" step="500" value="4000"><span class="val" id="valSpDetail"></span></div>
+<div class="hint">A, B und C werden je nach Typ unterschiedlich gedeutet. Spirograph: R=A, r=B, d=C. Lissajous: Frequenzen A & B, Phase aus C. Guilloché: Welligkeit A, Rotation B, Amplitude C. Eine einzige durchgehende Linie — ideal für einen Stift.</div>
+      </div>
+      <div class="toolopts" data-tool="maze">
+<label>Spalten</label>
+<div class="slider"><input type="range" id="inpMazeCols" min="5" max="60" step="1" value="20"><span class="val" id="valMazeCols"></span></div>
+<div class="row">
+  <div>
+    <label>Höhe</label>
+    <input type="number" id="inpMazeH" value="100" min="10" step="1">
+  </div>
+  <div>
+    <label>Seed</label>
+    <input type="number" id="inpMazeSeed" value="1" min="0" step="1">
+  </div>
+</div>
+<button type="button" id="inpMazeShuffle">Neu würfeln</button>
+<div class="hint">Rechteckiges Labyrinth (Recursive Backtracker). Eingang oben links, Ausgang unten rechts. Wände werden zu langen Linien zusammengefasst, um Stiftwechsel zu minimieren.</div>
+      </div>
+      <div class="toolopts" data-tool="fxplot">
+<label>Funktion y = f(x)</label>
+<input type="text" id="inpFxExpr" value="sin(x)" spellcheck="false" autocapitalize="off" autocomplete="off">
+<div class="hint">Erlaubt: + - * / ^, Klammern, x, pi, e und sin cos tan asin acos atan exp ln log sqrt abs floor ceil round sign. Beispiel: sin(x)*exp(-abs(x)/4)</div>
+<div class="row">
+  <div><label>x von</label><input type="number" id="inpFxXmin" value="-6.28" step="0.5"></div>
+  <div><label>x bis</label><input type="number" id="inpFxXmax" value="6.28" step="0.5"></div>
+</div>
+<div class="checkrow"><input type="checkbox" id="inpFxAxes" checked><span>Achsen, Gitter und Teilstriche zeichnen</span></div>
+      </div>
+      <div class="toolopts" data-tool="tsp">
+<label>Bild</label>
+<input type="file" id="inpTspFile" accept="image/*">
+<label>Punkte</label>
+<div class="slider"><input type="range" id="inpTspPoints" min="200" max="3000" step="100" value="1200"><span class="val" id="valTspPoints"></span></div>
+<div class="checkrow"><input type="checkbox" id="inpTspInvert"><span>Invertieren (helle Bereiche füllen)</span></div>
+<div class="hint">Verteilt Punkte nach Helligkeit (dunkle Bereiche dichter) und verbindet sie zu einer einzigen, durchgehenden Linie (Travelling-Salesman-Art). Lädt am besten ein kontrastreiches Motiv. Die Optimierung kann einen Moment dauern und ist eine Näherung. Deterministisch pro Bild + Punktzahl.</div>
+      </div>
+      <div class="toolopts" data-tool="wave">
+<label>Audiodatei</label>
+<input type="file" id="inpWaveFile" accept="audio/*">
+<div class="hint" id="hintWave">Audio laden.</div>
+<label>Stil</label>
+<select id="inpWaveStyle">
+<option value="bars">Balken</option>
+<option value="env">Hüllkurve</option>
+<option value="line">Linie</option>
+</select>
+<label>Balken / Auflösung</label>
+<div class="slider"><input type="range" id="inpWaveBars" min="40" max="400" step="10" value="160"><span class="val" id="valWaveBars"></span></div>
+<label>Höhe</label>
+<input type="number" id="inpWaveHeight" value="40" min="1" step="1">
       </div>
     </div>
   </details>
@@ -380,9 +547,43 @@ function buildSpotify() {
 }
 
 /* ---------- QR-Code ---------- */
+function qrEsc(s) { return String(s).replace(/([\\;,:"])/g, "\\$1"); }   // WIFI/MECARD-Escaping
+function qrData() {
+  const t = $("inpQrType").value;
+  if (t === "wifi") {
+    const enc = $("inpQrWifiEnc").value;
+    return "WIFI:T:" + enc + ";S:" + qrEsc($("inpQrWifiSsid").value) + ";"
+      + (enc === "nopass" ? "" : "P:" + qrEsc($("inpQrWifiPass").value) + ";")
+      + ($("inpQrWifiHidden").checked ? "H:true;" : "") + ";";
+  }
+  if (t === "vcard") {
+    const v = id => $(id).value.trim();
+    return "BEGIN:VCARD\nVERSION:3.0\nN:" + v("inpQrVcName") + "\nFN:" + v("inpQrVcName")
+      + (v("inpQrVcOrg") ? "\nORG:" + v("inpQrVcOrg") : "")
+      + (v("inpQrVcPhone") ? "\nTEL:" + v("inpQrVcPhone") : "")
+      + (v("inpQrVcEmail") ? "\nEMAIL:" + v("inpQrVcEmail") : "")
+      + (v("inpQrVcUrl") ? "\nURL:" + v("inpQrVcUrl") : "") + "\nEND:VCARD";
+  }
+  if (t === "email") {
+    const q = [];
+    if ($("inpQrEmSub").value) q.push("subject=" + encodeURIComponent($("inpQrEmSub").value));
+    if ($("inpQrEmBody").value) q.push("body=" + encodeURIComponent($("inpQrEmBody").value));
+    return "mailto:" + $("inpQrEmTo").value.trim() + (q.length ? "?" + q.join("&") : "");
+  }
+  if (t === "tel") return "tel:" + $("inpQrTel").value.trim();
+  if (t === "sms") return "SMSTO:" + $("inpQrSmsNum").value.trim() + ":" + $("inpQrSmsBody").value;
+  if (t === "geo") return "geo:" + ($("inpQrGeoLat").value.trim() || "0") + "," + ($("inpQrGeoLng").value.trim() || "0");
+  return $("inpQrText").value;
+}
+function showQrSub() {
+  const t = $("inpQrType").value;
+  document.querySelectorAll(".qrsub").forEach(el => el.classList.toggle("active", el.dataset.qt === t));
+}
 function buildQR() {
-  const text = $("inpQrText").value;
-  if (!text) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Text eingeben.", "Enter text.")); draw(); return; }
+  const text = qrData();
+  if (!text || text === "tel:" || text === "mailto:" || text === "SMSTO::") {
+    S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Inhalt eingeben.", "Enter content.")); draw(); return;
+  }
   let qr;
   try { qr = qrcode(0, $("inpQrEc").value); qr.addData(text); qr.make(); }
   catch (e) { setStatus(UI.t("Text zu lang für QR.", "Text too long for QR.")); return; }
@@ -409,13 +610,1324 @@ function buildQR() {
 
 /* ---------- gemeinsam ---------- */
 let busy = false;
+/* ============ Tool: svg ============ */
+function svgMulMat(a, b) {
+  return [
+    a[0]*b[0] + a[2]*b[1],
+    a[1]*b[0] + a[3]*b[1],
+    a[0]*b[2] + a[2]*b[3],
+    a[1]*b[2] + a[3]*b[3],
+    a[0]*b[4] + a[2]*b[5] + a[4],
+    a[1]*b[4] + a[3]*b[5] + a[5]
+  ];
+}
+function svgApply(m, x, y) { return [m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5]]; }
+function svgParseTransform(str) {
+  let m = [1, 0, 0, 1, 0, 0];
+  if (!str) return m;
+  const re = /(matrix|translate|scale|rotate|skewX|skewY)\s*\(([^)]*)\)/g;
+  let t;
+  while ((t = re.exec(str))) {
+    const a = t[2].split(/[\s,]+/).map(parseFloat).filter(v => !isNaN(v));
+    let n;
+    switch (t[1]) {
+      case "matrix": n = a.length >= 6 ? [a[0], a[1], a[2], a[3], a[4], a[5]] : [1,0,0,1,0,0]; break;
+      case "translate": n = [1, 0, 0, 1, a[0] || 0, a[1] || 0]; break;
+      case "scale": n = [a.length ? a[0] : 1, 0, 0, a.length > 1 ? a[1] : (a.length ? a[0] : 1), 0, 0]; break;
+      case "rotate": {
+        const r = (a[0] || 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+        if (a.length >= 3) {
+          const cx = a[1], cy = a[2];
+          n = svgMulMat([1, 0, 0, 1, cx, cy], svgMulMat([c, s, -s, c, 0, 0], [1, 0, 0, 1, -cx, -cy]));
+        } else n = [c, s, -s, c, 0, 0];
+        break;
+      }
+      case "skewX": n = [1, 0, Math.tan((a[0] || 0) * Math.PI / 180), 1, 0, 0]; break;
+      case "skewY": n = [1, Math.tan((a[0] || 0) * Math.PI / 180), 0, 1, 0, 0]; break;
+      default: n = [1, 0, 0, 1, 0, 0];
+    }
+    m = svgMulMat(m, n);
+  }
+  return m;
+}
+function svgCumulativeMatrix(el) {
+  let m = [1, 0, 0, 1, 0, 0];
+  const chain = [];
+  let cur = el;
+  while (cur && cur.nodeType === 1 && cur.tagName.toLowerCase() !== "svg") {
+    chain.push(cur);
+    cur = cur.parentNode;
+  }
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const tf = chain[i].getAttribute && chain[i].getAttribute("transform");
+    if (tf) m = svgMulMat(m, svgParseTransform(tf));
+  }
+  return m;
+}
+function svgNum(el, name, def) {
+  const v = parseFloat(el.getAttribute(name));
+  return isNaN(v) ? def : v;
+}
+function svgTokenizePath(d) {
+  const out = [];
+  const re = /([MmLlHhVvCcSsQqTtAaZz])|(-?\d*\.?\d+(?:[eE][-+]?\d+)?)/g;
+  let m;
+  while ((m = re.exec(d))) {
+    if (m[1]) out.push(m[1]);
+    else out.push(parseFloat(m[2]));
+  }
+  return out;
+}
+function svgFlatCubic(x1, y1, x2, y2, x3, y3, x4, y4, out, res, depth) {
+  if (depth > 18) { out.push([x4, y4]); return; }
+  const ux = 3*x2 - 2*x1 - x4, uy = 3*y2 - 2*y1 - y4;
+  const vx = 3*x3 - x1 - 2*x4, vy = 3*y3 - y1 - 2*y4;
+  const dev = Math.max(ux*ux, vx*vx) + Math.max(uy*uy, vy*vy);
+  if (dev <= 16 * res * res) { out.push([x4, y4]); return; }
+  const x12 = (x1+x2)/2, y12 = (y1+y2)/2, x23 = (x2+x3)/2, y23 = (y2+y3)/2, x34 = (x3+x4)/2, y34 = (y3+y4)/2;
+  const x123 = (x12+x23)/2, y123 = (y12+y23)/2, x234 = (x23+x34)/2, y234 = (y23+y34)/2;
+  const xm = (x123+x234)/2, ym = (y123+y234)/2;
+  svgFlatCubic(x1, y1, x12, y12, x123, y123, xm, ym, out, res, depth + 1);
+  svgFlatCubic(xm, ym, x234, y234, x34, y34, x4, y4, out, res, depth + 1);
+}
+function svgFlatQuad(x1, y1, cx, cy, x2, y2, out, res) {
+  const c1x = x1 + 2/3*(cx - x1), c1y = y1 + 2/3*(cy - y1);
+  const c2x = x2 + 2/3*(cx - x2), c2y = y2 + 2/3*(cy - y2);
+  svgFlatCubic(x1, y1, c1x, c1y, c2x, c2y, x2, y2, out, res, 0);
+}
+function svgArcPoints(x0, y0, rx, ry, phiDeg, large, sweep, x, y, res, out) {
+  if (rx === 0 || ry === 0 || (x0 === x && y0 === y)) { out.push([x, y]); return; }
+  rx = Math.abs(rx); ry = Math.abs(ry);
+  const phi = phiDeg * Math.PI / 180, cp = Math.cos(phi), sp = Math.sin(phi);
+  const dx = (x0 - x) / 2, dy = (y0 - y) / 2;
+  const x1 = cp*dx + sp*dy, y1 = -sp*dx + cp*dy;
+  let lam = x1*x1/(rx*rx) + y1*y1/(ry*ry);
+  if (lam > 1) { const sc = Math.sqrt(lam); rx *= sc; ry *= sc; }
+  const sign = large !== sweep ? 1 : -1;
+  const num = rx*rx*ry*ry - rx*rx*y1*y1 - ry*ry*x1*x1;
+  const den = rx*rx*y1*y1 + ry*ry*x1*x1;
+  const co = sign * Math.sqrt(Math.max(0, num / den));
+  const cx1 = co * rx * y1 / ry, cy1 = -co * ry * x1 / rx;
+  const cx = cp*cx1 - sp*cy1 + (x0 + x)/2, cy = sp*cx1 + cp*cy1 + (y0 + y)/2;
+  const ang = (ux, uy, vx, vy) => {
+    const dd = Math.sqrt((ux*ux + uy*uy) * (vx*vx + vy*vy));
+    let c = dd ? (ux*vx + uy*vy) / dd : 0;
+    c = Math.max(-1, Math.min(1, c));
+    let a = Math.acos(c);
+    if (ux*vy - uy*vx < 0) a = -a;
+    return a;
+  };
+  const t1 = ang(1, 0, (x1 - cx1) / rx, (y1 - cy1) / ry);
+  let dt = ang((x1 - cx1) / rx, (y1 - cy1) / ry, (-x1 - cx1) / rx, (-y1 - cy1) / ry);
+  if (!sweep && dt > 0) dt -= 2 * Math.PI;
+  else if (sweep && dt < 0) dt += 2 * Math.PI;
+  const rmax = Math.max(rx, ry);
+  const n = Math.max(2, Math.ceil(Math.abs(dt) * rmax / Math.max(0.05, res)));
+  for (let i = 1; i <= n; i++) {
+    const t = t1 + dt * i / n;
+    const ct = Math.cos(t), st = Math.sin(t);
+    out.push([cp*rx*ct - sp*ry*st + cx, sp*rx*ct + cp*ry*st + cy]);
+  }
+}
+function svgParsePathD(d, res) {
+  const tk = svgTokenizePath(d);
+  const polys = [];
+  let cur = null;
+  let cx = 0, cy = 0, sx = 0, sy = 0;
+  let prevCtrlX = 0, prevCtrlY = 0, prevQX = 0, prevQY = 0;
+  let lastCmd = "";
+  let i = 0;
+  const startPoly = () => { cur = [[cx, cy]]; polys.push(cur); sx = cx; sy = cy; };
+  const num = () => tk[i++];
+  while (i < tk.length) {
+    let cmd = tk[i];
+    if (typeof cmd === "string") i++;
+    else cmd = lastCmd === "M" ? "L" : (lastCmd === "m" ? "l" : lastCmd);
+    const rel = cmd >= "a" && cmd <= "z";
+    const C = cmd.toUpperCase();
+    if (C === "M") {
+      const nx = num(), ny = num();
+      cx = rel && cur ? cx + nx : nx;
+      cy = rel && cur ? cy + ny : ny;
+      startPoly();
+    } else if (C === "L") {
+      const nx = num(), ny = num();
+      cx = rel ? cx + nx : nx; cy = rel ? cy + ny : ny;
+      if (!cur) startPoly(); else cur.push([cx, cy]);
+    } else if (C === "H") {
+      const nx = num();
+      cx = rel ? cx + nx : nx;
+      if (!cur) startPoly(); else cur.push([cx, cy]);
+    } else if (C === "V") {
+      const ny = num();
+      cy = rel ? cy + ny : ny;
+      if (!cur) startPoly(); else cur.push([cx, cy]);
+    } else if (C === "C" || C === "S") {
+      let c1x, c1y, c2x, c2y;
+      if (C === "S") {
+        if (lastCmd.toUpperCase() === "C" || lastCmd.toUpperCase() === "S") { c1x = 2*cx - prevCtrlX; c1y = 2*cy - prevCtrlY; }
+        else { c1x = cx; c1y = cy; }
+        const a = num(), b = num(), e = num(), f = num();
+        c2x = rel ? cx + a : a; c2y = rel ? cy + b : b;
+        var ex = rel ? cx + e : e, ey = rel ? cy + f : f;
+      } else {
+        const a = num(), b = num(), c = num(), dd = num(), e = num(), f = num();
+        c1x = rel ? cx + a : a; c1y = rel ? cy + b : b;
+        c2x = rel ? cx + c : c; c2y = rel ? cy + dd : dd;
+        var ex = rel ? cx + e : e, ey = rel ? cy + f : f;
+      }
+      if (!cur) startPoly();
+      svgFlatCubic(cx, cy, c1x, c1y, c2x, c2y, ex, ey, cur, res, 0);
+      prevCtrlX = c2x; prevCtrlY = c2y;
+      cx = ex; cy = ey;
+    } else if (C === "Q" || C === "T") {
+      let qx, qy, ex, ey;
+      if (C === "T") {
+        if (lastCmd.toUpperCase() === "Q" || lastCmd.toUpperCase() === "T") { qx = 2*cx - prevQX; qy = 2*cy - prevQY; }
+        else { qx = cx; qy = cy; }
+        const e = num(), f = num();
+        ex = rel ? cx + e : e; ey = rel ? cy + f : f;
+      } else {
+        const a = num(), b = num(), e = num(), f = num();
+        qx = rel ? cx + a : a; qy = rel ? cy + b : b;
+        ex = rel ? cx + e : e; ey = rel ? cy + f : f;
+      }
+      if (!cur) startPoly();
+      svgFlatQuad(cx, cy, qx, qy, ex, ey, cur, res);
+      prevQX = qx; prevQY = qy;
+      cx = ex; cy = ey;
+    } else if (C === "A") {
+      const rxA = num(), ryA = num(), rot = num(), large = num(), sweep = num(), e = num(), f = num();
+      const ex = rel ? cx + e : e, ey = rel ? cy + f : f;
+      if (!cur) startPoly();
+      svgArcPoints(cx, cy, rxA, ryA, rot, large ? 1 : 0, sweep ? 1 : 0, ex, ey, res, cur);
+      cx = ex; cy = ey;
+    } else if (C === "Z") {
+      if (cur) { cur.push([sx, sy]); cx = sx; cy = sy; cur = null; }
+    } else { i++; continue; }
+    lastCmd = cmd;
+  }
+  return polys;
+}
+function svgRectPoly(el, res) {
+  const x = svgNum(el, "x", 0), y = svgNum(el, "y", 0);
+  const w = svgNum(el, "width", 0), h = svgNum(el, "height", 0);
+  if (w <= 0 || h <= 0) return [];
+  let rx = parseFloat(el.getAttribute("rx")), ry = parseFloat(el.getAttribute("ry"));
+  if (isNaN(rx) && isNaN(ry)) return [[[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]];
+  if (isNaN(rx)) rx = ry; if (isNaN(ry)) ry = rx;
+  rx = Math.min(Math.max(0, rx), w / 2); ry = Math.min(Math.max(0, ry), h / 2);
+  if (rx === 0 || ry === 0) return [[[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]];
+  const p = [[x + rx, y]];
+  svgArcPoints(x + w - rx, y, rx, ry, 0, 0, 1, x + w, y + ry, res, p);
+  svgArcPoints(x + w, y + h - ry, rx, ry, 0, 0, 1, x + w - rx, y + h, res, p);
+  svgArcPoints(x + rx, y + h, rx, ry, 0, 0, 1, x, y + h - ry, res, p);
+  svgArcPoints(x, y + ry, rx, ry, 0, 0, 1, x + rx, y, res, p);
+  return [p];
+}
+function svgEllipsePoly(cx, cy, rx, ry, res) {
+  if (rx <= 0 || ry <= 0) return [];
+  const rmax = Math.max(rx, ry);
+  const n = Math.max(12, Math.ceil(2 * Math.PI * rmax / Math.max(0.05, res)));
+  const p = [];
+  for (let i = 0; i <= n; i++) {
+    const t = 2 * Math.PI * i / n;
+    p.push([cx + rx * Math.cos(t), cy + ry * Math.sin(t)]);
+  }
+  return [p];
+}
+function svgPointsAttr(el) {
+  const raw = (el.getAttribute("points") || "").trim();
+  if (!raw) return [];
+  const nums = raw.split(/[\s,]+/).map(parseFloat).filter(v => !isNaN(v));
+  const p = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) p.push([nums[i], nums[i + 1]]);
+  return p;
+}
+function svgElementPolys(el, res) {
+  const tag = el.tagName.toLowerCase();
+  let polys = [];
+  if (tag === "path") {
+    polys = svgParsePathD(el.getAttribute("d") || "", res);
+  } else if (tag === "line") {
+    polys = [[[svgNum(el, "x1", 0), svgNum(el, "y1", 0)], [svgNum(el, "x2", 0), svgNum(el, "y2", 0)]]];
+  } else if (tag === "polyline") {
+    const p = svgPointsAttr(el); if (p.length >= 2) polys = [p];
+  } else if (tag === "polygon") {
+    const p = svgPointsAttr(el);
+    if (p.length >= 2) { p.push([p[0][0], p[0][1]]); polys = [p]; }
+  } else if (tag === "rect") {
+    polys = svgRectPoly(el, res);
+  } else if (tag === "circle") {
+    polys = svgEllipsePoly(svgNum(el, "cx", 0), svgNum(el, "cy", 0), svgNum(el, "r", 0), svgNum(el, "r", 0), res);
+  } else if (tag === "ellipse") {
+    polys = svgEllipsePoly(svgNum(el, "cx", 0), svgNum(el, "cy", 0), svgNum(el, "rx", 0), svgNum(el, "ry", 0), res);
+  }
+  return polys;
+}
+function svgReadFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const txt = reader.result;
+      const doc = new DOMParser().parseFromString(txt, "image/svg+xml");
+      const root = doc.querySelector("svg");
+      if (!root || doc.querySelector("parsererror")) {
+        __svgData = null;
+        setStatus(UI.t("SVG konnte nicht gelesen werden.", "Could not read SVG."));
+        window.__miscRecompute();
+        return;
+      }
+      let vb = null;
+      const vbAttr = root.getAttribute("viewBox");
+      if (vbAttr) {
+        const a = vbAttr.split(/[\s,]+/).map(parseFloat).filter(v => !isNaN(v));
+        if (a.length === 4 && a[2] > 0 && a[3] > 0) vb = { x: a[0], y: a[1], w: a[2], h: a[3] };
+      }
+      const wAttr = parseFloat(root.getAttribute("width")), hAttr = parseFloat(root.getAttribute("height"));
+      __svgData = { doc: doc, root: root, vb: vb, w: isNaN(wAttr) ? 0 : wAttr, h: isNaN(hAttr) ? 0 : hAttr, name: file.name };
+      window.__miscRecompute();
+    } catch (e) {
+      __svgData = null;
+      setStatus(UI.t("Fehler beim Parsen: ", "Parse error: ") + e.message);
+      window.__miscRecompute();
+    }
+  };
+  reader.onerror = () => {
+    __svgData = null;
+    setStatus(UI.t("Datei konnte nicht gelesen werden.", "Could not read file."));
+  };
+  reader.readAsText(file);
+}
+function initSvg() {
+  if (typeof __svgData === "undefined") window.__svgData = null;
+  if (typeof BUILDERS !== "undefined") BUILDERS.svg = buildSvg;
+  const fi = $("inpSvgFile");
+  if (fi) fi.onchange = () => {
+    const f = fi.files && fi.files[0];
+    if (!f) return;
+    const info = $("svgFileInfo");
+    if (info) info.textContent = f.name;
+    svgReadFile(f);
+  };
+}
+function buildSvg() {
+  if (typeof __svgData === "undefined" || !__svgData) {
+    S.strokes = []; S.cw = 0; S.ch = 0;
+    setStatus(UI.t("SVG-Datei laden.", "Load an SVG file."));
+    draw();
+    return;
+  }
+  const res = +$("inpSvgRes").value;
+  const closeOpen = $("inpSvgClose").checked;
+  const all = [];
+  const els = __svgData.doc.querySelectorAll("path,line,polyline,polygon,rect,circle,ellipse");
+  for (const el of els) {
+    const m = svgCumulativeMatrix(el);
+    const polys = svgElementPolys(el, res);
+    for (let poly of polys) {
+      if (poly.length < 2) continue;
+      const tp = poly.map(([x, y]) => svgApply(m, x, y));
+      all.push(tp);
+    }
+  }
+  if (!all.length) {
+    S.strokes = []; S.cw = 0; S.ch = 0;
+    setStatus(UI.t("Keine zeichenbaren Pfade in der SVG gefunden.", "No drawable paths found in the SVG."));
+    draw();
+    return;
+  }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of all) for (const [x, y] of p) {
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  const srcW = maxX - minX, srcH = maxY - minY;
+  const longest = Math.max(srcW, srcH);
+  if (!isFinite(longest) || longest <= 0) {
+    S.strokes = []; S.cw = 0; S.ch = 0;
+    setStatus(UI.t("SVG hat keine messbare Geometrie.", "SVG has no measurable geometry."));
+    draw();
+    return;
+  }
+  const target = +$("inpSize").value;
+  const scale = target / longest;
+  const eps = +$("inpSvgSimplify").value;
+  let strokes = [];
+  for (let p of all) {
+    let sp = p.map(([x, y]) => [(x - minX) * scale, (y - minY) * scale]);
+    if (closeOpen && sp.length >= 3) {
+      const a = sp[0], b = sp[sp.length - 1];
+      if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 1e-4) sp.push([a[0], a[1]]);
+    }
+    if (eps > 0 && sp.length > 2) sp = rdp(sp, eps);
+    if (sp.length >= 2) strokes.push(sp);
+  }
+  if (!strokes.length) {
+    S.strokes = []; S.cw = 0; S.ch = 0;
+    setStatus(UI.t("Nach Vereinfachung keine Linien übrig.", "No lines left after simplification."));
+    draw();
+    return;
+  }
+  S.strokes = strokes;
+  S.cw = srcW * scale;
+  S.ch = srcH * scale;
+  const pts = strokes.reduce((a, s) => a + s.length, 0);
+  finishCompute(strokes.length + " " + UI.t("Pfade", "paths") + " · " + pts.toLocaleString("de") + " " + UI.t("Punkte", "points"));
+}
+
+/* ============ Tool: paper ============ */
+function __paperClip(x0,y0,x1,y1,W,H){
+  let t0=0,t1=1; const dx=x1-x0, dy=y1-y0;
+  const p=[-dx,dx,-dy,dy], q=[x0,W-x0,y0,H-y0];
+  for(let i=0;i<4;i++){
+    if(p[i]===0){ if(q[i]<0) return null; }
+    else { const r=q[i]/p[i];
+      if(p[i]<0){ if(r>t1) return null; if(r>t0) t0=r; }
+      else { if(r<t0) return null; if(r<t1) t1=r; } }
+  }
+  if(t0>t1) return null;
+  return [[x0+t0*dx,y0+t0*dy],[x0+t1*dx,y0+t1*dy]];
+}
+function buildPaper(){
+  const W=Math.max(10,+$("inpSize").value||100);
+  const H=Math.max(10,+$("inpPaperH").value||200);
+  const type=$("inpPaperType").value;
+  const sp=Math.max(1,+$("inpPaperSpace").value||5);
+  const penW=Math.max(0.1,+$("inpPenW").value||0.4);
+  const out=[]; const EPS=1e-6;
+  if(type==="dots"){
+    const m=0.3;
+    for(let y=sp;y<H-EPS;y+=sp) for(let x=sp;x<W-EPS;x+=sp){
+      out.push([[x-m,y],[x+m,y]]); out.push([[x,y-m],[x,y+m]]);
+    }
+  } else if(type==="lines"){
+    for(let y=sp;y<H-EPS;y+=sp) out.push([[0,y],[W,y]]);
+  } else if(type==="karo"){
+    for(let y=sp;y<H-EPS;y+=sp) out.push([[0,y],[W,y]]);
+    for(let x=sp;x<W-EPS;x+=sp) out.push([[x,0],[x,H]]);
+  } else if(type==="iso"){
+    for(let x=sp;x<W-EPS;x+=sp) out.push([[x,0],[x,H]]);
+    const ang=Math.PI/6, slope=Math.tan(ang);
+    const dStep=sp/Math.sin(ang), big=Math.max(W,H)*2.4;
+    for(const m of [slope,-slope]){
+      const kStart=Math.floor((-W*Math.abs(m)-big)/dStep)-1;
+      const kEnd=Math.ceil((H+W*Math.abs(m)+big)/dStep)+1;
+      for(let k=kStart;k<=kEnd;k++){
+        const b=k*dStep;
+        const seg=__paperClip(-big, m*(-big)+b, big, m*big+b, W, H);
+        if(seg) out.push(seg);
+      }
+    }
+  } else if(type==="noten"){
+    const staffH=sp*4, gap=sp*3.5, block=staffH+gap;
+    let y0=gap*0.5;
+    while(y0+staffH<=H+EPS){
+      for(let i=0;i<5;i++){ const y=y0+i*sp; out.push([[0,y],[W,y]]); }
+      y0+=block;
+    }
+  } else if(type==="mm"){
+    let i=0;
+    for(let x=0;x<=W+EPS;x+=sp,i++){
+      out.push([[x,0],[x,H]]);
+      if(i%5===0) out.push([[x+penW*0.3,0],[x+penW*0.3,H]]);
+    }
+    i=0;
+    for(let y=0;y<=H+EPS;y+=sp,i++){
+      out.push([[0,y],[W,y]]);
+      if(i%5===0) out.push([[0,y+penW*0.3],[W,y+penW*0.3]]);
+    }
+  }
+  if(!out.length){ S.strokes=[]; setStatus(UI.t("Raster zu fein/groß für diese Maße.","Grid too fine/large for these dimensions.")); return; }
+  S.strokes=out; S.cw=W; S.ch=H;
+  finishCompute(out.length+UI.t(" Linien"," lines"));
+}
+
+/* ============ Tool: pentest ============ */
+function buildPentest(){
+  const W = +$("inpSize").value || 100;
+  const penMm = Math.max(0.05, +$("inpPenW").value || 0.4);
+  const sqSize = +$("ptSqSize").value || 18;
+  const scaleLenReq = +$("ptScaleLen").value || 100;
+  const rings = Math.max(2, +$("ptRings").value || 5);
+  const gap = +$("ptGap").value || 8;
+  const doReg = $("ptRegistration").checked;
+  const serpentine = $("ptSerpentine").checked;
+
+  if(W < 40){ S.strokes = []; S.cw = 0; S.ch = 0; setStatus(UI.t("Breite zu klein — mindestens 40 mm.","Width too small — at least 40 mm.")); return; }
+
+  const margin = 6;            // outer margin in mm
+  const innerW = W - 2*margin; // usable width
+  if(innerW < 30){ S.strokes = []; S.cw = 0; S.ch = 0; setStatus(UI.t("Breite zu klein für Inhalte.","Width too small for content.")); return; }
+
+  const strokes = [];
+  const TAU = Math.PI*2;
+  // approximate circle segment count: keep chord error < ~0.15mm
+  const ptCircleSegs = (r) => Math.max(24, Math.min(720, Math.ceil(TAU / (2*Math.acos(Math.max(-1,1-0.15/Math.max(0.5,r)))))));
+
+  // --- generic primitives (all in mm, absolute) ---
+  const ptRect = (x,y,w,h)=> [[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]];
+  const ptCircle = (cx,cy,r)=>{ const n=ptCircleSegs(r); const p=[]; for(let i=0;i<=n;i++){ const a=i/n*TAU; p.push([cx+Math.cos(a)*r, cy+Math.sin(a)*r]); } return p; };
+
+  // Vertical-line fill of a square as polylines. Serpentine => single path.
+  const ptFillSquare = (x,y,size,spacing)=>{
+    const out=[];
+    const cols=[];
+    // inset half a pen so fill stays inside the outline
+    const inset = penMm*0.5;
+    const x0 = x+inset, x1 = x+size-inset;
+    const y0 = y+inset, y1 = y+size-inset;
+    if(x1<=x0||y1<=y0) return out;
+    for(let cx=x0; cx<=x1+1e-9; cx+=spacing) cols.push(Math.min(cx,x1));
+    if(cols.length && cols[cols.length-1] < x1-1e-6) cols.push(x1);
+    if(serpentine){
+      const path=[]; let down=true;
+      for(const cx of cols){
+        if(down){ path.push([cx,y0]); path.push([cx,y1]); }
+        else { path.push([cx,y1]); path.push([cx,y0]); }
+        down=!down;
+      }
+      if(path.length>=2) out.push(path);
+    } else {
+      for(const cx of cols) out.push([[cx,y0],[cx,y1]]);
+    }
+    return out;
+  };
+
+  // Spiral fill for round-travel test => single continuous path.
+  const ptSpiral = (cx,cy,rMax,spacing)=>{
+    const turns = rMax/spacing;
+    const p=[];
+    const stepsPerTurn=64;
+    const total=Math.max(2, Math.ceil(turns*stepsPerTurn));
+    for(let i=0;i<=total;i++){
+      const t=i/stepsPerTurn;           // turns elapsed
+      const r=t*spacing;
+      if(r>rMax) break;
+      const a=t*TAU;
+      p.push([cx+Math.cos(a)*r, cy+Math.sin(a)*r]);
+    }
+    p.push([cx+rMax, cy]); // close-ish outer
+    return p.length>=2 ? p : null;
+  };
+
+  let cy = margin; // running top y for content (crosses handled separately)
+
+  // ===== (1) Fill-spacing squares row =====
+  const spacings = [0.2,0.3,0.4,0.5,0.6,0.8,1.0].filter(s=>s>=penMm*0.5);
+  const usable = spacings.length?spacings:[Math.max(0.2,penMm)];
+  const count = usable.length;
+  // shrink square if row too wide
+  let sq = sqSize;
+  let rowGap = gap*0.6;
+  let rowW = count*sq + (count-1)*rowGap;
+  if(rowW > innerW){
+    sq = Math.max(8, (innerW - (count-1)*rowGap)/count);
+    rowW = count*sq + (count-1)*rowGap;
+  }
+  let rx = margin + (innerW - rowW)/2;
+  const rowTop = cy;
+  for(let i=0;i<count;i++){
+    const x = rx + i*(sq+rowGap);
+    strokes.push(ptRect(x, rowTop, sq, sq));
+    for(const s of ptFillSquare(x, rowTop, sq, usable[i])) strokes.push(s);
+  }
+  cy = rowTop + sq + gap;
+
+  // ===== (3) Scale bar (placed after squares) =====
+  const scaleLen = Math.min(scaleLenReq, innerW);
+  const sbX = margin + (innerW - scaleLen)/2;
+  const sbY = cy;
+  strokes.push([[sbX,sbY],[sbX+scaleLen,sbY]]); // baseline
+  const mmTick = 1.6, cmTick = 4.0, halfCmTick = 2.6;
+  for(let mm=0; mm<=Math.round(scaleLen); mm++){
+    const tx = sbX+mm;
+    if(tx > sbX+scaleLen+1e-6) break;
+    let h = mmTick;
+    if(mm%10===0) h=cmTick; else if(mm%5===0) h=halfCmTick;
+    strokes.push([[tx,sbY],[tx,sbY-h]]); // ticks go up from baseline
+  }
+  cy = sbY + cmTick + gap + 1;
+
+  // ===== (4) Concentric circles + filled (spiral) circle =====
+  const ringMaxR = Math.min((innerW/2 - gap)/2 - 1, (sqSize)/1.0); // keep two groups side by side
+  let cR = Math.max(5, Math.min(ringMaxR, 16));
+  // two clusters: concentric (left), filled spiral (right)
+  const clusterW = cR*2;
+  const totalClusterW = clusterW*2 + gap*1.5;
+  let startX = margin + (innerW - totalClusterW)/2;
+  const circCY = cy + cR;
+  const ringStep = cR/rings;
+  for(let i=1;i<=rings;i++){
+    strokes.push(ptCircle(startX+cR, circCY, ringStep*i));
+  }
+  // filled spiral circle
+  const fillCX = startX + clusterW + gap*1.5 + cR;
+  const sp = ptSpiral(fillCX, circCY, cR, Math.max(penMm,0.35));
+  if(sp) strokes.push(sp);
+  strokes.push(ptCircle(fillCX, circCY, cR)); // crisp outer ring
+  cy = circCY + cR + gap;
+
+  // ===== (5) Diagonals + one long straight line =====
+  const diagBoxW = innerW;
+  const diagH = Math.min(innerW*0.18, 30);
+  const dx0 = margin, dy0 = cy;
+  // crossing diagonals
+  strokes.push([[dx0,dy0],[dx0+diagBoxW,dy0+diagH]]);
+  strokes.push([[dx0+diagBoxW,dy0],[dx0,dy0+diagH]]);
+  // a couple of shallow diagonals
+  strokes.push([[dx0,dy0+diagH*0.5],[dx0+diagBoxW,dy0+diagH*0.5-diagH*0.5]]);
+  cy = dy0 + diagH + gap;
+  // long straight horizontal line (full usable width)
+  const lineY = cy;
+  strokes.push([[margin,lineY],[margin+innerW,lineY]]);
+  cy = lineY + gap;
+
+  // total content height before crosses
+  let contentBottom = cy + margin;
+  let totalH = contentBottom;
+
+  // ===== (2) Registration crosses at 4 corners =====
+  if(doReg){
+    const cs = 5;       // cross arm full length
+    const off = margin*0.5; // distance of cross center from edge
+    const mk=(x,y)=>{ strokes.push([[x-cs/2,y],[x+cs/2,y]]); strokes.push([[x,y-cs/2],[x,y+cs/2]]); };
+    const cxL = off, cxR = W-off;
+    const cyT = off, cyB = totalH-off;
+    mk(cxL,cyT); mk(cxR,cyT); mk(cxL,cyB); mk(cxR,cyB);
+  }
+
+  // ===== finalize bounds =====
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const p of strokes) for(const pt of p){
+    if(pt[0]<minX)minX=pt[0]; if(pt[0]>maxX)maxX=pt[0];
+    if(pt[1]<minY)minY=pt[1]; if(pt[1]>maxY)maxY=pt[1];
+  }
+  if(!isFinite(minX)){ S.strokes=[]; S.cw=0; S.ch=0; setStatus(UI.t("Keine Inhalte erzeugt.","No content generated.")); return; }
+  // normalize to top-left origin
+  const clean = strokes.filter(p=>p&&p.length>=2).map(p=>p.map(pt=>[pt[0]-minX, pt[1]-minY]));
+
+  S.strokes = clean;
+  S.cw = maxX-minX;
+  S.ch = maxY-minY;
+
+  let solid = "—";
+  for(const s of usable){ if(s <= penMm*1.05){ solid = s.toFixed(2)+"mm"; } }
+  finishCompute(UI.t(
+    "Stifttest: "+clean.length+" Pfade · Voll-Füllung ≈ "+solid+" · Skala "+Math.round(scaleLen)+"mm",
+    "Pen test: "+clean.length+" paths · solid fill ≈ "+solid+" · scale "+Math.round(scaleLen)+"mm"
+  ));
+}
+
+/* ============ Tool: spacefill ============ */
+function sfHilbertD2xy(n,d){
+  let rx,ry,t=d,x=0,y=0;
+  for(let s=1;s<n;s*=2){
+    rx=1&Math.floor(t/2);
+    ry=1&(t^rx);
+    if(ry===0){
+      if(rx===1){ x=s-1-x; y=s-1-y; }
+      const tmp=x; x=y; y=tmp;
+    }
+    x+=s*rx; y+=s*ry;
+    t=Math.floor(t/4);
+  }
+  return [x,y];
+}
+function sfHilbert(order){
+  const n=1<<order, N=n*n, pts=new Array(N);
+  for(let d=0;d<N;d++) pts[d]=sfHilbertD2xy(n,d);
+  return pts;
+}
+function sfLsystem(axiom,rules,iters){
+  let s=axiom;
+  for(let i=0;i<iters;i++){
+    let o="";
+    for(let k=0;k<s.length;k++){ const c=s[k]; o+=(rules[c]!==undefined? rules[c] : c); }
+    s=o;
+  }
+  return s;
+}
+function sfWalk(s,sx,sy){
+  let x=0,y=0,dx=sx,dy=sy; const pts=[[x,y]];
+  for(let k=0;k<s.length;k++){
+    const c=s[k];
+    if(c==='F'||c==='G'){ x+=dx; y+=dy; pts.push([x,y]); }
+    else if(c==='+'){ const t=dx; dx=dy; dy=-t; }
+    else if(c==='-'){ const t=dx; dx=-dy; dy=t; }
+  }
+  return pts;
+}
+function sfMoore(order){
+  const s=sfLsystem("LFL+F+LFL",{L:"-RF+LFL+FR-",R:"+LF-RFR-FL+"},order);
+  return sfWalk(s,0,-1);
+}
+function sfPeano(order){
+  const s=sfLsystem("X",{X:"XFYFX+F+YFXFY-F-XFYFX",Y:"YFXFY-F-XFYFX+F+YFXFY"},order);
+  return sfWalk(s,1,0);
+}
+function sfDragon(iters){
+  let turns=[];
+  for(let i=0;i<iters;i++){
+    const rev=[]; for(let j=turns.length-1;j>=0;j--) rev.push(-turns[j]);
+    turns=turns.concat([1],rev);
+  }
+  let x=0,y=0,dx=1,dy=0; const pts=[[x,y]];
+  x+=dx; y+=dy; pts.push([x,y]);
+  for(let i=0;i<turns.length;i++){
+    if(turns[i]===1){ const t=dx; dx=dy; dy=-t; } else { const t=dx; dx=-dy; dy=t; }
+    x+=dx; y+=dy; pts.push([x,y]);
+  }
+  return pts;
+}
+function buildSpacefill(){
+  const type=$("inpSfType").value;
+  let order=Math.round(+$("inpSfOrder").value)||1;
+  order=Math.max(1,Math.min(7,order));
+  const size=Math.max(1,+$("inpSize").value||100);
+
+  let pts, capped=false;
+  if(type==='Peano'){
+    const ord=Math.min(order,5);
+    if(ord<order) capped=true;
+    pts=sfPeano(ord);
+  } else if(type==='Moore'){
+    pts=sfMoore(order);
+  } else if(type==='Drachenkurve'){
+    pts=sfDragon(order+6);
+  } else {
+    pts=sfHilbert(order);
+  }
+
+  if(!pts||pts.length<2){ S.strokes=[]; S.cw=0; S.ch=0; setStatus(UI.t("Keine Punkte erzeugt.","No points generated.")); finishCompute(); return; }
+
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(let i=0;i<pts.length;i++){ const p=pts[i]; if(p[0]<minX)minX=p[0]; if(p[1]<minY)minY=p[1]; if(p[0]>maxX)maxX=p[0]; if(p[1]>maxY)maxY=p[1]; }
+  const gw=(maxX-minX)||1, gh=(maxY-minY)||1;
+  const sc=size/Math.max(gw,gh);
+  const poly=new Array(pts.length);
+  for(let i=0;i<pts.length;i++){ poly[i]=[(pts[i][0]-minX)*sc,(pts[i][1]-minY)*sc]; }
+
+  S.strokes=[poly];
+  S.cw=gw*sc; S.ch=gh*sc;
+  finishCompute(poly.length+" "+UI.t("Punkte","points")+(capped?" "+UI.t("(Ordnung auf 5 begrenzt)","(order capped at 5)"):""));
+}
+
+/* ============ Tool: spiro ============ */
+function buildSpiro() {
+  const type = $("inpSpType").value;
+  const A = +$("inpSpA").value;
+  const B = +$("inpSpB").value;
+  const C = +$("inpSpC").value;
+  const turns = Math.max(1, +$("inpSpTurns").value);
+  const detail = Math.max(2, +$("inpSpDetail").value | 0);
+  const size = Math.max(1, +$("inpSize").value);
+  const penMm = Math.max(0.05, +$("inpPenW").value);
+
+  const raw = spiroSample(type, A, B, C, turns, detail);
+  if (!raw || raw.length < 2) {
+    S.strokes = []; S.cw = 0; S.ch = 0;
+    setStatus(UI.t("Ungültige Parameter — keine Kurve erzeugt.", "Invalid parameters — no curve produced."));
+    finishCompute();
+    return;
+  }
+
+  // Bounding box of raw curve
+  let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
+  for (let i = 0; i < raw.length; i++) {
+    const p = raw[i];
+    if (p[0] < mnx) mnx = p[0];
+    if (p[1] < mny) mny = p[1];
+    if (p[0] > mxx) mxx = p[0];
+    if (p[1] > mxy) mxy = p[1];
+  }
+  const w = mxx - mnx, h = mxy - mny;
+  const span = Math.max(w, h);
+  if (!(span > 1e-6)) {
+    S.strokes = []; S.cw = 0; S.ch = 0;
+    setStatus(UI.t("Kurve entartet (zu klein) — Parameter anpassen.", "Curve degenerate (too small) — adjust parameters."));
+    finishCompute();
+    return;
+  }
+
+  // Scale to fit the target size, origin top-left
+  const sc = size / span;
+  const cw = w * sc, ch = h * sc;
+  let poly = new Array(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    poly[i] = [(raw[i][0] - mnx) * sc, (raw[i][1] - mny) * sc];
+  }
+
+  // Light simplification to drop near-duplicate points without changing the look
+  const eps = Math.min(penMm * 0.25, span * sc * 0.0005);
+  if (eps > 0) {
+    const simplified = rdp(poly, eps);
+    if (simplified.length >= 2) poly = simplified;
+  }
+  if (poly.length < 2) {
+    S.strokes = []; S.cw = 0; S.ch = 0;
+    setStatus(UI.t("Kurve entartet — Parameter anpassen.", "Curve degenerate — adjust parameters."));
+    finishCompute();
+    return;
+  }
+
+  S.strokes = [poly];
+  S.cw = cw;
+  S.ch = ch;
+  const len = segLen(poly);
+  finishCompute(`${poly.length.toLocaleString("de")} ${UI.t("Punkte", "points")} · ~${(len / 1000).toFixed(2)} m`);
+}
+
+function spiroSample(type, A, B, C, turns, detail) {
+  const pts = new Array(detail + 1);
+  let i, t, rad, ang;
+  if (type === "spiro") {
+    // Hypotrochoid: R=A, r=B, d=C over `turns` revolutions
+    const R = A, r = Math.max(1, B), d = C;
+    const diff = R - r;
+    const ratio = diff / r;
+    const tMax = 2 * Math.PI * turns;
+    for (i = 0; i <= detail; i++) {
+      t = tMax * i / detail;
+      pts[i] = [diff * Math.cos(t) + d * Math.cos(ratio * t),
+                diff * Math.sin(t) - d * Math.sin(ratio * t)];
+    }
+  } else if (type === "lissa") {
+    // x = sin(A*t + phase), y = sin(B*t), phase = C/100*pi, t in [0, 2pi*turns/large]
+    const phase = C / 100 * Math.PI;
+    const large = Math.max(A, B, 1);
+    const tMax = 2 * Math.PI * turns / large;
+    for (i = 0; i <= detail; i++) {
+      t = tMax * i / detail;
+      pts[i] = [Math.sin(A * t + phase), Math.sin(B * t)];
+    }
+  } else {
+    // Guilloché rose: r(theta) = baseR + C*cos(A*theta), secondary rotation by B
+    const baseR = 100;
+    const tMax = 2 * Math.PI * turns;
+    const rotK = B / 100;
+    for (i = 0; i <= detail; i++) {
+      t = tMax * i / detail;
+      rad = baseR + C * Math.cos(A * t);
+      ang = t + rotK * t;
+      pts[i] = [rad * Math.cos(ang), rad * Math.sin(ang)];
+    }
+  }
+  return pts;
+}
+
+/* ============ Tool: maze ============ */
+function mazeMulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+function buildMaze(){
+  const W=+$("inpSize").value;
+  let H=+$("inpMazeH").value;
+  let cols=Math.round(+$("inpMazeCols").value);
+  let seed=Math.round(+$("inpMazeSeed").value);
+  if(!isFinite(W)||W<=0){S.strokes=[];setStatus(UI.t("Ungültige Breite.","Invalid width."));return;}
+  if(!isFinite(H)||H<=0)H=W;
+  if(!isFinite(seed))seed=1;
+  cols=Math.max(5,Math.min(60,cols));
+  const cell=W/cols;
+  let rows=Math.max(2,Math.round(H/cell));
+  // recompute drawn height so cells stay square; cap at requested H bbox via cell
+  const ch=rows*cell;
+  // wall arrays. hWall[r][c]: horizontal wall on top edge of cell (c,r); r in [0..rows], c in [0..cols-1]
+  // vWall[r][c]: vertical wall on left edge of cell (c,r); r in [0..rows-1], c in [0..cols]
+  const hWall=[];
+  for(let r=0;r<=rows;r++){const row=new Uint8Array(cols);row.fill(1);hWall.push(row);}
+  const vWall=[];
+  for(let r=0;r<rows;r++){const row=new Uint8Array(cols+1);row.fill(1);vWall.push(row);}
+  // DFS recursive backtracker, iterative
+  const rnd=mazeMulberry32(seed>>>0);
+  const visited=new Uint8Array(cols*rows);
+  const idx=(c,r)=>r*cols+c;
+  const stack=[[0,0]];
+  visited[idx(0,0)]=1;
+  while(stack.length){
+    const top=stack[stack.length-1];
+    const c=top[0],r=top[1];
+    // collect unvisited neighbours
+    const nb=[];
+    if(r>0&&!visited[idx(c,r-1)])nb.push(0);      // up
+    if(c<cols-1&&!visited[idx(c+1,r)])nb.push(1);  // right
+    if(r<rows-1&&!visited[idx(c,r+1)])nb.push(2);  // down
+    if(c>0&&!visited[idx(c-1,r)])nb.push(3);       // left
+    if(!nb.length){stack.pop();continue;}
+    const dir=nb[Math.floor(rnd()*nb.length)];
+    if(dir===0){hWall[r][c]=0;visited[idx(c,r-1)]=1;stack.push([c,r-1]);}
+    else if(dir===1){vWall[r][c+1]=0;visited[idx(c+1,r)]=1;stack.push([c+1,r]);}
+    else if(dir===2){hWall[r+1][c]=0;visited[idx(c,r+1)]=1;stack.push([c,r+1]);}
+    else{vWall[r][c]=0;visited[idx(c-1,r)]=1;stack.push([c-1,r]);}
+  }
+  // openings: entrance top-left, exit bottom-right
+  hWall[0][0]=0;
+  hWall[rows][cols-1]=0;
+  // merge & emit
+  const strokes=[];
+  // horizontal lines: for each r, runs of present segments across c
+  for(let r=0;r<=rows;r++){
+    let c=0;const row=hWall[r];
+    while(c<cols){
+      if(!row[c]){c++;continue;}
+      let c2=c;
+      while(c2<cols&&row[c2])c2++;
+      strokes.push([[c*cell,r*cell],[c2*cell,r*cell]]);
+      c=c2;
+    }
+  }
+  // vertical lines: for each c, runs of present segments down r
+  for(let c=0;c<=cols;c++){
+    let r=0;
+    while(r<rows){
+      if(!vWall[r][c]){r++;continue;}
+      let r2=r;
+      while(r2<rows&&vWall[r2][c])r2++;
+      strokes.push([[c*cell,r*cell],[c*cell,r2*cell]]);
+      r=r2;
+    }
+  }
+  if(!strokes.length){S.strokes=[];setStatus(UI.t("Kein Labyrinth erzeugt.","No maze generated."));return;}
+  S.strokes=strokes;
+  S.cw=W;
+  S.ch=ch;
+  finishCompute(UI.t(cols+"×"+rows+" Zellen","cells"));
+}
+
+function initMaze(){
+  const btn=$("inpMazeShuffle");
+  if(btn)btn.onclick=function(){
+    const sd=$("inpMazeSeed");
+    sd.value=(Math.round(+sd.value)||0)+1;
+    window.__miscRecompute();
+  };
+}
+
+/* ============ Tool: fxplot ============ */
+function fxplotParse(src) {
+  const F = { sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos,
+    atan: Math.atan, exp: Math.exp, ln: Math.log, log: (x) => Math.log(x) / Math.LN10,
+    sqrt: Math.sqrt, abs: Math.abs, floor: Math.floor, ceil: Math.ceil, round: Math.round, sign: Math.sign };
+  const C = { pi: Math.PI, e: Math.E };
+  const s = String(src).toLowerCase();
+  let i = 0;
+  const skip = () => { while (i < s.length && s[i] === " ") i++; };
+  const peek = () => { skip(); return s[i]; };
+  const er = (m) => { throw new Error(m); };
+  function pExpr() { return pAdd(); }
+  function pAdd() {
+    let v = pMul();
+    for (;;) {
+      const c = peek();
+      if (c === "+") { i++; const r = pMul(), a = v; v = (x) => a(x) + r(x); }
+      else if (c === "-") { i++; const r = pMul(), a = v; v = (x) => a(x) - r(x); }
+      else return v;
+    }
+  }
+  function pMul() {
+    let v = pUn();
+    for (;;) {
+      const c = peek();
+      if (c === "*") { i++; const r = pUn(), a = v; v = (x) => a(x) * r(x); }
+      else if (c === "/") { i++; const r = pUn(), a = v; v = (x) => a(x) / r(x); }
+      else return v;
+    }
+  }
+  function pUn() {
+    const c = peek();
+    if (c === "-") { i++; const r = pUn(); return (x) => -r(x); }
+    if (c === "+") { i++; return pUn(); }
+    return pPow();
+  }
+  function pPow() {
+    const b = pAtom();
+    if (peek() === "^") { i++; const e = pUn(); return (x) => Math.pow(b(x), e(x)); }
+    return b;
+  }
+  function pAtom() {
+    const c = peek();
+    if (c === "(") { i++; const v = pExpr(); if (peek() !== ")") er("Klammer ) fehlt"); i++; return v; }
+    if (c >= "0" && c <= "9" || c === ".") {
+      let j = i, d = 0;
+      while (j < s.length && (s[j] >= "0" && s[j] <= "9" || s[j] === ".")) { if (s[j] === ".") d++; j++; }
+      if (d > 1) er("Ungültige Zahl");
+      const n = parseFloat(s.slice(i, j));
+      if (!isFinite(n)) er("Ungültige Zahl");
+      i = j; return () => n;
+    }
+    if (c >= "a" && c <= "z") {
+      let j = i; while (j < s.length && s[j] >= "a" && s[j] <= "z") j++;
+      const nm = s.slice(i, j); i = j;
+      if (nm === "x") return (x) => x;
+      if (nm in C) { const k = C[nm]; return () => k; }
+      if (nm in F) {
+        const fn = F[nm];
+        if (peek() !== "(") er("'(' nach " + nm + " erwartet"); i++;
+        const a = pExpr();
+        if (peek() !== ")") er("Klammer ) fehlt"); i++;
+        return (x) => fn(a(x));
+      }
+      er("Unbekannt: " + nm);
+    }
+    if (c === undefined) er("Ausdruck unvollständig");
+    er("Unerwartetes Zeichen: " + c);
+  }
+  const fn = pExpr();
+  skip();
+  if (i < s.length) er("Unerwartetes Zeichen: " + s[i]);
+  return fn;
+}
+function fxplotStep(span, target) {
+  const raw = span / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+  return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
+}
+function buildFxplot() {
+  const expr = $("inpFxExpr").value;
+  const xmin = +$("inpFxXmin").value, xmax = +$("inpFxXmax").value;
+  const axes = $("inpFxAxes").checked;
+  const size = +$("inpSize").value;
+  if (!(xmax > xmin)) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("x bis muss größer als x von sein.", "x to must be greater than x from.")); return; }
+  let f;
+  try { f = fxplotParse(expr); }
+  catch (e) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Parsefehler: ", "Parse error: ") + e.message); return; }
+  const N = 900, xr = xmax - xmin, ys = new Array(N + 1);
+  for (let k = 0; k <= N; k++) ys[k] = f(xmin + xr * k / N);
+  const fin = ys.filter(isFinite).sort((a, b) => a - b);
+  if (!fin.length) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Funktion liefert keine endlichen Werte im Bereich.", "Function yields no finite values in range.")); return; }
+  const q = (p) => fin[Math.min(fin.length - 1, Math.max(0, Math.round(p * (fin.length - 1))))];
+  let ylo = q(0.02), yhi = q(0.98);
+  const fmin = fin[0], fmax = fin[fin.length - 1];
+  if (yhi - ylo < 1e-9) { ylo = fmin - 1; yhi = fmax + 1; }
+  else if (fmax - fmin <= (yhi - ylo) * 4) { ylo = fmin; yhi = fmax; }
+  const pad = (yhi - ylo) * 0.05 || 1; ylo -= pad; yhi += pad;
+  const yr = yhi - ylo;
+  const W = size, H = Math.min(size * 1.5, W * yr / xr);
+  const X = (x) => (x - xmin) / xr * W;
+  const Y = (y) => (yhi - y) / yr * H;
+  const out = [];
+  if (axes) {
+    const gx = fxplotStep(xr, 10), gy = fxplotStep(yr, 8);
+    for (let g = Math.ceil(xmin / gx) * gx; g <= xmax + 1e-9; g += gx) out.push([[X(g), 0], [X(g), H]]);
+    for (let g = Math.ceil(ylo / gy) * gy; g <= yhi + 1e-9; g += gy) out.push([[0, Y(g)], [W, Y(g)]]);
+    const onX = 0 >= ylo && 0 <= yhi, onY = 0 >= xmin && 0 <= xmax;
+    const tk = Math.min(W, H) * 0.012;
+    if (onY) {
+      const px = X(0); out.push([[px, 0], [px, H]]);
+      for (let g = Math.ceil(ylo / gy) * gy; g <= yhi + 1e-9; g += gy) out.push([[px - tk, Y(g)], [px + tk, Y(g)]]);
+    }
+    if (onX) {
+      const py = Y(0); out.push([[0, py], [W, py]]);
+      for (let g = Math.ceil(xmin / gx) * gx; g <= xmax + 1e-9; g += gx) out.push([[X(g), py - tk], [X(g), py + tk]]);
+    }
+  }
+  const jump = yr * 0.6;
+  let cur = [], prev = null;
+  const flush = () => { if (cur.length >= 2) out.push(cur); cur = []; };
+  for (let k = 0; k <= N; k++) {
+    const y = ys[k];
+    if (!isFinite(y) || y < ylo - yr || y > yhi + yr) { flush(); prev = null; continue; }
+    const yc = Math.max(ylo, Math.min(yhi, y));
+    if (prev !== null && Math.abs(y - prev) > jump) flush();
+    cur.push([X(xmin + xr * k / N), Y(yc)]); prev = y;
+  }
+  flush();
+  if (!out.some((st) => st.length >= 2)) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Nichts zu zeichnen.", "Nothing to draw.")); return; }
+  S.strokes = out; S.cw = W; S.ch = H;
+  finishCompute(UI.t("y-Bereich ", "y range ") + ylo.toFixed(2) + " … " + yhi.toFixed(2));
+}
+
+/* ============ Tool: tsp ============ */
+function tspMulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function tspLoadFile(){
+  const f=$("inpTspFile").files&&$("inpTspFile").files[0];
+  if(!f){return;}
+  const img=new Image();
+  const url=URL.createObjectURL(f);
+  img.onload=function(){
+    const cap=700,lng=Math.max(img.width,img.height);
+    const sc=lng>cap?cap/lng:1;
+    const w=Math.max(1,Math.round(img.width*sc)),h=Math.max(1,Math.round(img.height*sc));
+    const c=document.createElement("canvas");c.width=w;c.height=h;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff";g.fillRect(0,0,w,h);
+    g.drawImage(img,0,0,w,h);
+    URL.revokeObjectURL(url);
+    const data=g.getImageData(0,0,w,h).data;
+    const gray=new Uint8Array(w*h);
+    for(let i=0;i<w*h;i++){
+      gray[i]=Math.round(0.2126*data[i*4]+0.7152*data[i*4+1]+0.0722*data[i*4+2]);
+    }
+    window.__tspGray=gray;window.__tspW=w;window.__tspH=h;
+    window.__miscRecompute();
+  };
+  img.onerror=function(){URL.revokeObjectURL(url);window.__tspGray=null;setStatus(UI.t("Bild konnte nicht geladen werden.","Could not load image."));};
+  img.src=url;
+}
+function tspStipple(gray,w,h,target,invert,rng){
+  // Darkness in 0..1 (1 = wants a point). Respect invert.
+  const dark=new Float32Array(w*h);
+  let sum=0;
+  for(let i=0;i<w*h;i++){
+    let d=invert?gray[i]/255:1-gray[i]/255;
+    // gamma to bias toward darker regions, ignore near-empty pixels
+    d=d*d;
+    dark[i]=d;sum+=d;
+  }
+  const pts=[];
+  if(sum<=1e-6)return pts;
+  // jittered grid: choose a cell size so grid count ~ a few× target, then rejection-sample per cell
+  const cells=Math.max(target*3,256);
+  let cs=Math.max(1,Math.sqrt((w*h)/cells));
+  const gx=Math.max(1,Math.ceil(w/cs)),gy=Math.max(1,Math.ceil(h/cs));
+  const cw=w/gx,ch=h/gy;
+  // acceptance probability scaled so expected accepted ≈ target
+  const avg=sum/(w*h);
+  const cellArea=cw*ch;
+  // prob a sampled cell yields a point ≈ density(local)/maxScale
+  const scale=target/(gx*gy);
+  for(let cy=0;cy<gy;cy++){
+    for(let cx=0;cx<gx;cx++){
+      const px=Math.min(w-1,Math.floor((cx+rng())*cw));
+      const py=Math.min(h-1,Math.floor((cy+rng())*ch));
+      const d=dark[py*w+px];
+      // probability proportional to local darkness, normalised by average
+      const p=avg>0?(d/avg)*scale:0;
+      if(rng()<p){
+        pts.push([px+ (rng()-0.5),py+(rng()-0.5)]);
+      }
+    }
+  }
+  return pts;
+}
+function tspNearest(pts){
+  const n=pts.length;
+  if(n<=2)return pts.map((_,i)=>i);
+  // spatial hash grid for fast nearest lookup
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+  for(const p of pts){if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];}
+  const spanX=Math.max(1e-6,maxX-minX),spanY=Math.max(1e-6,maxY-minY);
+  const gn=Math.max(1,Math.floor(Math.sqrt(n)));
+  const cw=spanX/gn,ch=spanY/gn;
+  const cellOf=(p)=>{
+    const cx=Math.min(gn-1,Math.max(0,Math.floor((p[0]-minX)/cw)));
+    const cy=Math.min(gn-1,Math.max(0,Math.floor((p[1]-minY)/ch)));
+    return cy*gn+cx;
+  };
+  const buckets=new Array(gn*gn);
+  for(let i=0;i<gn*gn;i++)buckets[i]=[];
+  for(let i=0;i<n;i++)buckets[cellOf(pts[i])].push(i);
+  const used=new Uint8Array(n);
+  const order=[0];used[0]=1;
+  let cur=0;
+  for(let step=1;step<n;step++){
+    const p=pts[cur];
+    const ccx=Math.min(gn-1,Math.max(0,Math.floor((p[0]-minX)/cw)));
+    const ccy=Math.min(gn-1,Math.max(0,Math.floor((p[1]-minY)/ch)));
+    let best=-1,bestD=Infinity;
+    for(let r=0;r<gn;r++){
+      const x0=Math.max(0,ccx-r),x1=Math.min(gn-1,ccx+r),y0=Math.max(0,ccy-r),y1=Math.min(gn-1,ccy+r);
+      for(let cy=y0;cy<=y1;cy++)for(let cx=x0;cx<=x1;cx++){
+        if(r>0&&cx>x0&&cx<x1&&cy>y0&&cy<y1)continue; // only ring shell
+        const b=buckets[cy*gn+cx];
+        for(const j of b){
+          if(used[j])continue;
+          const dx=pts[j][0]-p[0],dy=pts[j][1]-p[1],d=dx*dx+dy*dy;
+          if(d<bestD){bestD=d;best=j;}
+        }
+      }
+      // if found and ring fully covers the best distance, stop expanding
+      if(best>=0){
+        const ringMm=r*Math.min(cw,ch);
+        if(ringMm*ringMm>=bestD)break;
+      }
+    }
+    if(best<0){for(let j=0;j<n;j++)if(!used[j]){best=j;break;}}
+    used[best]=1;order.push(best);cur=best;
+  }
+  return order;
+}
+function tspTwoOpt(order,pts,msBudget){
+  const n=order.length;
+  if(n<4)return order;
+  const t0=performance.now();
+  const D=(a,b)=>{const dx=pts[a][0]-pts[b][0],dy=pts[a][1]-pts[b][1];return Math.sqrt(dx*dx+dy*dy);};
+  let improved=true;
+  while(improved){
+    improved=false;
+    for(let i=0;i<n-1;i++){
+      const a=order[i],b=order[i+1];
+      const dab=D(a,b);
+      for(let k=i+2;k<n-1;k++){
+        const c=order[k],d=order[k+1];
+        const delta=(D(a,c)+D(b,d))-(dab+D(c,d));
+        if(delta<-1e-7){
+          // reverse segment i+1..k
+          let lo=i+1,hi=k;
+          while(lo<hi){const tmp=order[lo];order[lo]=order[hi];order[hi]=tmp;lo++;hi--;}
+          improved=true;
+          break;
+        }
+      }
+      if((i&63)===0&&performance.now()-t0>msBudget)return order;
+    }
+    if(performance.now()-t0>msBudget)return order;
+  }
+  return order;
+}
+function buildTsp(){
+  const gray=window.__tspGray,w=window.__tspW,h=window.__tspH;
+  if(!gray||!w||!h){S.strokes=[];S.cw=0;S.ch=0;setStatus(UI.t("Bild laden.","Load an image."));draw();return;}
+  const target=+$("inpTspPoints").value;
+  const invert=$("inpTspInvert").checked;
+  // deterministic seed from image dims + target + invert + sparse pixel sample
+  let seed=(w*73856093)^(h*19349663)^(target*83492791)^(invert?2654435761:0);
+  const stride=Math.max(1,Math.floor((w*h)/4096));
+  for(let i=0;i<w*h;i+=stride){seed=(seed*16777619)^gray[i];seed|=0;}
+  const rng=tspMulberry32(seed>>>0);
+  const pts=tspStipple(gray,w,h,target,invert,rng);
+  if(pts.length<2){S.strokes=[];S.cw=0;S.ch=0;setStatus(UI.t("Zu wenig Kontrast – anderes Bild oder mehr Punkte.","Too little contrast – try another image or more points."));draw();return;}
+  let order=tspNearest(pts);
+  order=tspTwoOpt(order,pts,1500);
+  // scale so longest image side = inpSize
+  const W=+$("inpSize").value;
+  const s=W/Math.max(w,h);
+  const poly=order.map(i=>[pts[i][0]*s,pts[i][1]*s]);
+  if(poly.length<2){S.strokes=[];S.cw=0;S.ch=0;setStatus(UI.t("Zu wenig Punkte.","Too few points."));draw();return;}
+  // bounding box for content size
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+  for(const p of poly){if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];}
+  const shifted=poly.map(p=>[p[0]-minX,p[1]-minY]);
+  S.strokes=[shifted];
+  S.cw=maxX-minX;S.ch=maxY-minY;
+  finishCompute(pts.length.toLocaleString("de")+" "+UI.t("Punkte","points"));
+}
+function initTsp(){
+  BUILDERS.tsp=buildTsp;
+  $("inpTspFile").addEventListener("change",tspLoadFile);
+}
+
+/* ============ Tool: wave ============ */
+var __waveData = null;
+var __waveName = "";
+
+function initWave(){
+  var inp = $("inpWaveFile");
+  if(!inp) return;
+  inp.addEventListener("change", function(){
+    var f = inp.files && inp.files[0];
+    if(!f){ __waveData = null; window.__miscRecompute(); return; }
+    __waveName = f.name || "";
+    var hint = $("hintWave");
+    if(hint) hint.textContent = UI.t("Dekodiere …", "Decoding …");
+    f.arrayBuffer().then(function(buf){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC){ setStatus(UI.t("Web Audio nicht verfügbar.","Web Audio unavailable.")); return; }
+      var ctx = new AC();
+      var handled = false;
+      var done = function(audio){
+        if(handled) return; handled = true;
+        try{ ctx.close(); }catch(e){}
+        var nBars = Math.max(2, Math.round(+$("inpWaveBars").value) || 160);
+        var data = audio.getChannelData(0);
+        var len = data.length;
+        if(len < 1){ __waveData = null; setStatus(UI.t("Leere Audiospur.","Empty audio track.")); window.__miscRecompute(); return; }
+        var buckets = new Float64Array(nBars);
+        for(var i=0;i<len;i++){
+          var b = Math.floor(i / len * nBars);
+          if(b >= nBars) b = nBars - 1;
+          var a = data[i]; if(a < 0) a = -a;
+          if(a > buckets[b]) buckets[b] = a;
+        }
+        var mx = 0;
+        for(var k=0;k<nBars;k++) if(buckets[k] > mx) mx = buckets[k];
+        var norm = new Float64Array(nBars);
+        if(mx > 0) for(var j=0;j<nBars;j++) norm[j] = buckets[j] / mx;
+        __waveData = { amps: norm, bars: nBars };
+        window.__miscRecompute();
+      };
+      var fail = function(){
+        if(handled) return; handled = true;
+        try{ ctx.close(); }catch(e){}
+        __waveData = null;
+        setStatus(UI.t("Audio konnte nicht dekodiert werden.","Could not decode audio."));
+        window.__miscRecompute();
+      };
+      var p = ctx.decodeAudioData(buf, done, fail);
+      if(p && p.then) p.then(done).catch(fail);
+    }).catch(function(){
+      __waveData = null;
+      setStatus(UI.t("Datei konnte nicht gelesen werden.","Could not read file."));
+      window.__miscRecompute();
+    });
+  });
+}
+
+function buildWave(){
+  if(!__waveData || !__waveData.amps || __waveData.amps.length < 2){
+    S.strokes = []; S.cw = 0; S.ch = 0;
+    setStatus(UI.t("Audio laden.","Load audio."));
+    return;
+  }
+  var width = +$("inpSize").value;
+  var height = +$("inpWaveHeight").value;
+  if(!(width > 0)) width = 100;
+  if(!(height > 0)) height = 40;
+  var penMm = +$("inpPenW").value;
+  if(!(penMm > 0)) penMm = 0.4;
+
+  var style = $("inpWaveStyle").value;
+  var amps = __waveData.amps;
+  var n = amps.length;
+  var mid = height / 2;
+  var minHalf = penMm / 2;
+  var strokes = [];
+
+  var xAt = function(i){ return n > 1 ? (i / (n - 1)) * width : width / 2; };
+
+  if(style === "bars"){
+    for(var i=0;i<n;i++){
+      var x = xAt(i);
+      var half = amps[i] * height / 2;
+      if(half < minHalf) half = minHalf;
+      strokes.push([[x, mid - half], [x, mid + half]]);
+    }
+  } else if(style === "env"){
+    var top = [], bot = [];
+    for(var j=0;j<n;j++){
+      var xj = xAt(j);
+      var y = amps[j] * height / 2;
+      if(y < minHalf) y = minHalf;
+      top.push([xj, mid - y]);
+      bot.push([xj, mid + y]);
+    }
+    var poly = top.slice();
+    for(var k=bot.length-1;k>=0;k--) poly.push(bot[k]);
+    poly.push([top[0][0], top[0][1]]);
+    strokes.push(poly);
+  } else {
+    var line = [];
+    for(var m=0;m<n;m++){
+      line.push([xAt(m), mid - amps[m] * height / 2]);
+    }
+    strokes.push(line);
+  }
+
+  S.strokes = strokes;
+  S.cw = width;
+  S.ch = height;
+  var styLabel = style === "bars" ? UI.t("Balken","bars") : style === "env" ? UI.t("Hüllkurve","envelope") : UI.t("Linie","line");
+  finishCompute(n + " × " + styLabel + (__waveName ? " · " + __waveName : ""));
+}
+const BUILDERS = { qr: buildQR , svg: buildSvg, paper: buildPaper, pentest: buildPentest, spacefill: buildSpacefill, spiro: buildSpiro, maze: buildMaze, fxplot: buildFxplot, tsp: buildTsp, wave: buildWave };   // weitere Tools registrieren sich hier
 async function recompute() {
   const tool = $("inpTool").value;
   try {
     if (tool === "spotify") { if (S.spCache) buildSpotify(); else { draw(); return; } }
-    else buildQR();
+    else if (BUILDERS[tool]) BUILDERS[tool]();
+    else { draw(); return; }
   } catch (e) { console.error(e); setStatus(UI.t("Fehler: ", "Error: ") + e.message); }
 }
+window.__miscRecompute = recompute;   // für File-/Button-Handler der Tools
 function finishCompute(extra) {
   const pts = S.strokes.reduce((a, s) => a + s.length, 0);
   const len = S.strokes.reduce((a, s) => a + segLen(s), 0);
@@ -544,14 +2056,25 @@ $("btnSpLoad").onclick = async () => {
   try { await loadSpotify(); } catch (e) { setStatus(UI.t("Fehler beim Laden: ", "Load error: ") + e.message); }
   busy = false; $("btnSpLoad").disabled = false;
 };
-for (const id of ["inpSpLogo", "inpSpMode", "inpSpOutline", "inpQrText", "inpQrEc", "inpQrOutline"])
+for (const id of ["inpSpLogo", "inpSpMode", "inpSpOutline", "inpQrText", "inpQrEc", "inpQrOutline",
+  "inpQrWifiSsid", "inpQrWifiPass", "inpQrWifiEnc", "inpQrWifiHidden",
+  "inpQrVcName", "inpQrVcOrg", "inpQrVcPhone", "inpQrVcEmail", "inpQrVcUrl",
+  "inpQrEmTo", "inpQrEmSub", "inpQrEmBody", "inpQrTel", "inpQrSmsNum", "inpQrSmsBody",
+  "inpQrGeoLat", "inpQrGeoLng"])
   $(id).addEventListener("input", recompute);
-const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"]];
+$("inpQrType").addEventListener("input", () => { showQrSub(); recompute(); });
+showQrSub();
+const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"], ["inpSvgRes", "valSvgRes", " u"], ["inpSvgSimplify", "valSvgSimplify", " mm"], ["inpPaperSpace", "valPaperSpace", " mm"], ["ptSqSize", "valPtSqSize", "mm"], ["ptScaleLen", "valPtScaleLen", "mm"], ["ptRings", "valPtRings", ""], ["ptGap", "valPtGap", "mm"], ["inpSfOrder", "valInpSfOrder", ""], ["inpSpA", "valSpA", ""], ["inpSpB", "valSpB", ""], ["inpSpC", "valSpC", ""], ["inpSpTurns", "valSpTurns", ""], ["inpSpDetail", "valSpDetail", " pts"], ["inpMazeCols", "valMazeCols", ""], ["inpTspPoints", "valTspPoints", " Punkte"], ["inpWaveBars", "valWaveBars", ""]];
 for (const [id, vid, unit] of SLIDERS) {
   const upd = () => { $(vid).textContent = $(id).value + unit; };
   $(id).addEventListener("input", () => { upd(); recompute(); });
   upd();
 }
+for (const id of ["inpSvgClose","inpPaperH","inpPaperType","ptRegistration","ptSerpentine","inpSfType","inpSpType","inpMazeH","inpMazeSeed","inpFxExpr","inpFxXmin","inpFxXmax","inpFxAxes","inpTspInvert","inpWaveStyle","inpWaveHeight"]) { const el = $(id); if (el) el.addEventListener("input", recompute); }
+try { initSvg(); } catch (e) { console.error("initSvg", e); }
+try { initMaze(); } catch (e) { console.error("initMaze", e); }
+try { initTsp(); } catch (e) { console.error("initTsp", e); }
+try { initWave(); } catch (e) { console.error("initWave", e); }
 $("inpBg").addEventListener("input", draw);
 for (const id of ["inpMatW", "inpMatH"]) $(id).addEventListener("input", () => { recompute(); });
 
@@ -581,10 +2104,31 @@ const I18N_EN = {
   'Als .lac exportieren': 'Export as .lac', 'Als SVG exportieren': 'Export as SVG',
   'Prozess „Stift zeichnen" (KCPenDraw) ist zugewiesen.': 'The pen-draw process (KCPenDraw) is assigned.',
   'Bereit': 'Ready',
+  // Tool-Namen (optgroup-Optionen)
+  'SVG-Import': 'SVG import', 'Papier / Raster': 'Paper / grid',
+  'Stift-Test / Kalibrierung': 'Pen test / calibration',
+  'Space-Filling-Kurven': 'Space-filling curves', 'Spirograph / Lissajous': 'Spirograph / Lissajous',
+  'Labyrinth': 'Maze', 'Funktionsplotter': 'Function plotter', 'TSP- / Stipple-Art': 'TSP / stipple art',
+  'Audio-Waveform': 'Audio waveform',
+  // QR-Presets
+  'Inhalt': 'Content', 'Text / URL': 'Text / URL', 'WLAN-Zugang': 'Wi-Fi access',
+  'Kontakt (vCard)': 'Contact (vCard)', 'E-Mail': 'Email', 'Telefon': 'Phone', 'SMS': 'SMS', 'Standort': 'Location',
+  'WLAN-Name (SSID)': 'Wi-Fi name (SSID)', 'Passwort': 'Password', 'Verschlüsselung': 'Encryption', 'Offen': 'Open',
+  'Verstecktes Netzwerk': 'Hidden network', 'Name': 'Name', 'Firma': 'Company', 'Website': 'Website',
+  'An': 'To', 'Betreff': 'Subject', 'Nachricht': 'Message', 'Telefonnummer': 'Phone number', 'Nummer': 'Number',
+  'Breite': 'Latitude', 'Länge': 'Longitude', 'Inhalt eingeben.': 'Enter content.',
 };
+const I18N_GROUPS = { 'Codes': 'Codes', 'Vorlagen & Utility': 'Templates & utility',
+  'Generative Kunst': 'Generative art', 'Audio': 'Audio' };
+Object.assign(I18N_EN, {"SVG-Import":"SVG import","SVG-Datei":"SVG file","Noch keine Datei geladen.":"No file loaded yet.","Kurven-Auflösung (Genauigkeit)":"Curve resolution (accuracy)","Vereinfachung (Punkte reduzieren)":"Simplification (reduce points)","Offene Formen schließen":"Close open shapes","Nur Umrisse / Linien werden gezeichnet — Füllungen und Farben werden ignoriert. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> sowie <code>&lt;g&gt;</code>-Transformationen werden unterstützt. Die längste Seite wird auf die eingestellte Größe skaliert.":"Only outlines / lines are drawn — fills and colors are ignored. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> and <code>&lt;g&gt;</code> transforms are supported. The longest side is scaled to the chosen size.","SVG-Datei laden.":"Load an SVG file.","SVG konnte nicht gelesen werden.":"Could not read SVG.","Fehler beim Parsen: ":"Parse error: ","Datei konnte nicht gelesen werden.":"Could not read file.","Keine zeichenbaren Pfade in der SVG gefunden.":"No drawable paths found in the SVG.","SVG hat keine messbare Geometrie.":"SVG has no measurable geometry.","Nach Vereinfachung keine Linien übrig.":"No lines left after simplification.","Pfade":"paths","Punkte":"Points","Höhe (mm)":"Height (mm)","Art":"Type","Punktraster":"Dot grid","Linien":"Lines","Karo":"Squares","Isometrisch":"Isometric","Notenlinien":"Staff lines","Millimeterpapier":"Graph paper","Abstand (mm)":"Spacing (mm)","Breite = Größe oben. Gerade Linien werden für einen Stift gezeichnet.":"Width = size above. Straight lines drawn for a single pen.","Raster zu fein/groß für diese Maße.":"Grid too fine/large for these dimensions."," Linien":" lines","Kalibrierblatt: Breite = Größe, Höhe automatisch. Findet Voll-Füll-Abstand, Maßgenauigkeit und Rundlauf.":"Calibration sheet: width = size, height auto. Finds solid-fill spacing, dimensional accuracy and round travel.","Quadrat-Größe":"Square size","Skala-Länge":"Scale length","Konzentrische Kreise":"Concentric circles","Element-Abstand":"Element spacing","Passkreuze in den Ecken":"Registration crosses in corners","Füllung als durchgehender Pfad (weniger Stiftheber)":"Fill as continuous path (fewer pen-ups)","Kurventyp":"Curve type","Moore (geschlossen)":"Moore (closed)","Drachenkurve":"Dragon curve","Ordnung":"Order","Höhere Ordnung = viel dichter. Eine einzige durchgehende Linie. Peano wird ab Ordnung 6 begrenzt; die Drachenkurve füllt ihre eigene Bounding-Box in das Zielmaß.":"Higher order = much denser. A single continuous line. Peano is capped from order 6 on; the dragon curve fits its own bounding box into the target size.","Keine Punkte erzeugt.":"No points generated.","(Ordnung auf 5 begrenzt)":"(order capped at 5)","Spirograph (Hypotrochoide)":"Spirograph (hypotrochoid)","Lissajous-Figur":"Lissajous figure","Guilloché (Banknoten-Rosette)":"Guilloché (banknote rosette)","Parameter A":"Parameter A","Parameter B":"Parameter B","Parameter C":"Parameter C","Umläufe":"Revolutions","Detailgrad (Punkte)":"Detail (points)","A, B und C werden je nach Typ unterschiedlich gedeutet. Spirograph: R=A, r=B, d=C. Lissajous: Frequenzen A & B, Phase aus C. Guilloché: Welligkeit A, Rotation B, Amplitude C. Eine einzige durchgehende Linie — ideal für einen Stift.":"A, B and C are interpreted differently per type. Spirograph: R=A, r=B, d=C. Lissajous: frequencies A & B, phase from C. Guilloché: ripple A, rotation B, amplitude C. A single continuous line — ideal for one pen.","Ungültige Parameter — keine Kurve erzeugt.":"Invalid parameters — no curve produced.","Kurve entartet (zu klein) — Parameter anpassen.":"Curve degenerate (too small) — adjust parameters.","Kurve entartet — Parameter anpassen.":"Curve degenerate — adjust parameters."," pts":" pts","Spalten":"Columns","Höhe":"Height","Seed":"Seed","Neu würfeln":"Reshuffle","Rechteckiges Labyrinth (Recursive Backtracker). Eingang oben links, Ausgang unten rechts. Wände werden zu langen Linien zusammengefasst, um Stiftwechsel zu minimieren.":"Rectangular maze (recursive backtracker). Entrance top-left, exit bottom-right. Walls are merged into long lines to minimise pen-ups.","Ungültige Breite.":"Invalid width.","Kein Labyrinth erzeugt.":"No maze generated.","Labyrinth":"Maze"," Zellen":" cells","×":"×","Funktion y = f(x)":"Function y = f(x)","Erlaubt: + - * / ^, Klammern, x, pi, e und sin cos tan asin acos atan exp ln log sqrt abs floor ceil round sign. Beispiel: sin(x)*exp(-abs(x)/4)":"Allowed: + - * / ^, parentheses, x, pi, e and sin cos tan asin acos atan exp ln log sqrt abs floor ceil round sign. Example: sin(x)*exp(-abs(x)/4)","x von":"x from","x bis":"x to","Achsen, Gitter und Teilstriche zeichnen":"Draw axes, grid and ticks","x bis muss größer als x von sein.":"x to must be greater than x from.","Parsefehler: ":"Parse error: ","Funktion liefert keine endlichen Werte im Bereich.":"Function yields no finite values in range.","Nichts zu zeichnen.":"Nothing to draw.","y-Bereich ":"y range ","TSP- / Stipple-Art":"TSP / stipple art","Bild":"Image","Invertieren (helle Bereiche füllen)":"Invert (fill bright areas)","Verteilt Punkte nach Helligkeit (dunkle Bereiche dichter) und verbindet sie zu einer einzigen, durchgehenden Linie (Travelling-Salesman-Art). Lädt am besten ein kontrastreiches Motiv. Die Optimierung kann einen Moment dauern und ist eine Näherung. Deterministisch pro Bild + Punktzahl.":"Distributes points by brightness (denser in dark areas) and connects them into a single continuous line (travelling-salesman art). Works best with a high-contrast image. Optimisation may take a moment and is an approximation. Deterministic per image + point count.","Bild konnte nicht geladen werden.":"Could not load image.","Bild laden.":"Load an image.","Zu wenig Kontrast – anderes Bild oder mehr Punkte.":"Too little contrast – try another image or more points.","Zu wenig Punkte.":"Too few points.","Audiodatei":"Audio file","Audio laden.":"Load audio.","Stil":"Style","Balken":"Bars","Hüllkurve":"Envelope","Linie":"Line","Balken / Auflösung":"Bars / resolution","Dekodiere …":"Decoding …","Web Audio nicht verfügbar.":"Web Audio unavailable.","Leere Audiospur.":"Empty audio track.","Audio konnte nicht dekodiert werden.":"Could not decode audio.","bars":"bars","envelope":"envelope","line":"line"});
 UI.initTheme();
 UI.onThemeChange(() => draw());
-function applyLangDefaults() { document.title = UI.t("Misc Tools — Handschrift", "Misc Tools — Handschrift"); }
+function applyLangDefaults() {
+  document.title = UI.t("Misc Tools — Handschrift", "Misc Tools — Handschrift");
+  document.querySelectorAll("optgroup[data-de]").forEach(g => {
+    g.label = UI.t(g.dataset.de, I18N_GROUPS[g.dataset.de] || g.dataset.de);
+  });
+}
 UI.initLang(I18N_EN);
 applyLangDefaults();
 UI.onLangChange(() => { applyLangDefaults(); recompute(); });

@@ -2,6 +2,18 @@
 
 ## Neue Features
 
+- **9 neue Misc-Tools** in `app/misc.html`, gruppiert per `<optgroup>` (Codes · Vorlagen & Utility · Generative Kunst · Audio), damit die Werkzeug-Auswahl übersichtlich bleibt:
+  - **SVG-Import** — `.svg` laden, Vektorpfade (path/line/polyline/polygon/rect/circle/ellipse inkl. `<g>`-Transformationen) exakt in Stiftlinien wandeln, auf die gewünschte Größe skaliert.
+  - **Papier / Raster** — Punktraster, Linien, Karo, isometrisch, Notenlinien, Millimeterpapier (Breite × Höhe, Abstand).
+  - **Stift-Test / Kalibrierung** — Füll-Abstands-Testfelder, Lineal, konzentrische/gefüllte Kreise, Eck-Registriermarken.
+  - **Space-Filling-Kurven** — Hilbert, Moore, Peano, Drachenkurve als eine durchgehende Linie.
+  - **Spirograph / Lissajous** — parametrische Kurvenkunst (inkl. Guilloché) als Single-Line.
+  - **Labyrinth** — Recursive-Backtracker mit Seed, Ein-/Ausgang, „Neu würfeln".
+  - **Funktionsplotter** — `y=f(x)` mit sicherem Ausdrucks-Parser (kein eval), Achsen/Raster, Asymptoten-Erkennung.
+  - **TSP- / Stipple-Art** — Bild → Punktwolke nach Dunkelheit → eine durchgehende Linie (Nearest-Neighbour + 2-opt).
+  - **Audio-Waveform** — Audiodatei dekodieren (Web Audio) und als Balken/Hüllkurve/Linie plotten.
+- **QR-Code-Presets** — der QR-Generator akzeptiert jetzt strukturierte Inhalte: Text/URL, WLAN-Zugang, Kontakt (vCard), E-Mail, Telefon, SMS, Standort.
+- **Text-Writer: Anordnung „Auf Kreisbahn"** (`app/index.html`) — Text als Ring (Stempel/Siegel/Logo) mit einstellbarem Radius, Position oben (außen) / unten (innen) und optionalem Wiederholen zum Füllen des Kreises. Nutzt dieselbe Font-Pipeline wie der normale Schreibmodus.
 - **Neue Seite „Misc Tools" (`app/misc.html`)** als Sammelort für Werkzeuge, die nicht zu den bestehenden Modi gehören. Topnav-Link (neues „tools"-Icon) auf allen Seiten, eigene Karte auf der Landing-Page. Geteilte Vorschau (Pan/Zoom, einstellbare Hintergrundfarbe), `.lac`- und SVG-Export.
 - **Misc Tool: Spotify-Code-Generator** — Spotify-Link/URI eingeben, das Tool lädt den **echten** Spotify-Code als Vektor über `scannables.scdn.co` (die Bar-Höhen kommen direkt von Spotify, lokal nicht berechenbar), rastert ihn und wandelt ihn per vertikaler Scanline-Füllung in Stiftlinien. Spotify-Logo optional einbeziehbar. Funktioniert mit Track-/Album-/Playlist-/Künstler-/Episoden-Links.
 - **Misc Tools: crispe Kanten per Kontur-Pass** — Spotify- und QR-Code bekommen optional (Standard an) eine nachgefahrene Außenkontur (`outlineStrokes`: Randpixel → Zhang-Suen → Pfad-Trace → RDP), die die treppigen Kanten der Scanline-Füllung glättet.

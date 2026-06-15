@@ -107,6 +107,22 @@ geschrieben mit dem Stift.</textarea>
         <option value="center">Zentriert</option>
         <option value="right">Rechtsbündig</option>
       </select>
+      <label>Anordnung</label>
+      <select id="inpArrange">
+        <option value="lines">Zeilen</option>
+        <option value="circle">Auf Kreisbahn</option>
+      </select>
+      <div id="circOpts" style="display:none">
+        <label>Radius (mm)</label>
+        <div class="slider"><input type="range" id="inpRadius" min="10" max="150" step="1" value="55"><span class="val" id="valRadius"></span></div>
+        <label>Position</label>
+        <select id="inpCircPos">
+          <option value="outer">Oben (außen)</option>
+          <option value="inner">Unten (innen)</option>
+        </select>
+        <div class="checkrow"><input type="checkbox" id="inpCircRepeat" checked><span>Text wiederholen (Kreis füllen)</span></div>
+        <div class="hint">Legt den Text als Ring an — ideal für Stempel, Siegel und Logos. „Unten (innen)" dreht die untere Hälfte für klassische Siegel-Optik.</div>
+      </div>
     </div>
   </details>
 
@@ -272,10 +288,83 @@ function fillFontSelect(keep) {
 
 /* ============================== Layout ============================== */
 // Liefert pro Buchstabe: Strokes in mm (y-down, Ursprung = Arbeitsbereich oben links)
+function subdivide(pts, maxSeg) {
+  if (pts.length < 2) return pts;
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const n = Math.max(1, Math.ceil(len / maxSeg));
+    for (let k = 1; k <= n; k++) { const t = k / n; out.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t]); }
+  }
+  return out;
+}
+// Text als Ring auf eine Kreisbahn legen (Stempel/Siegel)
+function layoutCircle(font, scale, sizeMM) {
+  const R = +$("inpRadius").value;
+  const outside = $("inpCircPos").value !== "inner";
+  const repeat = $("inpCircRepeat").checked;
+  const track = +$("inpTrack").value, wordSp = +$("inpWordSp").value;
+  const varOn = $("inpVarOn").checked;
+  const vSize = varOn ? +$("inpVSize").value / 100 : 0;
+  const vBase = varOn ? +$("inpVBase").value : 0;
+  const vWob = varOn ? +$("inpVWob").value : 0;
+  const missing = new Set();
+  const str = $("inpText").value.replace(/\s*\n\s*/g, " ");
+  const items = [];
+  [...str].forEach((ch, i) => {
+    const rng = glyphRng(S.seed, 0, i); const vPick = rng();
+    const g = pickGlyph(font, ch, vPick);
+    const sp = pickGlyph(font, " ", 0);
+    let adv = (g ? g.adv : (sp ? sp.adv : font.upem * 0.5)) * scale;
+    if (ch === " ") adv *= wordSp;
+    adv += track;
+    items.push({ ch, g, adv: Math.max(0.5, adv), i });
+  });
+  if (!items.length) return { glyphs: [], missing, lines: [str] };
+  let seq = items;
+  const circ = 2 * Math.PI * R;
+  if (repeat) {
+    const baseLen = items.reduce((a, b) => a + b.adv, 0) || 1;
+    const reps = Math.max(1, Math.round(circ / baseLen));
+    seq = [];
+    for (let r = 0; r < reps; r++) items.forEach((it, k) => seq.push({ ch: it.ch, g: it.g, adv: it.adv, i: r * items.length + k }));
+  }
+  const L = seq.reduce((a, b) => a + b.adv, 0);
+  const flip = outside ? 1 : -1;
+  const base = outside ? -Math.PI / 2 : Math.PI / 2;
+  const margin = sizeMM * 1.2;
+  const Cx = S.textX + R + margin, Cy = S.textY + R + margin;
+  const aFor = s => base + flip * ((s - L / 2) / R);
+  const glyphs = [];
+  let s0 = 0;
+  for (const it of seq) {
+    if (!it.g || !it.g.strokes.length) { if (it.ch.trim() && !it.g) missing.add(it.ch); s0 += it.adv; continue; }
+    const rng = glyphRng(S.seed, 0, it.i); rng();
+    const rScale = 1 + (rng() * 2 - 1) * vSize;
+    const rBase = (rng() * 2 - 1) * vBase;
+    const wPhase = rng() * Math.PI * 2;
+    const sc = scale * rScale, sStart = s0;
+    const strokes = it.g.strokes.map(st => {
+      let pts = st.map(p => [p[0] * sc, -p[1] * sc]);
+      if (vWob > 0) pts = wobble(pts, vWob, wPhase);
+      pts = subdivide(pts, 0.8);
+      return pts.map(([lx, ly]) => {
+        const a = aFor(sStart + lx);
+        const rad = R - flip * ly + rBase;
+        return [Cx + rad * Math.cos(a), Cy + rad * Math.sin(a)];
+      });
+    });
+    glyphs.push({ char: it.ch, line: 0, col: it.i, strokes });
+    s0 += it.adv;
+  }
+  return { glyphs, missing, lines: [str] };
+}
 function layout() {
   const font = currentFont();
   const sizeMM = +$("inpSize").value;
   const scale = sizeMM / (font.capheight || font.upem * 0.7);
+  if ($("inpArrange") && $("inpArrange").value === "circle") return layoutCircle(font, scale, sizeMM);
   const lineH = +$("inpLineH").value * sizeMM;
   const track = +$("inpTrack").value;
   const align = $("inpAlign").value;
@@ -745,14 +834,17 @@ const SLIDERS = [["inpSize", "valSize", " mm"], ["inpLineH", "valLineH", "×"], 
   ["inpWordSp", "valWordSp", "×"],
   ["inpVRot", "valVRot", "°"], ["inpVSize", "valVSize", " %"], ["inpVBase", "valVBase", " mm"],
   ["inpVSpace", "valVSpace", " mm"], ["inpVSlant", "valVSlant", "°"], ["inpVWob", "valVWob", " mm"],
-  ["inpPenW", "valPenW", " mm"]];
+  ["inpPenW", "valPenW", " mm"], ["inpRadius", "valRadius", " mm"]];
 for (const [id, vid, unit] of SLIDERS) {
   const upd = () => { $(vid).textContent = $(id).value + unit; };
   $(id).addEventListener("input", () => { upd(); relayout(); });
   upd();
 }
-for (const id of ["inpText", "inpFont", "inpAlign", "inpVarOn", "inpMatW", "inpMatH"])
+for (const id of ["inpText", "inpFont", "inpAlign", "inpVarOn", "inpMatW", "inpMatH", "inpCircPos", "inpCircRepeat"])
   $(id).addEventListener("input", relayout);
+function showArrange() { $("circOpts").style.display = $("inpArrange").value === "circle" ? "block" : "none"; }
+$("inpArrange").addEventListener("input", () => { showArrange(); relayout(); });
+showArrange();
 $("inpBg").addEventListener("input", draw);
 $("inpText").addEventListener("input", () => { $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
 $("btnReroll").onclick = () => { S.seed = (Math.random() * 1e9) | 0; relayout(); };
@@ -811,6 +903,12 @@ const I18N_EN = {
   'Buchstabenabstand': 'Letter spacing',
   'Wortabstand': 'Word spacing',
   'Ausrichtung': 'Alignment',
+  'Anordnung': 'Arrangement', 'Zeilen': 'Lines', 'Auf Kreisbahn': 'On a circle',
+  'Radius (mm)': 'Radius (mm)', 'Position': 'Position',
+  'Oben (außen)': 'Top (outside)', 'Unten (innen)': 'Bottom (inside)',
+  'Text wiederholen (Kreis füllen)': 'Repeat text (fill circle)',
+  'Legt den Text als Ring an — ideal für Stempel, Siegel und Logos. „Unten (innen)" dreht die untere Hälfte für klassische Siegel-Optik.':
+    'Lays the text out as a ring — ideal for stamps, seals and logos. "Bottom (inside)" flips the lower half for a classic seal look.',
   'Linksbündig': 'Left', 'Zentriert': 'Centered', 'Rechtsbündig': 'Right',
   'Handschrift-Variation': 'Handwriting variation',
   'Variation aktiv (kein Buchstabe gleicht dem anderen)': 'Variation on (no two letters look alike)',
