@@ -193,7 +193,8 @@ function makeLayer(type, tool) {
     strokesCache: [], groups: null, cw: 0, ch: 0, _frame: null };
 }
 function embedUrl(L) {
-  return L.type === "text" ? "index.html?embed=1" : L.type === "image" ? "bild.html?embed=1" : "misc.html?embed=1&tool=" + L.tool;
+  const base = L.type === "text" ? "index.html?embed=1" : L.type === "image" ? "bild.html?embed=1" : "misc.html?embed=1&tool=" + L.tool;
+  return base + "&v=2";   // Cache-Bust für die eingebettete Tool-HTML
 }
 
 /* ---------- Transform-Math ---------- */
