@@ -325,7 +325,7 @@ cv.addEventListener("wheel", e => { e.preventDefault();
 }, { passive: false });
 
 function snapMove(L) {
-  const tol = 7 / S.view.scale, bb = layerAABB(L);
+  const tol = 4 / S.view.scale, bb = layerAABB(L);
   const probesX = [bb.minX, (bb.minX + bb.maxX) / 2, bb.maxX], probesY = [bb.minY, (bb.minY + bb.maxY) / 2, bb.maxY];
   const tx = [], ty = [];
   tx.push(0, S.matW / 2, S.matW); ty.push(0, S.matH / 2, S.matH);   // Build-Plate: Kanten + Mitte
