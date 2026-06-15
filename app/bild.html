@@ -110,6 +110,7 @@
         <option value="ascii">ASCII-Art (mit Schrift)</option>
         <option value="contour">Konturen (Kanten)</option>
         <option value="lineart">Strichzeichnung (Mittellinie)</option>
+        <option value="fill">Flächen füllen + Kontur</option>
       </select>
 
       <div class="styleopts" data-style="hatch cross">
@@ -158,6 +159,19 @@
         <label>Mindest-Strichlänge (mm)</label>
         <div class="slider"><input type="range" id="inpLMin" min="0" max="5" step="0.1" value="1"><span class="val" id="valLMin"></span></div>
         <div class="hint">Zieht die Mittellinie jeder gezeichneten Linie nach — ideal für Strichzeichnungen, Logos und Cartoons (Stift fährt jede Linie genau einmal). Für helle Linien auf dunklem Grund oben „Invertieren" aktivieren.</div>
+      </div>
+
+      <div class="styleopts" data-style="fill">
+        <label>Flächen-Schwelle (% Helligkeit; höher = mehr Fläche)</label>
+        <div class="slider"><input type="range" id="inpFThresh" min="20" max="95" step="1" value="70"><span class="val" id="valFThresh"></span></div>
+        <label>Füll-Linienabstand (mm)</label>
+        <div class="slider"><input type="range" id="inpFSpace" min="0.3" max="2" step="0.05" value="0.45"><span class="val" id="valFSpace"></span></div>
+        <label>Füll-Winkel (°)</label>
+        <div class="slider"><input type="range" id="inpFAngle" min="0" max="180" step="5" value="45"><span class="val" id="valFAngle"></span></div>
+        <label>Kontur-Auflösung</label>
+        <div class="slider"><input type="range" id="inpFRes" min="1" max="4" step="0.5" value="2.5"><span class="val" id="valFRes"></span></div>
+        <div class="checkrow"><input type="checkbox" id="inpFOutline" checked><span>Ränder als Kontur nachfahren (crispe Kanten)</span></div>
+        <div class="hint">Füllt zusammenhängende Flächen komplett aus und fährt die Außenkante einmal sauber nach — ideal für Multicolor mit flächigen Farben (Logos, Sticker, Cliparts). Füll-Abstand ≈ Stiftbreite ergibt deckende Flächen.</div>
       </div>
     </div>
   </details>
@@ -505,6 +519,35 @@ function styleLineart(W, H) {                         // Mittellinie (Centerline
     .map(p => rdp(p, 0.2))
     .filter(p => p.length >= 2 && segLen(p) >= minLen);
 }
+function regionOutline(W, H, res, thr) {              // crispe Kontur einer Fläche (lum < thr)
+  const w = Math.max(8, Math.round(W * res)), h = Math.max(8, Math.round(H * res));
+  const reg = new Float32Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      reg[y * w + x] = lum((x + 0.5) / res, (y + 0.5) / res, W, H) < thr ? 255 : 0;
+  const sm = boxBlur(reg, w, h);
+  const edge = new Uint8Array(w * h);
+  for (let y = 1; y < h - 1; y++)
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const gx = -sm[i-w-1] - 2*sm[i-1] - sm[i+w-1] + sm[i-w+1] + 2*sm[i+1] + sm[i+w+1];
+      const gy = -sm[i-w-1] - 2*sm[i-w] - sm[i-w+1] + sm[i+w-1] + 2*sm[i+w] + sm[i+w+1];
+      if (Math.hypot(gx, gy) / 8 > 40) edge[i] = 1;
+    }
+  thin(edge, w, h);
+  return traceBinary(edge, w, h)
+    .map(p => p.map(([x, y]) => [(x + 0.5) / res, (y + 0.5) / res]))
+    .map(p => rdp(p, 0.25)).filter(p => p.length >= 2 && segLen(p) > 1.0);
+}
+function styleFill(W, H) {                            // Fläche voll füllen + Außenkante nachfahren
+  const thr = +$("inpFThresh").value / 100;
+  const space = +$("inpFSpace").value;
+  const angle = +$("inpFAngle").value;
+  const res = +$("inpFRes").value;
+  const out = hatchLines(W, H, space, angle, thr, 0);   // dichte Schraffur = Vollfläche (in MC auf Maske geklippt)
+  if ($("inpFOutline").checked) out.push(...regionOutline(W, H, res, thr));
+  return out;
+}
 function styleContour(W, H) {
   const res = +$("inpCRes").value;                  // px pro mm
   const thresh = +$("inpCThresh").value;
@@ -675,6 +718,7 @@ function computeStyle(W, H, style) {
          style === "spiral" ? styleSpiral(W, H) :
          style === "ascii" ? styleAscii(W, H) :
          style === "lineart" ? styleLineart(W, H) :
+         style === "fill" ? styleFill(W, H) :
          styleContour(W, H);
 }
 /* --- Multicolor: Palette, Masken, Legende --- */
@@ -891,13 +935,15 @@ const SLIDERS = [["inpBright", "valBright", ""], ["inpContrast", "valContrast", 
   ["inpHLevels", "valHLevels", ""], ["inpSSpace", "valSSpace", " mm"], ["inpSAmp", "valSAmp", "×"],
   ["inpSFreq", "valSFreq", "×"], ["inpACell", "valACell", " mm"], ["inpCThresh", "valCThresh", ""],
   ["inpCRes", "valCRes", " px/mm"], ["inpLThresh", "valLThresh", ""],
-  ["inpLRes", "valLRes", " px/mm"], ["inpLMin", "valLMin", " mm"], ["inpPenW", "valPenW", " mm"]];
+  ["inpLRes", "valLRes", " px/mm"], ["inpLMin", "valLMin", " mm"],
+  ["inpFThresh", "valFThresh", " %"], ["inpFSpace", "valFSpace", " mm"], ["inpFAngle", "valFAngle", "°"],
+  ["inpFRes", "valFRes", " px/mm"], ["inpPenW", "valPenW", " mm"]];
 for (const [id, vid, unit] of SLIDERS) {
   const upd = () => { $(vid).textContent = $(id).value + unit; };
   $(id).addEventListener("input", () => { upd(); recompute(); });
   upd();
 }
-for (const id of ["inpInvert", "inpStyle", "inpAsciiFont", "inpARamp", "inpWhiteSkip", "inpCHatch", "inpLAuto", "inpMatW", "inpMatH"])
+for (const id of ["inpInvert", "inpStyle", "inpAsciiFont", "inpARamp", "inpWhiteSkip", "inpCHatch", "inpLAuto", "inpFOutline", "inpMatW", "inpMatH"])
   $(id).addEventListener("input", () => { showStyleOpts(); recompute(); });
 
 $("inpMC").addEventListener("input", () => {
@@ -922,7 +968,7 @@ const TOUR = [
   { el: "#dropHint", title: "1 · Bild laden",
     text: "Bild hierher ziehen oder klicken. Mit <b>Helligkeit, Kontrast und Invertieren</b> steuerst du, wie viel der Stift zeichnet — bei dunklen Fotos lohnt sich etwas mehr Helligkeit." },
   { el: "#inpStyle", title: "2 · Stil wählen",
-    text: "<b>Wellenlinien</b> sind der Plotter-Klassiker für Portraits · <b>Kreuzschraffur</b> wirkt wie gezeichnet · <b>Spirale</b> macht das ganze Bild zu einer Linie · <b>ASCII-Art</b> zeichnet das Bild aus Buchstaben (auch in deiner Handschrift!) · <b>Konturen</b> zieht nur die Umrisse nach · <b>Strichzeichnung</b> zieht die Mittellinie jeder Linie nach (für Line Art, Logos, Cartoons)." },
+    text: "<b>Wellenlinien</b> sind der Plotter-Klassiker für Portraits · <b>Kreuzschraffur</b> wirkt wie gezeichnet · <b>Spirale</b> macht das ganze Bild zu einer Linie · <b>ASCII-Art</b> zeichnet das Bild aus Buchstaben (auch in deiner Handschrift!) · <b>Konturen</b> zieht nur die Umrisse nach · <b>Strichzeichnung</b> zieht die Mittellinie jeder Linie nach (für Line Art, Logos, Cartoons) · <b>Flächen füllen + Kontur</b> füllt Flächen komplett und fährt die Ränder crisp nach (ideal für Multicolor)." },
   { el: ".styleopts.active", title: "3 · Stil-Parameter",
     text: "Jeder Stil hat eigene Regler — Linienabstand, Amplitude, Zeichengröße usw. Alles wirkt live auf die Vorschau. Einfach experimentieren!" },
   { el: "#canvasWrap", title: "4 · Position & Vorschau",
@@ -938,7 +984,7 @@ const TOUR_EN = [
   { el: "#dropHint", title: "1 · Load an image",
     text: "Drop an image here or click. Use <b>brightness, contrast and invert</b> to control how much the pen draws — dark photos benefit from a bit more brightness." },
   { el: "#inpStyle", title: "2 · Pick a style",
-    text: "<b>Squiggle lines</b> are the plotter classic for portraits · <b>cross hatching</b> looks hand-drawn · <b>spiral</b> turns the whole image into one line · <b>ASCII art</b> draws the image from letters (even in your handwriting!) · <b>contours</b> traces just the outlines · <b>line art</b> traces the centerline of every line (for line art, logos, cartoons)." },
+    text: "<b>Squiggle lines</b> are the plotter classic for portraits · <b>cross hatching</b> looks hand-drawn · <b>spiral</b> turns the whole image into one line · <b>ASCII art</b> draws the image from letters (even in your handwriting!) · <b>contours</b> traces just the outlines · <b>line art</b> traces the centerline of every line (for line art, logos, cartoons) · <b>fill areas + outline</b> fills areas solidly and traces the edges crisply (ideal for multicolor)." },
   { el: ".styleopts.active", title: "3 · Style parameters",
     text: "Each style has its own controls — line spacing, amplitude, character size and so on. Everything updates the preview live. Just experiment!" },
   { el: "#canvasWrap", title: "4 · Position & preview",
@@ -967,6 +1013,14 @@ const I18N_EN = {
   'ASCII-Art (mit Schrift)': 'ASCII art (with a font)',
   'Konturen (Kanten)': 'Contours (edges)',
   'Strichzeichnung (Mittellinie)': 'Line art (centerline)',
+  'Flächen füllen + Kontur': 'Fill areas + outline',
+  'Flächen-Schwelle (% Helligkeit; höher = mehr Fläche)': 'Fill threshold (% brightness; higher = more area)',
+  'Füll-Linienabstand (mm)': 'Fill line spacing (mm)',
+  'Füll-Winkel (°)': 'Fill angle (°)',
+  'Kontur-Auflösung': 'Outline resolution',
+  'Ränder als Kontur nachfahren (crispe Kanten)': 'Trace edges as outline (crisp edges)',
+  'Füllt zusammenhängende Flächen komplett aus und fährt die Außenkante einmal sauber nach — ideal für Multicolor mit flächigen Farben (Logos, Sticker, Cliparts). Füll-Abstand ≈ Stiftbreite ergibt deckende Flächen.':
+    'Fills connected areas completely and traces the outer edge once cleanly — ideal for multicolor with flat color areas (logos, stickers, clip art). A fill spacing ≈ pen width gives opaque areas.',
   'Automatische Schwelle (Otsu)': 'Automatic threshold (Otsu)',
   'Schwelle (nur manuell)': 'Threshold (manual only)',
   'Mindest-Strichlänge (mm)': 'Minimum stroke length (mm)',
