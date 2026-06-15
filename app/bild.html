@@ -99,6 +99,7 @@
         <option value="spiral">Spirale</option>
         <option value="ascii">ASCII-Art (mit Schrift)</option>
         <option value="contour">Konturen (Kanten)</option>
+        <option value="lineart">Strichzeichnung (Mittellinie)</option>
       </select>
 
       <div class="styleopts" data-style="hatch cross">
@@ -136,6 +137,17 @@
         <label>Detailgrad (Auflösung)</label>
         <div class="slider"><input type="range" id="inpCRes" min="1" max="4" step="0.5" value="2"><span class="val" id="valCRes"></span></div>
         <div class="checkrow"><input type="checkbox" id="inpCHatch"><span>Mit Schraffur kombinieren (dunkle Flächen füllen)</span></div>
+      </div>
+
+      <div class="styleopts" data-style="lineart">
+        <div class="checkrow"><input type="checkbox" id="inpLAuto" checked><span>Automatische Schwelle (Otsu)</span></div>
+        <label>Schwelle (nur manuell)</label>
+        <div class="slider"><input type="range" id="inpLThresh" min="20" max="240" step="1" value="128"><span class="val" id="valLThresh"></span></div>
+        <label>Detailgrad (Auflösung)</label>
+        <div class="slider"><input type="range" id="inpLRes" min="1" max="5" step="0.5" value="3"><span class="val" id="valLRes"></span></div>
+        <label>Mindest-Strichlänge (mm)</label>
+        <div class="slider"><input type="range" id="inpLMin" min="0" max="5" step="0.1" value="1"><span class="val" id="valLMin"></span></div>
+        <div class="hint">Zieht die Mittellinie jeder gezeichneten Linie nach — ideal für Strichzeichnungen, Logos und Cartoons (Stift fährt jede Linie genau einmal). Für helle Linien auf dunklem Grund oben „Invertieren" aktivieren.</div>
       </div>
     </div>
   </details>
@@ -428,6 +440,39 @@ function styleAscii(W, H) {
 }
 
 /* ---------- Konturen ---------- */
+function otsu(buf) {                                  // Otsu-Schwelle über 0..255-Histogramm
+  const hist = new Float64Array(256);
+  for (let i = 0; i < buf.length; i++) hist[Math.max(0, Math.min(255, Math.round(buf[i])))]++;
+  const total = buf.length;
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, maxVar = -1, thr = 128;
+  for (let i = 0; i < 256; i++) {
+    wB += hist[i]; if (!wB) continue;
+    const wF = total - wB; if (!wF) break;
+    sumB += i * hist[i];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > maxVar) { maxVar = v; thr = i; }
+  }
+  return thr;
+}
+function styleLineart(W, H) {                         // Mittellinie (Centerline) statt Umriss
+  const res = +$("inpLRes").value;
+  const w = Math.max(8, Math.round(W * res)), h = Math.max(8, Math.round(H * res));
+  const buf = new Float32Array(w * h);                // Helligkeit 0..255, y-down
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      buf[y * w + x] = lum((x + 0.5) / res, (y + 0.5) / res, W, H) * 255;
+  const thr = $("inpLAuto").checked ? otsu(buf) : +$("inpLThresh").value;
+  const mask = new Uint8Array(w * h);                 // Tinte = dunkler als Schwelle
+  for (let i = 0; i < mask.length; i++) mask[i] = buf[i] < thr ? 1 : 0;
+  thin(mask, w, h);                                   // Zhang-Suen → 1px-Skelett
+  const minLen = +$("inpLMin").value;
+  return traceBinary(mask, w, h)
+    .map(p => p.map(([x, y]) => [(x + 0.5) / res, (y + 0.5) / res]))
+    .map(p => rdp(p, 0.2))
+    .filter(p => p.length >= 2 && segLen(p) >= minLen);
+}
 function styleContour(W, H) {
   const res = +$("inpCRes").value;                  // px pro mm
   const thresh = +$("inpCThresh").value;
@@ -571,6 +616,7 @@ function recompute() {
         style === "squiggle" ? styleSquiggle(W, H) :
         style === "spiral" ? styleSpiral(W, H) :
         style === "ascii" ? styleAscii(W, H) :
+        style === "lineart" ? styleLineart(W, H) :
         styleContour(W, H);
     } catch (err) {
       console.error(err);
@@ -737,13 +783,14 @@ const SLIDERS = [["inpBright", "valBright", ""], ["inpContrast", "valContrast", 
   ["inpImgW", "valImgW", " mm"], ["inpHSpace", "valHSpace", " mm"], ["inpHAngle", "valHAngle", "°"],
   ["inpHLevels", "valHLevels", ""], ["inpSSpace", "valSSpace", " mm"], ["inpSAmp", "valSAmp", "×"],
   ["inpSFreq", "valSFreq", "×"], ["inpACell", "valACell", " mm"], ["inpCThresh", "valCThresh", ""],
-  ["inpCRes", "valCRes", " px/mm"], ["inpPenW", "valPenW", " mm"]];
+  ["inpCRes", "valCRes", " px/mm"], ["inpLThresh", "valLThresh", ""],
+  ["inpLRes", "valLRes", " px/mm"], ["inpLMin", "valLMin", " mm"], ["inpPenW", "valPenW", " mm"]];
 for (const [id, vid, unit] of SLIDERS) {
   const upd = () => { $(vid).textContent = $(id).value + unit; };
   $(id).addEventListener("input", () => { upd(); recompute(); });
   upd();
 }
-for (const id of ["inpInvert", "inpStyle", "inpAsciiFont", "inpARamp", "inpWhiteSkip", "inpCHatch", "inpMatW", "inpMatH"])
+for (const id of ["inpInvert", "inpStyle", "inpAsciiFont", "inpARamp", "inpWhiteSkip", "inpCHatch", "inpLAuto", "inpMatW", "inpMatH"])
   $(id).addEventListener("input", () => { showStyleOpts(); recompute(); });
 
 function showStyleOpts() {
@@ -757,7 +804,7 @@ const TOUR = [
   { el: "#dropHint", title: "1 · Bild laden",
     text: "Bild hierher ziehen oder klicken. Mit <b>Helligkeit, Kontrast und Invertieren</b> steuerst du, wie viel der Stift zeichnet — bei dunklen Fotos lohnt sich etwas mehr Helligkeit." },
   { el: "#inpStyle", title: "2 · Stil wählen",
-    text: "<b>Wellenlinien</b> sind der Plotter-Klassiker für Portraits · <b>Kreuzschraffur</b> wirkt wie gezeichnet · <b>Spirale</b> macht das ganze Bild zu einer Linie · <b>ASCII-Art</b> zeichnet das Bild aus Buchstaben (auch in deiner Handschrift!) · <b>Konturen</b> zieht nur die Umrisse nach." },
+    text: "<b>Wellenlinien</b> sind der Plotter-Klassiker für Portraits · <b>Kreuzschraffur</b> wirkt wie gezeichnet · <b>Spirale</b> macht das ganze Bild zu einer Linie · <b>ASCII-Art</b> zeichnet das Bild aus Buchstaben (auch in deiner Handschrift!) · <b>Konturen</b> zieht nur die Umrisse nach · <b>Strichzeichnung</b> zieht die Mittellinie jeder Linie nach (für Line Art, Logos, Cartoons)." },
   { el: ".styleopts.active", title: "3 · Stil-Parameter",
     text: "Jeder Stil hat eigene Regler — Linienabstand, Amplitude, Zeichengröße usw. Alles wirkt live auf die Vorschau. Einfach experimentieren!" },
   { el: "#canvasWrap", title: "4 · Position & Vorschau",
@@ -773,7 +820,7 @@ const TOUR_EN = [
   { el: "#dropHint", title: "1 · Load an image",
     text: "Drop an image here or click. Use <b>brightness, contrast and invert</b> to control how much the pen draws — dark photos benefit from a bit more brightness." },
   { el: "#inpStyle", title: "2 · Pick a style",
-    text: "<b>Squiggle lines</b> are the plotter classic for portraits · <b>cross hatching</b> looks hand-drawn · <b>spiral</b> turns the whole image into one line · <b>ASCII art</b> draws the image from letters (even in your handwriting!) · <b>contours</b> traces just the outlines." },
+    text: "<b>Squiggle lines</b> are the plotter classic for portraits · <b>cross hatching</b> looks hand-drawn · <b>spiral</b> turns the whole image into one line · <b>ASCII art</b> draws the image from letters (even in your handwriting!) · <b>contours</b> traces just the outlines · <b>line art</b> traces the centerline of every line (for line art, logos, cartoons)." },
   { el: ".styleopts.active", title: "3 · Style parameters",
     text: "Each style has its own controls — line spacing, amplitude, character size and so on. Everything updates the preview live. Just experiment!" },
   { el: "#canvasWrap", title: "4 · Position & preview",
@@ -801,6 +848,12 @@ const I18N_EN = {
   'Spirale': 'Spiral',
   'ASCII-Art (mit Schrift)': 'ASCII art (with a font)',
   'Konturen (Kanten)': 'Contours (edges)',
+  'Strichzeichnung (Mittellinie)': 'Line art (centerline)',
+  'Automatische Schwelle (Otsu)': 'Automatic threshold (Otsu)',
+  'Schwelle (nur manuell)': 'Threshold (manual only)',
+  'Mindest-Strichlänge (mm)': 'Minimum stroke length (mm)',
+  'Zieht die Mittellinie jeder gezeichneten Linie nach — ideal für Strichzeichnungen, Logos und Cartoons (Stift fährt jede Linie genau einmal). Für helle Linien auf dunklem Grund oben „Invertieren" aktivieren.':
+    'Traces the centerline of every drawn line — ideal for line art, logos and cartoons (the pen follows each line exactly once). For light lines on a dark background, enable "Invert" above.',
   'Linienabstand (mm)': 'Line spacing (mm)',
   'Winkel (°)': 'Angle (°)',
   'Helligkeits-Stufen': 'Brightness levels',
