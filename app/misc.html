@@ -107,6 +107,9 @@
         <optgroup label="Audio" data-de="Audio">
           <option value="wave">Audio-Waveform</option>
         </optgroup>
+        <optgroup label="3D" data-de="3D">
+          <option value="model">3D-Modell (STL)</option>
+        </optgroup>
       </select>
 
       <div class="toolopts active" data-tool="spotify">
@@ -283,6 +286,19 @@
 <div class="slider"><input type="range" id="inpWaveBars" min="40" max="400" step="10" value="160"><span class="val" id="valWaveBars"></span></div>
 <label>Höhe</label>
 <input type="number" id="inpWaveHeight" value="40" min="1" step="1">
+      </div>
+
+      <div class="toolopts" data-tool="model">
+        <label>STL-Datei</label>
+        <input type="file" id="inpModelFile" accept=".stl,model/stl,application/sla">
+        <label>Knick-/Kantenwinkel</label>
+        <div class="slider"><input type="range" id="inpModelCrease" min="1" max="90" step="1" value="30"><span class="val" id="valModelCrease"></span></div>
+        <div class="checkrow"><input type="checkbox" id="inpModelSilhouette" checked><span>Außenkontur (Silhouette)</span></div>
+        <div class="checkrow"><input type="checkbox" id="inpModelZup" checked><span>Z-oben (CAD-Ausrichtung)</span></div>
+        <label>Ansicht</label>
+        <div class="btnrow"><button type="button" id="btnModelFront">Vorne</button><button type="button" id="btnModelIso">Iso</button><button type="button" id="btnModelTop">Oben</button></div>
+        <button type="button" id="btnModelReset" style="width:100%;margin-top:8px">Ansicht zurücksetzen</button>
+        <div class="hint">STL laden, dann im Vorschaufenster ziehen zum Drehen (Shift+Ziehen = verschieben, Mausrad = Zoom). Erzeugt eine Blaupausen-Zeichnung aus Knickkanten + Außenkontur (keine verdeckten Kanten). Die längste Seite wird auf die eingestellte Größe skaliert.</div>
       </div>
     </div>
   </details>
@@ -1931,7 +1947,186 @@ function buildWave(){
   var styLabel = style === "bars" ? UI.t("Balken","bars") : style === "env" ? UI.t("Hüllkurve","envelope") : UI.t("Linie","line");
   finishCompute(n + " × " + styLabel + (__waveName ? " · " + __waveName : ""));
 }
-const BUILDERS = { qr: buildQR , svg: buildSvg, paper: buildPaper, pentest: buildPentest, spacefill: buildSpacefill, spiro: buildSpiro, maze: buildMaze, fxplot: buildFxplot, tsp: buildTsp, wave: buildWave };   // weitere Tools registrieren sich hier
+/* ============ Tool: model (3D STL → Blaupause) ============ */
+let __modelRaw = null;     // { positions: Float32Array (roh), name, faceCount }
+let __modelData = null;    // { geo, positions, maxDim, name, faceCount, zUp, creaseDeg, creaseSegs, creaseKeys, adj }
+let __modelView = { az: Math.PI / 5, el: Math.PI / 7 };
+let __threePromise = null;
+
+function ensureThree() {
+  if (window.THREE) return Promise.resolve(window.THREE);
+  if (__threePromise) return __threePromise;
+  __threePromise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "vendor/three.min.js"; s.async = true;
+    s.onload = () => window.THREE ? resolve(window.THREE) : reject(new Error("THREE missing"));
+    s.onerror = () => { __threePromise = null; reject(new Error("three.min.js load failed")); };
+    document.head.appendChild(s);
+  });
+  return __threePromise;
+}
+function parseSTL(buf) {
+  const dv = new DataView(buf), n = buf.byteLength;
+  const binOK = n >= 84 && (84 + dv.getUint32(80, true) * 50) === n;
+  const pos = [];
+  if (binOK) {
+    const tris = dv.getUint32(80, true); let o = 84;
+    for (let i = 0; i < tris; i++) {
+      o += 12;                       // Face-Normale überspringen
+      for (let v = 0; v < 3; v++) { pos.push(dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)); o += 12; }
+      o += 2;                        // Attribut-Bytes
+    }
+  } else {
+    const txt = new TextDecoder().decode(buf);
+    const re = /vertex\s+(-?[\d.eE+]+)\s+(-?[\d.eE+]+)\s+(-?[\d.eE+]+)/g; let m;
+    while ((m = re.exec(txt))) pos.push(+m[1], +m[2], +m[3]);
+  }
+  if (pos.length < 9) throw new Error(UI.t("Keine Dreiecke in der STL.", "No triangles in the STL."));
+  return new Float32Array(pos);
+}
+function prepareModelFromBuffer(buf, name) {
+  const raw = parseSTL(buf);
+  const faceCount = raw.length / 9;
+  if (faceCount > 400000) throw new Error(UI.t("Zu viele Dreiecke (", "Too many triangles (") + faceCount + ").");
+  __modelRaw = { positions: raw, name, faceCount };
+  __modelData = null;
+}
+function buildModelGeo() {
+  const zUp = $("inpModelZup").checked, src = __modelRaw.positions;
+  const p = new Float32Array(src.length);
+  for (let i = 0; i < src.length; i += 3) {
+    let x = src[i], y = src[i + 1], z = src[i + 2];
+    if (zUp) { const ny = z, nz = -y; y = ny; z = nz; }     // Z-oben → Y-oben
+    p[i] = x; p[i + 1] = y; p[i + 2] = z;
+  }
+  let mnx = 1e30, mny = 1e30, mnz = 1e30, mxx = -1e30, mxy = -1e30, mxz = -1e30;
+  for (let i = 0; i < p.length; i += 3) {
+    if (p[i] < mnx) mnx = p[i]; if (p[i] > mxx) mxx = p[i];
+    if (p[i + 1] < mny) mny = p[i + 1]; if (p[i + 1] > mxy) mxy = p[i + 1];
+    if (p[i + 2] < mnz) mnz = p[i + 2]; if (p[i + 2] > mxz) mxz = p[i + 2];
+  }
+  const cx = (mnx + mxx) / 2, cy = (mny + mxy) / 2, cz = (mnz + mxz) / 2;
+  for (let i = 0; i < p.length; i += 3) { p[i] -= cx; p[i + 1] -= cy; p[i + 2] -= cz; }
+  const maxDim = Math.max(mxx - mnx, mxy - mny, mxz - mnz) || 1;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(p, 3));
+  __modelData = { geo, positions: p, maxDim, name: __modelRaw.name, faceCount: __modelRaw.faceCount,
+                  zUp, creaseDeg: null, creaseSegs: null, creaseKeys: null, adj: null };
+  buildModelAdjacency();
+}
+function buildModelAdjacency() {
+  const d = __modelData, pos = d.positions, nTri = pos.length / 9;
+  const eps = (d.maxDim * 1e-5) || 1e-6;
+  const map = new Map(), verts = [], faces = new Int32Array(nTri * 3);
+  const key = (x, y, z) => Math.round(x / eps) + "_" + Math.round(y / eps) + "_" + Math.round(z / eps);
+  for (let f = 0; f < nTri; f++) for (let v = 0; v < 3; v++) {
+    const o = f * 9 + v * 3, x = pos[o], y = pos[o + 1], z = pos[o + 2], k = key(x, y, z);
+    let idx = map.get(k); if (idx === undefined) { idx = verts.length / 3; verts.push(x, y, z); map.set(k, idx); }
+    faces[f * 3 + v] = idx;
+  }
+  const edges = new Map();
+  const addE = (a, b, f) => { const k = a < b ? a + "_" + b : b + "_" + a; const e = edges.get(k); if (e) e.faces.push(f); else edges.set(k, { a: Math.min(a, b), b: Math.max(a, b), faces: [f] }); };
+  for (let f = 0; f < nTri; f++) { const i0 = faces[f * 3], i1 = faces[f * 3 + 1], i2 = faces[f * 3 + 2]; addE(i0, i1, f); addE(i1, i2, f); addE(i2, i0, f); }
+  const fnorm = new Float32Array(nTri * 3);
+  for (let f = 0; f < nTri; f++) {
+    const a = faces[f * 3] * 3, b = faces[f * 3 + 1] * 3, c = faces[f * 3 + 2] * 3;
+    const ux = verts[b] - verts[a], uy = verts[b + 1] - verts[a + 1], uz = verts[b + 2] - verts[a + 2];
+    const vx = verts[c] - verts[a], vy = verts[c + 1] - verts[a + 1], vz = verts[c + 2] - verts[a + 2];
+    fnorm[f * 3] = uy * vz - uz * vy; fnorm[f * 3 + 1] = uz * vx - ux * vz; fnorm[f * 3 + 2] = ux * vy - uy * vx;
+  }
+  d.adj = { verts, edges: [...edges.values()], fnorm, eps };
+}
+function ensureModelCrease() {
+  const d = __modelData, deg = +$("inpModelCrease").value;
+  if (d.creaseDeg === deg && d.creaseSegs) return;
+  const eg = new THREE.EdgesGeometry(d.geo, deg), ep = eg.attributes.position.array, eps = d.adj.eps;
+  const qk = (x, y, z) => Math.round(x / eps) + "_" + Math.round(y / eps) + "_" + Math.round(z / eps);
+  const segs = [], keys = [];
+  for (let i = 0; i < ep.length; i += 6) {
+    segs.push([ep[i], ep[i + 1], ep[i + 2], ep[i + 3], ep[i + 4], ep[i + 5]]);
+    const ka = qk(ep[i], ep[i + 1], ep[i + 2]), kb = qk(ep[i + 3], ep[i + 4], ep[i + 5]);
+    keys.push(ka < kb ? ka + "|" + kb : kb + "|" + ka);
+  }
+  eg.dispose();
+  d.creaseDeg = deg; d.creaseSegs = segs; d.creaseKeys = keys;
+}
+function modelSilhouette(d3) {
+  const adj = __modelData.adj, verts = adj.verts, edges = adj.edges, fnorm = adj.fnorm, eps = adj.eps;
+  const qk = i => { const o = i * 3; return Math.round(verts[o] / eps) + "_" + Math.round(verts[o + 1] / eps) + "_" + Math.round(verts[o + 2] / eps); };
+  const segs = [], keys = [];
+  for (const e of edges) {
+    let sil = false;
+    if (e.faces.length === 1) sil = true;
+    else if (e.faces.length === 2) {
+      const f0 = e.faces[0] * 3, f1 = e.faces[1] * 3;
+      const a0 = fnorm[f0] * d3.x + fnorm[f0 + 1] * d3.y + fnorm[f0 + 2] * d3.z;
+      const a1 = fnorm[f1] * d3.x + fnorm[f1 + 1] * d3.y + fnorm[f1 + 2] * d3.z;
+      sil = (a0 > 0) !== (a1 > 0);
+    } else sil = true;
+    if (sil) {
+      const a = e.a * 3, b = e.b * 3;
+      segs.push([verts[a], verts[a + 1], verts[a + 2], verts[b], verts[b + 1], verts[b + 2]]);
+      const ka = qk(e.a), kb = qk(e.b); keys.push(ka < kb ? ka + "|" + kb : kb + "|" + ka);
+    }
+  }
+  return { segs, keys };
+}
+function reprojectModel(fit) {
+  if (!__modelData) return;
+  ensureModelCrease();
+  const az = __modelView.az, el = __modelView.el;
+  const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
+  const d3 = { x: -ce * sa, y: se, z: ce * ca };          // Blickachse, konsistent zur Projektion
+  const sil = $("inpModelSilhouette").checked ? modelSilhouette(d3) : { segs: [], keys: [] };
+  const seen = new Set(sil.keys);
+  const segs3 = sil.segs.slice();
+  const cs = __modelData.creaseSegs, ck = __modelData.creaseKeys;
+  for (let i = 0; i < cs.length; i++) if (!seen.has(ck[i])) { segs3.push(cs[i]); seen.add(ck[i]); }
+  if (!segs3.length) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Keine Kanten — Winkel/Silhouette anpassen.", "No edges — adjust angle/silhouette.")); draw(); return; }
+  const pr = (x, y, z) => { const X = ca * x + sa * z, z1 = -sa * x + ca * z, Y = ce * y - se * z1; return [X, Y]; };
+  const proj = []; let minX = 1e30, minY = 1e30, maxX = -1e30, maxY = -1e30;
+  for (const s of segs3) {
+    const p0 = pr(s[0], s[1], s[2]), p1 = pr(s[3], s[4], s[5]); proj.push([p0, p1]);
+    if (p0[0] < minX) minX = p0[0]; if (p0[0] > maxX) maxX = p0[0]; if (p1[0] < minX) minX = p1[0]; if (p1[0] > maxX) maxX = p1[0];
+    if (p0[1] < minY) minY = p0[1]; if (p0[1] > maxY) maxY = p0[1]; if (p1[1] < minY) minY = p1[1]; if (p1[1] > maxY) maxY = p1[1];
+  }
+  const longest = Math.max(maxX - minX, maxY - minY) || 1;
+  const scale = (+$("inpSize").value) / longest;
+  S.strokes = proj.map(([a, b]) => [[(a[0] - minX) * scale, (maxY - a[1]) * scale], [(b[0] - minX) * scale, (maxY - b[1]) * scale]]);
+  S.cw = (maxX - minX) * scale; S.ch = (maxY - minY) * scale;
+  if (fit) finishCompute(__modelData.faceCount + " " + UI.t("Dreiecke", "faces") + " · " + S.strokes.length + " " + UI.t("Kanten", "edges") + (__modelData.name ? " · " + __modelData.name : ""));
+  else draw();
+}
+function buildModel() {
+  if (!window.THREE || !__modelRaw) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("STL-Datei laden.", "Load an STL file.")); draw(); return; }
+  if (!__modelData || __modelData.zUp !== $("inpModelZup").checked) buildModelGeo();
+  reprojectModel(true);
+}
+function resetModelView() { __modelView = { az: Math.PI / 5, el: Math.PI / 7 }; }
+function setModelPreset(id) {
+  if (id === "btnModelFront") __modelView = { az: 0, el: 0 };
+  else if (id === "btnModelTop") __modelView = { az: 0, el: -Math.PI / 2 + 0.01 };
+  else if (id === "btnModelIso") __modelView = { az: Math.PI / 4, el: Math.atan(1 / Math.SQRT2) };
+  else resetModelView();
+}
+function initModel() {
+  if (typeof BUILDERS !== "undefined") BUILDERS.model = buildModel;
+  const fi = $("inpModelFile");
+  if (fi) fi.addEventListener("change", () => {
+    const f = fi.files && fi.files[0];
+    if (!f) { __modelRaw = null; __modelData = null; window.__miscRecompute(); return; }
+    setStatus(UI.t("Lade 3D …", "Loading 3D …"));
+    f.arrayBuffer()
+      .then(buf => ensureThree().then(() => prepareModelFromBuffer(buf, f.name.replace(/\.[^.]+$/, ""))))
+      .then(() => { resetModelView(); window.__miscRecompute(); })
+      .catch(e => { __modelRaw = null; __modelData = null; setStatus(UI.t("Fehler: ", "Error: ") + e.message); window.__miscRecompute(); });
+  });
+  ["btnModelFront", "btnModelIso", "btnModelTop", "btnModelReset"].forEach(id => {
+    const b = $(id); if (b) b.onclick = () => { setModelPreset(id); reprojectModel(false); };
+  });
+}
+
+const BUILDERS = { qr: buildQR , svg: buildSvg, paper: buildPaper, pentest: buildPentest, spacefill: buildSpacefill, spiro: buildSpiro, maze: buildMaze, fxplot: buildFxplot, tsp: buildTsp, wave: buildWave, model: buildModel };   // weitere Tools registrieren sich hier
 async function recompute() {
   const tool = $("inpTool").value;
   try {
@@ -2009,6 +2204,21 @@ window.addEventListener("mousemove", e => {
   draw();
 });
 window.addEventListener("mouseup", () => { drag = null; });
+// 3D-Tool: Ziehen = Drehen (Shift+Ziehen = Verschieben). Capture-Phase blockt den Pan-Handler oben.
+let modelOrbit = null, modelRaf = 0;
+cv.addEventListener("mousedown", e => {
+  if ($("inpTool").value !== "model" || !__modelData || e.shiftKey) return;
+  modelOrbit = { sx: e.clientX, sy: e.clientY, az0: __modelView.az, el0: __modelView.el };
+  e.stopImmediatePropagation();
+}, true);
+window.addEventListener("mousemove", e => {
+  if (!modelOrbit) return;
+  __modelView.az = modelOrbit.az0 + (e.clientX - modelOrbit.sx) * 0.01;
+  const el = modelOrbit.el0 + (e.clientY - modelOrbit.sy) * 0.01;
+  __modelView.el = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, el));
+  if (!modelRaf) modelRaf = requestAnimationFrame(() => { modelRaf = 0; reprojectModel(false); });
+});
+window.addEventListener("mouseup", () => { modelOrbit = null; });
 cv.addEventListener("wheel", e => {
   e.preventDefault();
   const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
@@ -2105,17 +2315,18 @@ for (const id of ["inpSpLogo", "inpSpMode", "inpSpOutline", "inpQrText", "inpQrE
   $(id).addEventListener("input", recompute);
 $("inpQrType").addEventListener("input", () => { showQrSub(); recompute(); });
 showQrSub();
-const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"], ["inpSvgRes", "valSvgRes", " u"], ["inpSvgSimplify", "valSvgSimplify", " mm"], ["inpPaperSpace", "valPaperSpace", " mm"], ["ptSqSize", "valPtSqSize", "mm"], ["ptScaleLen", "valPtScaleLen", "mm"], ["ptRings", "valPtRings", ""], ["ptGap", "valPtGap", "mm"], ["inpSfOrder", "valInpSfOrder", ""], ["inpSpA", "valSpA", ""], ["inpSpB", "valSpB", ""], ["inpSpC", "valSpC", ""], ["inpSpTurns", "valSpTurns", ""], ["inpSpDetail", "valSpDetail", " pts"], ["inpMazeCols", "valMazeCols", ""], ["inpTspPoints", "valTspPoints", " Punkte"], ["inpWaveBars", "valWaveBars", ""]];
+const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"], ["inpSvgRes", "valSvgRes", " u"], ["inpSvgSimplify", "valSvgSimplify", " mm"], ["inpPaperSpace", "valPaperSpace", " mm"], ["ptSqSize", "valPtSqSize", "mm"], ["ptScaleLen", "valPtScaleLen", "mm"], ["ptRings", "valPtRings", ""], ["ptGap", "valPtGap", "mm"], ["inpSfOrder", "valInpSfOrder", ""], ["inpSpA", "valSpA", ""], ["inpSpB", "valSpB", ""], ["inpSpC", "valSpC", ""], ["inpSpTurns", "valSpTurns", ""], ["inpSpDetail", "valSpDetail", " pts"], ["inpMazeCols", "valMazeCols", ""], ["inpTspPoints", "valTspPoints", " Punkte"], ["inpWaveBars", "valWaveBars", ""], ["inpModelCrease", "valModelCrease", "°"]];
 for (const [id, vid, unit] of SLIDERS) {
   const upd = () => { $(vid).textContent = $(id).value + unit; };
   $(id).addEventListener("input", () => { upd(); recompute(); });
   upd();
 }
-for (const id of ["inpSvgClose","inpPaperH","inpPaperType","ptRegistration","ptSerpentine","inpSfType","inpSpType","inpMazeH","inpMazeSeed","inpFxExpr","inpFxXmin","inpFxXmax","inpFxAxes","inpTspInvert","inpWaveStyle","inpWaveHeight"]) { const el = $(id); if (el) el.addEventListener("input", recompute); }
+for (const id of ["inpSvgClose","inpPaperH","inpPaperType","ptRegistration","ptSerpentine","inpSfType","inpSpType","inpMazeH","inpMazeSeed","inpFxExpr","inpFxXmin","inpFxXmax","inpFxAxes","inpTspInvert","inpWaveStyle","inpWaveHeight","inpModelSilhouette","inpModelZup"]) { const el = $(id); if (el) el.addEventListener("input", recompute); }
 try { initSvg(); } catch (e) { console.error("initSvg", e); }
 try { initMaze(); } catch (e) { console.error("initMaze", e); }
 try { initTsp(); } catch (e) { console.error("initTsp", e); }
 try { initWave(); } catch (e) { console.error("initWave", e); }
+try { initModel(); } catch (e) { console.error("initModel", e); }
 $("inpBg").addEventListener("input", draw);
 for (const id of ["inpMatW", "inpMatH"]) $(id).addEventListener("input", () => { recompute(); });
 
@@ -2162,6 +2373,22 @@ const I18N_EN = {
 const I18N_GROUPS = { 'Codes': 'Codes', 'Vorlagen & Utility': 'Templates & utility',
   'Generative Kunst': 'Generative art', 'Audio': 'Audio' };
 Object.assign(I18N_EN, {"SVG-Import":"SVG import","SVG-Datei":"SVG file","Noch keine Datei geladen.":"No file loaded yet.","Kurven-Auflösung (Genauigkeit)":"Curve resolution (accuracy)","Vereinfachung (Punkte reduzieren)":"Simplification (reduce points)","Offene Formen schließen":"Close open shapes","Nur Umrisse / Linien werden gezeichnet — Füllungen und Farben werden ignoriert. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> sowie <code>&lt;g&gt;</code>-Transformationen werden unterstützt. Die längste Seite wird auf die eingestellte Größe skaliert.":"Only outlines / lines are drawn — fills and colors are ignored. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> and <code>&lt;g&gt;</code> transforms are supported. The longest side is scaled to the chosen size.","SVG-Datei laden.":"Load an SVG file.","SVG konnte nicht gelesen werden.":"Could not read SVG.","Fehler beim Parsen: ":"Parse error: ","Datei konnte nicht gelesen werden.":"Could not read file.","Keine zeichenbaren Pfade in der SVG gefunden.":"No drawable paths found in the SVG.","SVG hat keine messbare Geometrie.":"SVG has no measurable geometry.","Nach Vereinfachung keine Linien übrig.":"No lines left after simplification.","Pfade":"paths","Punkte":"Points","Höhe (mm)":"Height (mm)","Art":"Type","Punktraster":"Dot grid","Linien":"Lines","Karo":"Squares","Isometrisch":"Isometric","Notenlinien":"Staff lines","Millimeterpapier":"Graph paper","Abstand (mm)":"Spacing (mm)","Breite = Größe oben. Gerade Linien werden für einen Stift gezeichnet.":"Width = size above. Straight lines drawn for a single pen.","Raster zu fein/groß für diese Maße.":"Grid too fine/large for these dimensions."," Linien":" lines","Kalibrierblatt: Breite = Größe, Höhe automatisch. Findet Voll-Füll-Abstand, Maßgenauigkeit und Rundlauf.":"Calibration sheet: width = size, height auto. Finds solid-fill spacing, dimensional accuracy and round travel.","Quadrat-Größe":"Square size","Skala-Länge":"Scale length","Konzentrische Kreise":"Concentric circles","Element-Abstand":"Element spacing","Passkreuze in den Ecken":"Registration crosses in corners","Füllung als durchgehender Pfad (weniger Stiftheber)":"Fill as continuous path (fewer pen-ups)","Kurventyp":"Curve type","Moore (geschlossen)":"Moore (closed)","Drachenkurve":"Dragon curve","Ordnung":"Order","Höhere Ordnung = viel dichter. Eine einzige durchgehende Linie. Peano wird ab Ordnung 6 begrenzt; die Drachenkurve füllt ihre eigene Bounding-Box in das Zielmaß.":"Higher order = much denser. A single continuous line. Peano is capped from order 6 on; the dragon curve fits its own bounding box into the target size.","Keine Punkte erzeugt.":"No points generated.","(Ordnung auf 5 begrenzt)":"(order capped at 5)","Spirograph (Hypotrochoide)":"Spirograph (hypotrochoid)","Lissajous-Figur":"Lissajous figure","Guilloché (Banknoten-Rosette)":"Guilloché (banknote rosette)","Parameter A":"Parameter A","Parameter B":"Parameter B","Parameter C":"Parameter C","Umläufe":"Revolutions","Detailgrad (Punkte)":"Detail (points)","A, B und C werden je nach Typ unterschiedlich gedeutet. Spirograph: R=A, r=B, d=C. Lissajous: Frequenzen A & B, Phase aus C. Guilloché: Welligkeit A, Rotation B, Amplitude C. Eine einzige durchgehende Linie — ideal für einen Stift.":"A, B and C are interpreted differently per type. Spirograph: R=A, r=B, d=C. Lissajous: frequencies A & B, phase from C. Guilloché: ripple A, rotation B, amplitude C. A single continuous line — ideal for one pen.","Ungültige Parameter — keine Kurve erzeugt.":"Invalid parameters — no curve produced.","Kurve entartet (zu klein) — Parameter anpassen.":"Curve degenerate (too small) — adjust parameters.","Kurve entartet — Parameter anpassen.":"Curve degenerate — adjust parameters."," pts":" pts","Spalten":"Columns","Höhe":"Height","Seed":"Seed","Neu würfeln":"Reshuffle","Rechteckiges Labyrinth (Recursive Backtracker). Eingang oben links, Ausgang unten rechts. Wände werden zu langen Linien zusammengefasst, um Stiftwechsel zu minimieren.":"Rectangular maze (recursive backtracker). Entrance top-left, exit bottom-right. Walls are merged into long lines to minimise pen-ups.","Ungültige Breite.":"Invalid width.","Kein Labyrinth erzeugt.":"No maze generated.","Labyrinth":"Maze"," Zellen":" cells","×":"×","Funktion y = f(x)":"Function y = f(x)","Erlaubt: + - * / ^, Klammern, x, pi, e und sin cos tan asin acos atan exp ln log sqrt abs floor ceil round sign. Beispiel: sin(x)*exp(-abs(x)/4)":"Allowed: + - * / ^, parentheses, x, pi, e and sin cos tan asin acos atan exp ln log sqrt abs floor ceil round sign. Example: sin(x)*exp(-abs(x)/4)","x von":"x from","x bis":"x to","Achsen, Gitter und Teilstriche zeichnen":"Draw axes, grid and ticks","x bis muss größer als x von sein.":"x to must be greater than x from.","Parsefehler: ":"Parse error: ","Funktion liefert keine endlichen Werte im Bereich.":"Function yields no finite values in range.","Nichts zu zeichnen.":"Nothing to draw.","y-Bereich ":"y range ","TSP- / Stipple-Art":"TSP / stipple art","Bild":"Image","Invertieren (helle Bereiche füllen)":"Invert (fill bright areas)","Verteilt Punkte nach Helligkeit (dunkle Bereiche dichter) und verbindet sie zu einer einzigen, durchgehenden Linie (Travelling-Salesman-Art). Lädt am besten ein kontrastreiches Motiv. Die Optimierung kann einen Moment dauern und ist eine Näherung. Deterministisch pro Bild + Punktzahl.":"Distributes points by brightness (denser in dark areas) and connects them into a single continuous line (travelling-salesman art). Works best with a high-contrast image. Optimisation may take a moment and is an approximation. Deterministic per image + point count.","Bild konnte nicht geladen werden.":"Could not load image.","Bild laden.":"Load an image.","Zu wenig Kontrast – anderes Bild oder mehr Punkte.":"Too little contrast – try another image or more points.","Zu wenig Punkte.":"Too few points.","Audiodatei":"Audio file","Audio laden.":"Load audio.","Stil":"Style","Balken":"Bars","Hüllkurve":"Envelope","Linie":"Line","Balken / Auflösung":"Bars / resolution","Dekodiere …":"Decoding …","Web Audio nicht verfügbar.":"Web Audio unavailable.","Leere Audiospur.":"Empty audio track.","Audio konnte nicht dekodiert werden.":"Could not decode audio.","bars":"bars","envelope":"envelope","line":"line"});
+Object.assign(I18N_EN, {
+  "3D-Modell (STL)": "3D model (STL)",
+  "STL-Datei": "STL file",
+  "Knick-/Kantenwinkel": "Crease / edge angle",
+  "Außenkontur (Silhouette)": "Outline (silhouette)",
+  "Z-oben (CAD-Ausrichtung)": "Z-up (CAD orientation)",
+  "Ansicht": "View", "Vorne": "Front", "Iso": "Iso", "Oben": "Top",
+  "Ansicht zurücksetzen": "Reset view",
+  "STL laden, dann im Vorschaufenster ziehen zum Drehen (Shift+Ziehen = verschieben, Mausrad = Zoom). Erzeugt eine Blaupausen-Zeichnung aus Knickkanten + Außenkontur (keine verdeckten Kanten). Die längste Seite wird auf die eingestellte Größe skaliert.":
+    "Load an STL, then drag in the preview to rotate (Shift+drag = pan, wheel = zoom). Produces a blueprint-style drawing from crease edges + outline (no hidden-line removal). The longest side is scaled to the chosen size.",
+  "STL-Datei laden.": "Load an STL file.", "Lade 3D …": "Loading 3D …",
+  "Keine Dreiecke in der STL.": "No triangles in the STL.",
+  "Zu viele Dreiecke (": "Too many triangles (",
+  "Keine Kanten — Winkel/Silhouette anpassen.": "No edges — adjust angle/silhouette.",
+  "Dreiecke": "faces", "Kanten": "edges"
+});
 UI.initTheme();
 UI.onThemeChange(() => draw());
 function applyLangDefaults() {

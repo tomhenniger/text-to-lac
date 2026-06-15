@@ -2,6 +2,8 @@
 
 ## Neue Features
 
+- **Misc Tool „3D-Modell (STL)"** — STL-Datei (binär/ASCII) laden, im Vorschaufenster per Ziehen drehen (Shift+Ziehen = verschieben, Mausrad = Zoom) und als Blaupausen-Linienzeichnung plotten: Knickkanten (`THREE.EdgesGeometry`, einstellbarer Winkel) + view-abhängige Außenkontur/Silhouette (über geschweißte Kanten-Adjazenz), orthografisch projiziert. Ansichts-Presets (Vorne/Iso/Oben) + Reset, Z-oben-Umschaltung. Three.js (r149, vendored unter `app/vendor/three.min.js`) wird **lazy** erst beim ersten Laden eines Modells nachgeladen — andere Tools/Seiten bleiben unberührt. Kein Hidden-Line-Removal (Wireframe-Blueprint). Export wie alle Tools als `.lac`.
+
 - **9 neue Misc-Tools** in `app/misc.html`, gruppiert per `<optgroup>` (Codes · Vorlagen & Utility · Generative Kunst · Audio), damit die Werkzeug-Auswahl übersichtlich bleibt:
   - **SVG-Import** — `.svg` laden, Vektorpfade (path/line/polyline/polygon/rect/circle/ellipse inkl. `<g>`-Transformationen) exakt in Stiftlinien wandeln, auf die gewünschte Größe skaliert.
   - **Papier / Raster** — Punktraster, Linien, Karo, isometrisch, Notenlinien, Millimeterpapier (Breite × Höhe, Abstand).
