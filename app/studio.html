@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Layer-Studio — Handschrift</title>
+<style>
+  :root {
+    --bg: #f4f6f5; --panel: #fcfdfc; --border: #d8ddda; --text: #1b201d;
+    --muted: #68716c; --accent: #00ae42; --accent-dark: #008f36; --hover: #eef1ef;
+  }
+  html[data-theme="dark"] {
+    --bg: #141715; --panel: #1d2220; --border: #343b37; --text: #e6eae7;
+    --muted: #98a29c; --hover: #272d2a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
+         color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+  #sidebar { width: 320px; min-width: 320px; background: var(--panel); border-right: 1px solid var(--border);
+             overflow-y: auto; padding: 14px 16px 40px; }
+  #main { flex: 1; position: relative; }
+  canvas { display: block; width: 100%; height: 100%; cursor: default; }
+  .topnav { display: flex; gap: 6px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
+  .topnav a.nav { font-size: 13.5px; color: var(--muted); text-decoration: none; padding: 5px 8px;
+                  border: 1px solid var(--border); border-radius: 6px; background: var(--panel); white-space: nowrap; }
+  .topnav a.nav:hover { border-color: var(--accent); color: var(--text); }
+  .topnav button { padding: 5px 8px; font-size: 12.5px; }
+  .topnav .sp { flex: 1; }
+  h1 { font-size: 17px; letter-spacing: -0.01em; margin: 2px 0 14px; }
+  h1 small { color: var(--muted); font-weight: 400; font-size: 11.5px; display: block; margin-top: 3px; }
+  details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--panel); }
+  details summary { cursor: pointer; padding: 9px 12px; font-weight: 600; font-size: 13px; user-select: none; }
+  details[open] summary { border-bottom: 1px solid var(--border); }
+  .body { padding: 10px 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  label:first-child { margin-top: 0; }
+  select, input[type=text], input[type=number] { width: 100%; padding: 6px 8px; font-size: 13px;
+             border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
+  .row { display: flex; gap: 8px; } .row > div { flex: 1; }
+  button { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
+           background: var(--panel); color: var(--text); cursor: pointer; }
+  button:hover { background: var(--hover); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+                   width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
+  button.primary:hover { background: var(--accent-dark); }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
+  .checkrow { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; font-size: 12.5px; }
+  .checkrow input { accent-color: var(--accent); }
+  .btnrow { display: flex; gap: 8px; margin-top: 8px; } .btnrow button { flex: 1; }
+  /* Layer-Liste */
+  #layerList { display: flex; flex-direction: column; gap: 4px; }
+  .lrow { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border: 1px solid var(--border);
+          border-radius: 6px; font-size: 12.5px; cursor: pointer; background: var(--panel); }
+  .lrow.sel { border-color: var(--accent); background: var(--hover); }
+  .lrow .ln { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lrow .ic { width: 22px; height: 24px; padding: 0; font-size: 13px; line-height: 1; border-radius: 5px; }
+  #statusbar { position: fixed; bottom: 0; left: 320px; right: 0; padding: 4px 12px; font-size: 11px;
+               color: var(--muted); background: var(--panel); border-top: 1px solid var(--border); z-index: 5; }
+  /* Editor-Panel (eingebettetes Tool) */
+  #editor { position: fixed; top: 0; right: 0; width: 380px; height: 100vh; background: var(--panel);
+            border-left: 1px solid var(--border); z-index: 60; display: none; flex-direction: column; }
+  #editor.open { display: flex; }
+  #editorHead { padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border);
+                font-weight: 600; font-size: 13px; }
+  #editorHead .sp { flex: 1; }
+  #editorBody { flex: 1; position: relative; }
+  .toolframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: var(--bg); }
+  .toolframe.active { display: block; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <div class="topnav">
+    <a class="nav" href="../index.html" title="Home" data-icon="home"></a>
+    <a class="nav" href="index.html" title="Text" data-icon="text"></a>
+    <a class="nav" href="bild.html" title="Bild" data-icon="image"></a>
+    <a class="nav" href="misc.html" title="Misc" data-icon="tools"></a>
+    <span class="sp"></span>
+    <button id="btnLang">EN</button><button id="btnTheme"></button>
+  </div>
+  <h1>Layer-Studio<small>Werkzeuge als Layer kombinieren — Export als .lac</small></h1>
+
+  <details open>
+    <summary>Layer</summary>
+    <div class="body">
+      <select id="addSel">
+        <option value="">+ Layer hinzufügen …</option>
+        <optgroup label="Inhalt">
+          <option value="text">Text</option>
+          <option value="image">Bild</option>
+          <option value="misc:model">3D-Modell</option>
+        </optgroup>
+        <optgroup label="Misc" id="miscOpts"></optgroup>
+      </select>
+      <div id="layerList" style="margin-top:10px"></div>
+      <div class="hint" id="layerHint">Noch keine Layer. Oben hinzufügen, dann auf der Fläche ziehen (Skalieren/Drehen an den Griffen).</div>
+    </div>
+  </details>
+
+  <details open id="selDetails" style="display:none">
+    <summary>Ausgewählter Layer</summary>
+    <div class="body">
+      <button id="btnEdit" style="width:100%">✎ Tool öffnen / bearbeiten</button>
+      <div class="row" style="margin-top:8px">
+        <div><label>X (mm)</label><input type="number" id="inLx" step="1"></div>
+        <div><label>Y (mm)</label><input type="number" id="inLy" step="1"></div>
+      </div>
+      <div class="row">
+        <div><label>Skalierung</label><input type="number" id="inLs" step="0.05" min="0.05"></div>
+        <div><label>Drehung (°)</label><input type="number" id="inLr" step="1"></div>
+      </div>
+      <div class="btnrow">
+        <button id="btnDup">Duplizieren</button>
+        <button id="btnDel">Löschen</button>
+      </div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Arbeitsfläche</summary>
+    <div class="body">
+      <div class="row">
+        <div><label>Breite (mm)</label><input type="number" id="inMatW" value="300" min="50" max="600"></div>
+        <div><label>Höhe (mm)</label><input type="number" id="inMatH" value="300" min="50" max="600"></div>
+      </div>
+      <label>Referenz-Blatt</label>
+      <select id="inPaper">
+        <option value="none">keins</option>
+        <option value="A4P" selected>A4 hoch</option>
+        <option value="A4L">A4 quer</option>
+        <option value="A5P">A5 hoch</option>
+        <option value="A3P">A3 hoch</option>
+        <option value="Letter">Letter</option>
+      </select>
+      <div class="checkrow"><input type="checkbox" id="inSnap" checked><span>Einrasten (Snapping)</span></div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Export</summary>
+    <div class="body">
+      <label>Dateiname</label>
+      <input type="text" id="inFname" value="Komposition">
+      <button class="primary" id="btnExport">Als .lac exportieren</button>
+      <div class="btnrow"><button id="btnSvg">Als SVG exportieren</button></div>
+      <div class="hint">Alle sichtbaren Layer werden als benannte Objekte in eine .lac gepackt (Prozess: Stift zeichnen).</div>
+    </div>
+  </details>
+</div>
+
+<div id="main"><canvas id="cv"></canvas></div>
+<div id="statusbar"><span id="stInfo">Bereit</span></div>
+
+<div id="editor">
+  <div id="editorHead"><span id="editorTitle">Tool</span><span class="sp"></span><button id="btnEditClose">Schließen</button></div>
+  <div id="editorBody"></div>
+</div>
+
+<script src="configs.js"></script>
+<script src="lac.js?v=4"></script>
+<script src="ui.js?v=7"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+const PAPERS = { none: null, A4P: [210, 297], A4L: [297, 210], A5P: [148, 210], A3P: [297, 420], Letter: [215.9, 279.4] };
+const MISC_TOOLS = [["qr","QR-Code"],["spotify","Spotify-Code"],["svg","SVG-Import"],["paper","Papier / Raster"],
+  ["pentest","Stift-Test"],["spacefill","Space-Filling-Kurven"],["spiro","Spirograph / Lissajous"],
+  ["maze","Labyrinth"],["fxplot","Funktionsplotter"],["tsp","TSP- / Stipple-Art"],["wave","Audio-Waveform"]];
+function toolLabel(t){ const m=MISC_TOOLS.find(x=>x[0]===t); return t==="model"?"3D-Modell":(m?m[1]:t); }
+
+const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, paper: "A4P", snap: true };
+let LID = 1;
+let snapGuides = null;
+
+function makeLayer(type, tool) {
+  return { id: LID++, type, tool: tool || null, label: tool ? toolLabel(tool) : (type === "text" ? "Text" : "Bild"),
+    visible: true, transform: { x: 40, y: 40, scale: 1, rot: 0 }, params: null,
+    strokesCache: [], groups: null, cw: 0, ch: 0, _frame: null };
+}
+function embedUrl(L) {
+  return L.type === "text" ? "index.html?embed=1" : L.type === "image" ? "bild.html?embed=1" : "misc.html?embed=1&tool=" + L.tool;
+}
+
+/* ---------- Transform-Math ---------- */
+function layerMap(L) {
+  const t = L.transform, sc = t.scale, rot = t.rot;
+  const cx = t.x + (L.cw / 2) * sc, cy = t.y + (L.ch / 2) * sc;
+  const cos = Math.cos(rot), sin = Math.sin(rot);
+  return ([px, py]) => { const X = t.x + px * sc, Y = t.y + py * sc, dx = X - cx, dy = Y - cy; return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos]; };
+}
+function layerCorners(L) { const f = layerMap(L); return [[0, 0], [L.cw, 0], [L.cw, L.ch], [0, L.ch]].map(f); }
+function layerAABB(L) { const c = layerCorners(L); const xs = c.map(p => p[0]), ys = c.map(p => p[1]); return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) }; }
+function pointInLayer(L, mx, my) {
+  if (!L.cw || !L.ch) return false;
+  const t = L.transform, sc = t.scale;
+  const cx = t.x + (L.cw / 2) * sc, cy = t.y + (L.ch / 2) * sc;
+  const cos = Math.cos(-t.rot), sin = Math.sin(-t.rot), dx = mx - cx, dy = my - cy;
+  const Xr = cx + dx * cos - dy * sin, Yr = cy + dx * sin + dy * cos;
+  const px = (Xr - t.x) / sc, py = (Yr - t.y) / sc;
+  return px >= -1 && px <= L.cw + 1 && py >= -1 && py <= L.ch + 1;
+}
+
+/* ---------- Vorschau ---------- */
+const mm2px = (x, y) => [(x * S.view.scale + S.view.ox) * devicePixelRatio, (y * S.view.scale + S.view.oy) * devicePixelRatio];
+const px2mm = (x, y) => [(x - S.view.ox) / S.view.scale, (y - S.view.oy) / S.view.scale];
+function groupColor(c, fallback) { if (!c) return fallback; const p = c.split(" "); return `rgb(${p[0]},${p[1]},${p[2]})`; }
+
+function redraw() {
+  const P = UI.palette();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.translate(S.view.ox, S.view.oy); ctx.scale(S.view.scale, S.view.scale);
+  // Matte
+  ctx.fillStyle = P.mat; ctx.strokeStyle = P.matBorder; ctx.lineWidth = 0.4;
+  ctx.beginPath(); ctx.roundRect(0, 0, S.matW, S.matH, 3); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = P.grid; ctx.lineWidth = 0.15; ctx.beginPath();
+  for (let x = 10; x < S.matW; x += 10) { ctx.moveTo(x, 0); ctx.lineTo(x, S.matH); }
+  for (let y = 10; y < S.matH; y += 10) { ctx.moveTo(0, y); ctx.lineTo(S.matW, y); }
+  ctx.stroke();
+  // Referenz-Blatt
+  const pa = PAPERS[S.paper];
+  if (pa) { const ox = (S.matW - pa[0]) / 2, oy = (S.matH - pa[1]) / 2;
+    ctx.strokeStyle = P.frame; ctx.lineWidth = 0.4; ctx.setLineDash([3, 2]);
+    ctx.strokeRect(ox, oy, pa[0], pa[1]); ctx.setLineDash([]); }
+  // Layer
+  ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 0.45;
+  for (const L of S.layers) {
+    if (!L.visible) continue;
+    const f = layerMap(L);
+    const groups = (L.groups && L.groups.length) ? L.groups : [{ color: null, polylines: L.strokesCache }];
+    for (const g of groups) {
+      ctx.strokeStyle = groupColor(g.color, P.ink);
+      ctx.beginPath();
+      for (const st of g.polylines) { if (st.length < 2) continue; const p0 = f(st[0]); ctx.moveTo(p0[0], p0[1]); for (let i = 1; i < st.length; i++) { const p = f(st[i]); ctx.lineTo(p[0], p[1]); } }
+      ctx.stroke();
+    }
+  }
+  // Snap-Guides
+  if (snapGuides) { ctx.strokeStyle = P.marker; ctx.lineWidth = 0.3; ctx.beginPath();
+    if (snapGuides.x != null) { ctx.moveTo(snapGuides.x, -1000); ctx.lineTo(snapGuides.x, S.matH + 1000); }
+    if (snapGuides.y != null) { ctx.moveTo(-1000, snapGuides.y); ctx.lineTo(S.matW + 1000, snapGuides.y); }
+    ctx.stroke(); }
+  ctx.restore();
+  // Auswahl-Box + Griffe (Screen-px)
+  const L = sel();
+  if (L && L.cw && L.ch) drawSelection(L, P);
+}
+function drawSelection(L, P) {
+  const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
+  ctx.save();
+  ctx.strokeStyle = P.marker; ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(c[i][0], c[i][1]); ctx.closePath(); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#fff"; ctx.strokeStyle = P.marker; ctx.lineWidth = 1.2;
+  for (const p of c) { ctx.beginPath(); ctx.rect(p[0] - 4, p[1] - 4, 8, 8); ctx.fill(); ctx.stroke(); }
+  // Rotate-Handle: über Mitte der oberen Kante
+  const rh = rotateHandlePos(c);
+  ctx.beginPath(); ctx.moveTo((c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2); ctx.lineTo(rh[0], rh[1]); ctx.stroke();
+  ctx.beginPath(); ctx.arc(rh[0], rh[1], 5, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+function rotateHandlePos(c) {
+  const mx = (c[0][0] + c[1][0]) / 2, my = (c[0][1] + c[1][1]) / 2;
+  let nx = (c[0][1] - c[3][1]), ny = -(c[0][0] - c[3][0]);   // Normale der oberen Kante nach außen
+  const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+  return [mx + nx * 26, my + ny * 26];
+}
+function fitView() {
+  const r = cv.getBoundingClientRect();
+  const sc = Math.min(r.width / (S.matW + 40), r.height / (S.matH + 40));
+  S.view.scale = sc; S.view.ox = (r.width - S.matW * sc) / 2; S.view.oy = (r.height - S.matH * sc) / 2;
+  redraw();
+}
+function resize() { const r = $("main").getBoundingClientRect(); cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio; redraw(); }
+window.addEventListener("resize", resize);
+let rafP = 0; function scheduleRedraw() { if (rafP) return; rafP = requestAnimationFrame(() => { rafP = 0; redraw(); }); }
+
+/* ---------- Auswahl & Drag ---------- */
+function sel() { return S.layers.find(L => L.id === S.selId) || null; }
+let drag = null;
+cv.addEventListener("mousedown", e => {
+  const [mx, my] = px2mm(e.offsetX, e.offsetY);
+  const L = sel();
+  if (L && L.cw && L.ch) {
+    const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
+    const rh = rotateHandlePos(c);
+    if (Math.hypot(e.offsetX - rh[0], e.offsetY - rh[1]) < 9) { const cen = center(L); drag = { mode: "rot", a0: Math.atan2(my - cen[1], mx - cen[0]), r0: L.transform.rot, cen }; return; }
+    for (let i = 0; i < 4; i++) if (Math.hypot(e.offsetX - c[i][0], e.offsetY - c[i][1]) < 9) { const cen = center(L); drag = { mode: "scale", d0: Math.hypot(mx - cen[0], my - cen[1]) || 1e-6, s0: L.transform.scale, cen }; return; }
+  }
+  // Layer treffen (oben zuerst)
+  for (let i = S.layers.length - 1; i >= 0; i--) { const Li = S.layers[i]; if (Li.visible && pointInLayer(Li, mx, my)) { selectLayer(Li.id); drag = { mode: "move", sx: mx, sy: my }; redraw(); return; } }
+  // sonst: pan
+  drag = { mode: "pan", sx: e.clientX, sy: e.clientY, ox: S.view.ox, oy: S.view.oy };
+});
+function center(L) { const t = L.transform; return [t.x + (L.cw / 2) * t.scale, t.y + (L.ch / 2) * t.scale]; }
+window.addEventListener("mousemove", e => {
+  if (!drag) return;
+  if (drag.mode === "pan") { S.view.ox = drag.ox + (e.clientX - drag.sx); S.view.oy = drag.oy + (e.clientY - drag.sy); redraw(); return; }
+  const r = cv.getBoundingClientRect();
+  const [mx, my] = px2mm(e.clientX - r.left, e.clientY - r.top);
+  const L = sel(); if (!L) return;
+  if (drag.mode === "move") {
+    L.transform.x += mx - drag.sx; L.transform.y += my - drag.sy; drag.sx = mx; drag.sy = my;
+    snapGuides = null; if (S.snap) snapMove(L);
+  } else if (drag.mode === "scale") {
+    let s = drag.s0 * (Math.hypot(mx - drag.cen[0], my - drag.cen[1]) / drag.d0);
+    s = Math.max(0.05, Math.min(50, s));
+    L.transform.scale = s;
+    L.transform.x = drag.cen[0] - (L.cw / 2) * s; L.transform.y = drag.cen[1] - (L.ch / 2) * s;
+  } else if (drag.mode === "rot") {
+    let rot = drag.r0 + (Math.atan2(my - drag.cen[1], mx - drag.cen[0]) - drag.a0);
+    if (e.shiftKey) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12);
+    L.transform.rot = rot;
+  }
+  syncSelInputs(); redraw();
+});
+window.addEventListener("mouseup", () => { if (drag) { snapGuides = null; redraw(); } drag = null; });
+cv.addEventListener("wheel", e => { e.preventDefault();
+  const f = e.deltaY < 0 ? 1.12 : 1 / 1.12, ns = Math.min(40, Math.max(0.4, S.view.scale * f));
+  S.view.ox = e.offsetX - (e.offsetX - S.view.ox) * ns / S.view.scale; S.view.oy = e.offsetY - (e.offsetY - S.view.oy) * ns / S.view.scale;
+  S.view.scale = ns; redraw();
+}, { passive: false });
+
+function snapMove(L) {
+  const tol = 7 / S.view.scale, bb = layerAABB(L);
+  const probesX = [bb.minX, (bb.minX + bb.maxX) / 2, bb.maxX], probesY = [bb.minY, (bb.minY + bb.maxY) / 2, bb.maxY];
+  const tx = [], ty = [];
+  for (let g = 0; g <= S.matW + 0.1; g += 10) tx.push(g);
+  for (let g = 0; g <= S.matH + 0.1; g += 10) ty.push(g);
+  tx.push(0, S.matW / 2, S.matW); ty.push(0, S.matH / 2, S.matH);
+  const pa = PAPERS[S.paper]; if (pa) { const ox = (S.matW - pa[0]) / 2, oy = (S.matH - pa[1]) / 2; tx.push(ox, ox + pa[0] / 2, ox + pa[0]); ty.push(oy, oy + pa[1] / 2, oy + pa[1]); }
+  for (const o of S.layers) { if (o.id === L.id || !o.visible || !o.cw) continue; const a = layerAABB(o); tx.push(a.minX, (a.minX + a.maxX) / 2, a.maxX); ty.push(a.minY, (a.minY + a.maxY) / 2, a.maxY); }
+  let bdx = null, gx = null, bdy = null, gy = null;
+  for (const p of probesX) for (const t of tx) { const d = t - p; if (Math.abs(d) < tol && (bdx === null || Math.abs(d) < Math.abs(bdx))) { bdx = d; gx = t; } }
+  for (const p of probesY) for (const t of ty) { const d = t - p; if (Math.abs(d) < tol && (bdy === null || Math.abs(d) < Math.abs(bdy))) { bdy = d; gy = t; } }
+  if (bdx !== null) L.transform.x += bdx; if (bdy !== null) L.transform.y += bdy;
+  snapGuides = { x: gx, y: gy };
+}
+
+/* ---------- Layer-Verwaltung ---------- */
+function addLayer(type, tool) {
+  const L = makeLayer(type, tool); S.layers.push(L);
+  const f = document.createElement("iframe"); f.className = "toolframe"; f.dataset.lid = L.id; f.src = embedUrl(L);
+  $("editorBody").appendChild(f); L._frame = f;
+  selectLayer(L.id); openEditor(); renderList(); redraw();
+}
+function selectLayer(id) {
+  S.selId = id; renderList();
+  const L = sel(); $("selDetails").style.display = L ? "" : "none";
+  // aktives iframe umschalten
+  document.querySelectorAll(".toolframe").forEach(fr => fr.classList.toggle("active", L && +fr.dataset.lid === id));
+  if (L) { $("editorTitle").textContent = L.label; syncSelInputs(); }
+  redraw();
+}
+function deleteLayer(id) { const i = S.layers.findIndex(L => L.id === id); if (i < 0) return; const L = S.layers[i]; if (L._frame) L._frame.remove(); S.layers.splice(i, 1); if (S.selId === id) { S.selId = null; closeEditor(); } renderList(); redraw(); }
+function duplicateLayer(id) {
+  const L = S.layers.find(x => x.id === id); if (!L) return;
+  const N = makeLayer(L.type, L.tool); N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
+  N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
+  S.layers.push(N);
+  const f = document.createElement("iframe"); f.className = "toolframe"; f.dataset.lid = N.id; f.src = embedUrl(N);
+  // Params übernehmen, sobald das iframe bereit ist
+  N._pendingParams = L.params; $("editorBody").appendChild(f); N._frame = f;
+  selectLayer(N.id); renderList(); redraw();
+}
+function renderList() {
+  const box = $("layerList"); box.innerHTML = "";
+  $("layerHint").style.display = S.layers.length ? "none" : "";
+  for (let i = S.layers.length - 1; i >= 0; i--) {
+    const L = S.layers[i];
+    const row = document.createElement("div"); row.className = "lrow" + (L.id === S.selId ? " sel" : "");
+    const eye = document.createElement("button"); eye.className = "ic"; eye.textContent = L.visible ? "👁" : "🚫"; eye.title = "Sichtbar";
+    eye.onclick = (ev) => { ev.stopPropagation(); L.visible = !L.visible; renderList(); redraw(); };
+    const nm = document.createElement("span"); nm.className = "ln"; nm.textContent = L.label + (L.strokesCache.length ? "" : " (leer)");
+    const up = document.createElement("button"); up.className = "ic"; up.textContent = "↑"; up.title = "nach oben";
+    up.onclick = (ev) => { ev.stopPropagation(); if (i < S.layers.length - 1) { S.layers.splice(i, 1); S.layers.splice(i + 1, 0, L); renderList(); redraw(); } };
+    const dn = document.createElement("button"); dn.className = "ic"; dn.textContent = "↓"; dn.title = "nach unten";
+    dn.onclick = (ev) => { ev.stopPropagation(); if (i > 0) { S.layers.splice(i, 1); S.layers.splice(i - 1, 0, L); renderList(); redraw(); } };
+    row.append(eye, nm, up, dn);
+    row.onclick = () => { selectLayer(L.id); };
+    box.appendChild(row);
+  }
+}
+function openEditor() { $("editor").classList.add("open"); }
+function closeEditor() { $("editor").classList.remove("open"); }
+function syncSelInputs() { const L = sel(); if (!L) return; $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y); $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI); }
+
+/* ---------- Embed-Nachrichten von den Tool-iframes ---------- */
+window.addEventListener("message", e => {
+  const m = e.data; if (!m || m.source !== "ttl-tool") return;
+  const L = S.layers.find(x => x._frame && x._frame.contentWindow === e.source);
+  if (!L) return;
+  if (m.type === "ready") {
+    if (L._pendingParams) { L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "restoreParams", params: L._pendingParams }, "*"); L._pendingParams = null; }
+    // Theme syncen
+    L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setTheme", theme: UI.theme() }, "*");
+  } else if (m.type === "strokes") {
+    L.groups = m.groups || null;
+    L.strokesCache = (m.groups && m.groups.length) ? m.groups.flatMap(g => g.polylines) : [];
+    L.cw = m.cw || 0; L.ch = m.ch || 0; L.params = m.params;
+    if (m.subtool && L.type !== "text") L.label = (L.type === "image" ? "Bild" : toolLabel(L.tool));
+    scheduleRedraw(); renderList(); setStatus(S.layers.length + " Layer · ausgewählt: " + (sel() ? sel().label : "–"));
+  }
+});
+function setStatus(t) { $("stInfo").textContent = t; }
+
+/* ---------- Export ---------- */
+function buildGroups() {
+  const out = [];
+  for (const L of S.layers) {
+    if (!L.visible || !L.strokesCache.length) continue;
+    const f = layerMap(L);
+    const groups = (L.groups && L.groups.length) ? L.groups : [{ name: L.label, color: null, polylines: L.strokesCache }];
+    groups.forEach(g => { const polys = g.polylines.map(st => st.map(f)).filter(st => st.length >= 2);
+      if (polys.length) out.push({ name: L.label + (groups.length > 1 ? " — " + g.name : ""), color: g.color || undefined, strokes: polys }); });
+  }
+  return out;
+}
+function makeThumb() {
+  return new Promise(res => {
+    const c = document.createElement("canvas"); const sc = 512 / Math.max(S.matW, S.matH);
+    c.width = Math.round(S.matW * sc); c.height = Math.round(S.matH * sc);
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.scale(sc, sc);
+    g.strokeStyle = "#16243d"; g.lineWidth = 0.45; g.lineCap = "round";
+    for (const grp of buildGroups()) { g.beginPath(); for (const st of grp.strokes) { g.moveTo(st[0][0], st[0][1]); for (let i = 1; i < st.length; i++) g.lineTo(st[i][0], st[i][1]); } g.stroke(); }
+    c.toBlob(b => b.arrayBuffer().then(buf => res(new Uint8Array(buf))), "image/png");
+  });
+}
+$("btnExport").onclick = async () => {
+  const groups = buildGroups();
+  if (!groups.length) { alert(UI.t("Keine sichtbaren Layer mit Inhalt.", "No visible layers with content.")); return; }
+  const thumb = await makeThumb();
+  const bytes = window.LacExport.makeLac(groups, { matW: S.matW, matH: S.matH, processType: "KCPenDraw", thumbnail: thumb });
+  window.LacExport.download(bytes, ($("inFname").value || "komposition") + ".lac");
+};
+$("btnSvg").onclick = () => {
+  const groups = buildGroups(); if (!groups.length) { alert(UI.t("Keine sichtbaren Layer mit Inhalt.", "No visible layers with content.")); return; }
+  let d = ""; for (const grp of groups) for (const st of grp.strokes) d += "M " + st.map(p => p[0].toFixed(2) + " " + p[1].toFixed(2)).join(" L ") + " ";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S.matW}mm" height="${S.matH}mm" viewBox="0 0 ${S.matW} ${S.matH}"><g fill="none" stroke="#000" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></g></svg>`;
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })); a.download = ($("inFname").value || "komposition") + ".svg"; a.click(); URL.revokeObjectURL(a.href);
+};
+
+/* ---------- Wiring ---------- */
+const miscOpts = $("miscOpts"); for (const [v, l] of MISC_TOOLS) { const o = document.createElement("option"); o.value = "misc:" + v; o.textContent = l; miscOpts.appendChild(o); }
+$("addSel").addEventListener("change", e => { const v = e.target.value; e.target.value = ""; if (!v) return;
+  if (v === "text") addLayer("text"); else if (v === "image") addLayer("image"); else if (v.startsWith("misc:")) addLayer("misc", v.slice(5)); });
+$("btnEdit").onclick = () => { if (sel()) openEditor(); };
+$("btnEditClose").onclick = closeEditor;
+$("btnDel").onclick = () => { if (sel()) deleteLayer(sel().id); };
+$("btnDup").onclick = () => { if (sel()) duplicateLayer(sel().id); };
+for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLs", "scale"], ["inLr", "rot"]])
+  $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; if (key === "scale") v = Math.max(0.05, v || 1); L.transform[key] = v; redraw(); });
+$("inMatW").addEventListener("input", () => { S.matW = +$("inMatW").value || 300; fitView(); });
+$("inMatH").addEventListener("input", () => { S.matH = +$("inMatH").value || 300; fitView(); });
+$("inPaper").addEventListener("input", () => { S.paper = $("inPaper").value; redraw(); });
+$("inSnap").addEventListener("input", () => { S.snap = $("inSnap").checked; });
+
+UI.initTheme();
+UI.onThemeChange(() => { redraw(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setTheme", theme: UI.theme() }, "*"); }); });
+const I18N_EN = {
+  "Layer-Studio": "Layer studio", "Werkzeuge als Layer kombinieren — Export als .lac": "Combine tools as layers — export as .lac",
+  "Layer": "Layers", "+ Layer hinzufügen …": "+ Add layer …", "Inhalt": "Content", "Text": "Text", "Bild": "Image", "3D-Modell": "3D model", "Misc": "Misc",
+  "Noch keine Layer. Oben hinzufügen, dann auf der Fläche ziehen (Skalieren/Drehen an den Griffen).": "No layers yet. Add one above, then drag it on the canvas (scale/rotate via the handles).",
+  "Ausgewählter Layer": "Selected layer", "✎ Tool öffnen / bearbeiten": "✎ Open / edit tool", "X (mm)": "X (mm)", "Y (mm)": "Y (mm)",
+  "Skalierung": "Scale", "Drehung (°)": "Rotation (°)", "Duplizieren": "Duplicate", "Löschen": "Delete",
+  "Arbeitsfläche": "Work area", "Breite (mm)": "Width (mm)", "Höhe (mm)": "Height (mm)", "Referenz-Blatt": "Reference sheet",
+  "keins": "none", "A4 hoch": "A4 portrait", "A4 quer": "A4 landscape", "A5 hoch": "A5 portrait", "A3 hoch": "A3 portrait", "Letter": "Letter",
+  "Einrasten (Snapping)": "Snapping", "Export": "Export", "Dateiname": "File name", "Als .lac exportieren": "Export as .lac", "Als SVG exportieren": "Export as SVG",
+  "Alle sichtbaren Layer werden als benannte Objekte in eine .lac gepackt (Prozess: Stift zeichnen).": "All visible layers are packed as named objects into one .lac (pen-draw process).",
+  "Tool": "Tool", "Schließen": "Close", "Bereit": "Ready",
+  "Keine sichtbaren Layer mit Inhalt.": "No visible layers with content.",
+};
+function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
+UI.initLang(I18N_EN); applyLangDefaults(); UI.onLangChange(() => { applyLangDefaults(); renderList(); });
+resize(); fitView(); renderList();
+</script>
+<script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

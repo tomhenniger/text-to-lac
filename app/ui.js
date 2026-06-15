@@ -33,6 +33,7 @@ window.UI = (function () {
     file: '<path d="M6.5 3H14l4.5 4.5V21h-12z"/><path d="M14 3v4.5h4.5"/>',
     undo: '<path d="M8 13 3 8l5-5"/><path d="M3 8h11a6 6 0 0 1 0 12h-4"/>',
     tools: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    layers: '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/>',
   };
 
   function icon(name, size = 15) {
@@ -110,6 +111,9 @@ window.UI = (function () {
 
   /* ============================== Sprache ============================== */
   const LANG_KEY = "ui_lang";
+  const ADV_KEY = "ui_advanced";
+  function advanced() { try { return localStorage.getItem(ADV_KEY) === "1"; } catch { return false; } }
+  function setAdvanced(v) { try { localStorage.setItem(ADV_KEY, v ? "1" : "0"); } catch {} }
   const langListeners = [];
   let dict = {};                      // Deutsch -> Englisch (Text-Knoten)
   const origText = new WeakMap();     // Knoten -> deutscher Originaltext (Weak: tote Knoten werden freigegeben)
@@ -294,5 +298,5 @@ window.UI = (function () {
   }
 
   return { initTheme, onThemeChange, palette, theme, initTour, startTour,
-           initLang, onLangChange, lang, t, icon, initIcons };
+           initLang, onLangChange, lang, t, icon, initIcons, advanced, setAdvanced };
 })();
