@@ -339,6 +339,7 @@
 <script src="lac.js?v=4"></script>
 <script src="qrcode.js"></script>
 <script src="ui.js?v=6"></script>
+<script src="embed.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -2404,6 +2405,20 @@ showToolOpts();
 prettifyFileInputs();
 resize();
 recompute();
+
+// Embed-Modus (Studio): Striche streamen + Tool fernsteuerbar
+if (window.HS_EMBED) {
+  const t = new URLSearchParams(location.search).get("tool");
+  if (t) { const el = $("inpTool"); if (el && [...el.options].some(o => o.value === t)) { el.value = t; el.dispatchEvent(new Event("input", { bubbles: true })); } }
+}
+if (window.HS_EMBED && window.HSEmbed) HSEmbed.register({
+  tool: "misc",
+  subtool: () => $("inpTool").value,
+  getStrokes: () => ({ cw: S.cw, ch: S.ch, groups: [{ name: ($("inpFname").value || "misc"), color: null, polylines: S.strokes }] }),
+  recompute: () => window.__miscRecompute(),
+  selectTool: (t) => { const el = $("inpTool"); if (el) { el.value = t; el.dispatchEvent(new Event("input", { bubbles: true })); } },
+  toolList: () => [...document.querySelectorAll('#inpTool option')].map(o => ({ value: o.value, label: o.textContent.trim() })),
+});
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>

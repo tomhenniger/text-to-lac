@@ -206,6 +206,7 @@ geschrieben mit dem Stift.</textarea>
 <script src="configs.js"></script>
 <script src="lac.js?v=4"></script>
 <script src="ui.js?v=6"></script>
+<script src="embed.js"></script>
 <script>
 "use strict";
 /* ============================== Zustand ============================== */
@@ -965,7 +966,7 @@ function applyLangDefaults() {
 UI.initLang(I18N_EN);
 applyLangDefaults();
 UI.onLangChange(() => { applyLangDefaults(); fillFontSelect(true); relayout(); $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
-UI.initTour("text", () => UI.lang() === "en" ? TOUR_EN : TOUR);
+if (!window.HS_EMBED) UI.initTour("text", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillFontSelect(false);
 const fontParam = new URLSearchParams(location.search).get("font");
 if (fontParam && allFonts()[fontParam]) $("inpFont").value = fontParam;
@@ -973,6 +974,20 @@ resize();
 relayout();
 fitView();
 $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters");
+
+// Embed-Modus (Studio): Text-Striche content-lokal (mm) streamen
+if (window.HS_EMBED && window.HSEmbed) HSEmbed.register({
+  tool: "text",
+  getStrokes: () => {
+    const gs = cachedLayout ? cachedLayout.glyphs : [];
+    let mnx = 1e9, mny = 1e9, mxx = -1e9, mxy = -1e9; const polys = [];
+    for (const g of gs) for (const st of g.strokes) { polys.push(st); for (const [x, y] of st) { if (x < mnx) mnx = x; if (x > mxx) mxx = x; if (y < mny) mny = y; if (y > mxy) mxy = y; } }
+    if (!polys.length) return { cw: 0, ch: 0, groups: [{ name: "Text", color: null, polylines: [] }] };
+    const off = polys.map(st => st.map(([x, y]) => [x - mnx, y - mny]));
+    return { cw: mxx - mnx, ch: mxy - mny, groups: [{ name: "Text", color: null, polylines: off }] };
+  },
+  recompute: () => relayout(),
+});
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>

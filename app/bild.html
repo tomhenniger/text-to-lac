@@ -229,6 +229,7 @@
 <script src="configs.js"></script>
 <script src="lac.js?v=4"></script>
 <script src="ui.js?v=6"></script>
+<script src="embed.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -1136,11 +1137,25 @@ function applyLangDefaults() {
 UI.initLang(I18N_EN);
 applyLangDefaults();
 UI.onLangChange(() => { applyLangDefaults(); fillAsciiFonts(); renderPalette(); recompute(); });
-UI.initTour("bild", () => UI.lang() === "en" ? TOUR_EN : TOUR);
+if (!window.HS_EMBED) UI.initTour("bild", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillAsciiFonts();
 showStyleOpts();
 resize();
 fitView();
+
+// Embed-Modus (Studio): Striche streamen (content-lokal, mm)
+if (window.HS_EMBED && window.HSEmbed) HSEmbed.register({
+  tool: "bild",
+  subtool: () => $("inpStyle").value,
+  getStrokes: () => {
+    const W = +$("inpImgW").value, H = W * S.aspect;
+    const mc = $("inpMC") && $("inpMC").checked && S.groups.length > 1;
+    const src = (S.groups && S.groups.length) ? S.groups : [{ name: "Bild", color: null, strokes: S.strokes }];
+    const groups = src.map(g => ({ name: g.name, color: mc && g.color ? hexRgb(g.color).join(" ") + " 255" : null, polylines: g.strokes }));
+    return { cw: W, ch: H, groups };
+  },
+  recompute: () => recompute(),
+});
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
