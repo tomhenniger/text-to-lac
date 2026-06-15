@@ -34,6 +34,8 @@
 
 ## Bugfixes
 
+- Misc Tools / Export: Der Objektname in der `.lac` (und damit der in der Bambu Suite angezeigte Name) war fest „Spotify" statt aus dem Dateinamen-Feld abgeleitet. Objekt- und Dateiname kommen jetzt beide aus dem Feld „Dateiname".
+- Misc Tools / SVG-Import: Neuer opt-in Schalter „Reihenfolge erzwingen (je Strich ein Objekt)" — exportiert jeden Strich als eigenes `.lac`-Objekt, damit die Bambu Suite die Zeichen-Reihenfolge beim Prepare-Schritt möglichst nicht zur Wegoptimierung umsortiert (experimentell, da die Umsortierung in der Suite passiert).
 - Misc Tools / Audio-Waveform: Der „Bars/Auflösung"-Slider wirkte nach dem Laden nicht mehr (Buckets wurden nur einmal beim Dekodieren berechnet). Jetzt werden hochauflösende Peaks gespeichert und bei jeder Slider-Änderung neu auf die gewählte Auflösung heruntergerechnet. Außerdem doppeltes Schließen des `AudioContext` behoben.
 
 ## UI-Änderungen (Bild)
