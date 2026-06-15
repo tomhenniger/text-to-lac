@@ -132,6 +132,7 @@
         <option value="Letter">Letter</option>
       </select>
       <div class="checkrow"><input type="checkbox" id="inSnap" checked><span>Einrasten (Snapping)</span></div>
+      <div class="hint">Rastet an Build-Plate, A4-Blatt und anderen Layern ein (Kanten + Mitte). Shift gedrückt halten = Snapping vorübergehend aus.</div>
     </div>
   </details>
 
@@ -303,7 +304,7 @@ window.addEventListener("mousemove", e => {
   const L = sel(); if (!L) return;
   if (drag.mode === "move") {
     L.transform.x += mx - drag.sx; L.transform.y += my - drag.sy; drag.sx = mx; drag.sy = my;
-    snapGuides = null; if (S.snap) snapMove(L);
+    snapGuides = null; if (S.snap && !e.shiftKey) snapMove(L);   // Shift gedrückt = Snapping aus
   } else if (drag.mode === "scale") {
     let s = drag.s0 * (Math.hypot(mx - drag.cen[0], my - drag.cen[1]) / drag.d0);
     s = Math.max(0.05, Math.min(50, s));
@@ -327,9 +328,7 @@ function snapMove(L) {
   const tol = 7 / S.view.scale, bb = layerAABB(L);
   const probesX = [bb.minX, (bb.minX + bb.maxX) / 2, bb.maxX], probesY = [bb.minY, (bb.minY + bb.maxY) / 2, bb.maxY];
   const tx = [], ty = [];
-  for (let g = 0; g <= S.matW + 0.1; g += 10) tx.push(g);
-  for (let g = 0; g <= S.matH + 0.1; g += 10) ty.push(g);
-  tx.push(0, S.matW / 2, S.matW); ty.push(0, S.matH / 2, S.matH);
+  tx.push(0, S.matW / 2, S.matW); ty.push(0, S.matH / 2, S.matH);   // Build-Plate: Kanten + Mitte
   const pa = PAPERS[S.paper]; if (pa) { const ox = (S.matW - pa[0]) / 2, oy = (S.matH - pa[1]) / 2; tx.push(ox, ox + pa[0] / 2, ox + pa[0]); ty.push(oy, oy + pa[1] / 2, oy + pa[1]); }
   for (const o of S.layers) { if (o.id === L.id || !o.visible || !o.cw) continue; const a = layerAABB(o); tx.push(a.minX, (a.minX + a.maxX) / 2, a.maxX); ty.push(a.minY, (a.minY + a.maxY) / 2, a.maxY); }
   let bdx = null, gx = null, bdy = null, gy = null;
@@ -467,7 +466,10 @@ const I18N_EN = {
   "Skalierung": "Scale", "Drehung (°)": "Rotation (°)", "Duplizieren": "Duplicate", "Löschen": "Delete",
   "Arbeitsfläche": "Work area", "Breite (mm)": "Width (mm)", "Höhe (mm)": "Height (mm)", "Referenz-Blatt": "Reference sheet",
   "keins": "none", "A4 hoch": "A4 portrait", "A4 quer": "A4 landscape", "A5 hoch": "A5 portrait", "A3 hoch": "A3 portrait", "Letter": "Letter",
-  "Einrasten (Snapping)": "Snapping", "Export": "Export", "Dateiname": "File name", "Als .lac exportieren": "Export as .lac", "Als SVG exportieren": "Export as SVG",
+  "Einrasten (Snapping)": "Snapping",
+  "Rastet an Build-Plate, A4-Blatt und anderen Layern ein (Kanten + Mitte). Shift gedrückt halten = Snapping vorübergehend aus.":
+    "Snaps to the build plate, A4 sheet and other layers (edges + center). Hold Shift to temporarily disable snapping.",
+  "Export": "Export", "Dateiname": "File name", "Als .lac exportieren": "Export as .lac", "Als SVG exportieren": "Export as SVG",
   "Alle sichtbaren Layer werden als benannte Objekte in eine .lac gepackt (Prozess: Stift zeichnen).": "All visible layers are packed as named objects into one .lac (pen-draw process).",
   "Tool": "Tool", "Schließen": "Close", "Bereit": "Ready",
   "Keine sichtbaren Layer mit Inhalt.": "No visible layers with content.",
