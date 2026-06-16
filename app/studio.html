@@ -102,6 +102,8 @@
   #optionsbar .obgrp { display: inline-flex; align-items: center; gap: 6px; }
   #optionsbar .obf { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
   #optionsbar .obf input[type=number] { width: 52px; padding: 4px 5px; }
+  #optionsbar .obf input:disabled { opacity: .5; }
+  #optionsbar .oblock { display: inline-flex; align-items: center; color: var(--muted); opacity: .6; margin: 0 -1px; }
   #optionsbar .obf input[type=checkbox] { width: auto; }
   #optionsbar input[type=color] { width: 30px; height: 26px; padding: 0; border-radius: 6px; flex: none; }
   #optionsbar .obbtn { padding: 5px 9px; white-space: nowrap; }
@@ -144,7 +146,9 @@
     <span class="obgrp" id="obXform">
       <span class="obf">X<input type="number" id="inLx" step="1"></span>
       <span class="obf">Y<input type="number" id="inLy" step="1"></span>
-      <span class="obf" title="Skalierung">⤢<input type="number" id="inLs" step="0.05" min="0.05"></span>
+      <span class="obf" title="Breite (mm)">↔<input type="number" id="inLw" step="1" min="1"></span>
+      <span class="oblock" id="obAspect" title="Breite & Höhe sind proportional gekoppelt (gleichmäßige Skalierung)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+      <span class="obf" title="Höhe (mm)">↕<input type="number" id="inLh" step="1" min="1"></span>
       <span class="obf" title="Drehung (°)">∠<input type="number" id="inLr" step="1"></span>
       <span class="obsep"></span>
     </span>
@@ -330,11 +334,12 @@ function redraw() {
   if (pa) { const ox = (S.matW - pa[0]) / 2, oy = (S.matH - pa[1]) / 2;
     ctx.strokeStyle = M.frame; ctx.lineWidth = 0.4; ctx.setLineDash([3, 2]);
     ctx.strokeRect(ox, oy, pa[0], pa[1]); ctx.setLineDash([]); }
-  // Maschinen-Bereiche (Zeichnen blau, Schneiden orange) ab Ursprung oben links
+  // Maschinen-Bereiche (Zeichnen blau, Schneiden orange) — am oberen Plattenrand verankert (Grenze oben)
   if (S.guides) {
     ctx.lineWidth = 0.4; ctx.setLineDash([4, 2.5]);
-    ctx.strokeStyle = "rgba(30,110,210,0.55)"; ctx.strokeRect(0, 0, MACHINE.draw[0], MACHINE.draw[1]);
-    ctx.strokeStyle = "rgba(225,110,40,0.55)"; ctx.strokeRect(0, 0, MACHINE.cut[0], MACHINE.cut[1]);
+    const dr = machRect(MACHINE.draw), cr = machRect(MACHINE.cut);
+    ctx.strokeStyle = "rgba(30,110,210,0.55)"; ctx.strokeRect(dr.x0, dr.y0, dr.w, dr.h);
+    ctx.strokeStyle = "rgba(225,110,40,0.55)"; ctx.strokeRect(cr.x0, cr.y0, cr.w, cr.h);
     ctx.setLineDash([]);
   }
   // Layer
@@ -364,26 +369,27 @@ function redraw() {
   else updateWarn([]);
   // Auswahl-Box + Griffe (Screen-px)
   const selLs = selLayers().filter(L => L.visible && L.cw && L.ch);
-  if (selLs.length === 1) drawSelection(selLs[0], P, !penEdit);   // beim Pfad-Bearbeiten keine Skalier-/Dreh-Griffe
+  if (selLs.length === 1 && !penEdit) drawSelection(selLs[0], P, true);   // beim Pfad-Bearbeiten kein Auswahlrahmen (nur Anker/Griffe)
   else if (selLs.length > 1) { selLs.forEach(L => drawSelection(L, P, false)); drawGroupBounds(selLs, P); }
   if (penDraft || freeDraft || penEdit) drawPenOverlay();
 }
+function machRect(m) { const y0 = Math.max(0, S.matH - m[1]); return { x0: 0, y0, w: m[0], h: S.matH - y0, x1: m[0], y1: S.matH }; }   // unten verankert → Grenze oben
 function areaViolations() {   // Ebenen, deren AABB den Bereich ihres Modus (Schneiden=cut, sonst draw) verlässt
   const out = [];
   for (const L of S.layers) {
     if (!L.visible || !L.cw || !L.ch) continue;
-    const a = layerAABB(L), m = L.mode === "KCBasicCut" ? MACHINE.cut : MACHINE.draw;
-    if (a.minX < -0.05 || a.minY < -0.05 || a.maxX > m[0] + 0.05 || a.maxY > m[1] + 0.05) out.push({ L, cut: L.mode === "KCBasicCut" });
+    const a = layerAABB(L), r = machRect(L.mode === "KCBasicCut" ? MACHINE.cut : MACHINE.draw);
+    if (a.minX < r.x0 - 0.05 || a.minY < r.y0 - 0.05 || a.maxX > r.x1 + 0.05 || a.maxY > r.y1 + 0.05) out.push({ L, cut: L.mode === "KCBasicCut" });
   }
   return out;
 }
 function drawGuideLabels() {
   if (!S.guides) return;
   ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
-  ctx.font = "10px -apple-system, sans-serif"; ctx.textBaseline = "bottom";
-  const lab = (txt, mmX, mmY, col) => { const q = mm2px(mmX, mmY); ctx.fillStyle = col; ctx.fillText(txt, q[0] / devicePixelRatio + 3, q[1] / devicePixelRatio - 2); };
-  lab(UI.t("Zeichnen", "Drawing") + " " + MACHINE.draw[0] + "×" + MACHINE.draw[1], 0, MACHINE.draw[1], "rgba(30,110,210,0.9)");
-  lab(UI.t("Schneiden", "Cutting") + " " + MACHINE.cut[0] + "×" + MACHINE.cut[1], 0, MACHINE.cut[1], "rgba(225,110,40,0.95)");
+  ctx.font = "10px -apple-system, sans-serif"; ctx.textBaseline = "top";
+  const lab = (txt, mmY, col) => { const q = mm2px(0, mmY); ctx.fillStyle = col; ctx.fillText(txt, q[0] / devicePixelRatio + 3, q[1] / devicePixelRatio + 2); };
+  lab(UI.t("Zeichnen", "Drawing") + " " + MACHINE.draw[0] + "×" + MACHINE.draw[1], machRect(MACHINE.draw).y0, "rgba(30,110,210,0.9)");
+  lab(UI.t("Schneiden", "Cutting") + " " + MACHINE.cut[0] + "×" + MACHINE.cut[1], machRect(MACHINE.cut).y0, "rgba(225,110,40,0.95)");
   ctx.restore();
 }
 function drawViolation(L) {
@@ -448,6 +454,7 @@ let rafP = 0; function scheduleRedraw() { if (rafP) return; rafP = requestAnimat
 
 /* ---------- Auswahl & Drag ---------- */
 function sel() { return S.layers.find(L => L.id === S.selId) || null; }
+function clampScale(s) { return Math.max(0.05, Math.min(50, s)); }   // einheitliche Skalierungsgrenzen für Griff-Ziehen und mm-Eingabe
 function selLayers() { return S.selIds.map(id => S.layers.find(L => L.id === id)).filter(Boolean); }
 let drag = null;
 
@@ -466,13 +473,16 @@ function setTool(mode) {
   if (penDraft) finishPen(); if (penEdit) finishPenEdit();
   S.tool = mode; cv.style.cursor = mode === "select" ? "default" : "crosshair";
   document.querySelectorAll(".toolbtn[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  if (mode === "edit" && isPenLayer(sel()) && sel().pen && sel().pen.kind === "bezier") penEdit = { L: sel() };   // ausgewählten Pfad direkt bearbeitbar machen
   setStatus(mode === "pen" ? UI.t("Pfad: klicken = Ankerpunkt, ziehen = Kurve, ersten Punkt/Enter = schließen, Esc = abbrechen.", "Path: click = anchor, drag = curve, first point/Enter = finish, Esc = cancel.")
-    : mode === "free" ? UI.t("Freihand: auf der Fläche ziehen.", "Freehand: drag on the canvas.") : UI.t("Bereit", "Ready"));
+    : mode === "free" ? UI.t("Freihand: auf der Fläche ziehen.", "Freehand: drag on the canvas.")
+    : mode === "edit" ? UI.t("Knoten bearbeiten: Bézier-Pfad anklicken, Anker/Griffe ziehen.", "Edit nodes: click a Bézier path, drag anchors/handles.") : UI.t("Bereit", "Ready"));
+  redraw();
 }
 function penDown(mx, my) {
   if (!penDraft) penDraft = { kind: "bezier", closed: false, anchors: [] };
   const A = penDraft.anchors;
-  if (A.length >= 2) { const f = scrPt(A[0].x, A[0].y), c = scrPt(mx, my); if (Math.hypot(f[0] - c[0], f[1] - c[1]) < 9) { penDraft.closed = true; finishPen(); return; } }
+  if (A.length >= 3) { const f = scrPt(A[0].x, A[0].y), c = scrPt(mx, my); if (Math.hypot(f[0] - c[0], f[1] - c[1]) < 9) { penDraft.closed = true; finishPen(); return; } }
   const a = { x: mx, y: my, hIn: null, hOut: null }; A.push(a); penDrag = { mode: "new", a }; redraw();
 }
 function finishPen() {
@@ -489,28 +499,40 @@ function finishFree() {
   const L = makePenLayer({ kind: "free", poly: s.map(([x, y]) => [x - mnx, y - mny]) }); L.transform.x = mnx; L.transform.y = mny;
   S.layers.push(L); selectLayer(L.id); markDirty();
 }
+function penToScreen(L, cx, cy) { const p = layerMap(L)([cx, cy]), q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; }   // Content → CSS-Screen-px
 function penEditHit(L, mx, my) {   // Anker/Handle unter dem Cursor (Screen-px)
   if (!isPenLayer(L) || L.pen.kind !== "bezier") return null;
-  const sc = scrPt(mx, my), lm = layerMap(L);
-  const test = (cx, cy) => { const p = lm([cx, cy]); return Math.hypot(p[0] / devicePixelRatio - sc[0], p[1] / devicePixelRatio - sc[1]) < 8; };
+  const sc = scrPt(mx, my);
+  const test = (cx, cy) => { const s = penToScreen(L, cx, cy); return Math.hypot(s[0] - sc[0], s[1] - sc[1]) < 8; };
   for (const a of L.pen.anchors) { if (a.hOut && test(a.x + a.hOut[0], a.y + a.hOut[1])) return { mode: "hOut", a }; if (a.hIn && test(a.x + a.hIn[0], a.y + a.hIn[1])) return { mode: "hIn", a }; }
   for (const a of L.pen.anchors) if (test(a.x, a.y)) return { mode: "anchor", a };
   return null;
 }
-function penEditDown(mx, my) { const h = penEditHit(penEdit.L, mx, my); if (h) { penDrag = h; } else finishPenEdit(); }
+function withSmooth(h) { if (h && (h.mode === "hOut" || h.mode === "hIn")) { const a = h.a; h.smooth = !!(a.hIn && a.hOut && Math.abs(a.hIn[0] + a.hOut[0]) < 1e-3 && Math.abs(a.hIn[1] + a.hOut[1]) < 1e-3); } return h; }
+function penEditDown(mx, my) { const h = penEditHit(penEdit.L, mx, my); if (h) penDrag = withSmooth(h); else finishPenEdit(); }
+function editToolDown(mx, my) {   // „Knoten bearbeiten"-Werkzeug: Pfad anklicken, Anker/Griffe ziehen
+  if (penEdit) { const h = penEditHit(penEdit.L, mx, my); if (h) { penDrag = withSmooth(h); return; } }
+  let hit = null;
+  for (let i = S.layers.length - 1; i >= 0; i--) { const Li = S.layers[i]; if (Li.visible && isPenLayer(Li) && Li.pen && Li.pen.kind === "bezier" && pointInLayer(Li, mx, my)) { hit = Li; break; } }
+  if (hit) { if (!penEdit || penEdit.L !== hit) { if (penEdit) finishPenEdit(); startPenEdit(hit); } const h = penEditHit(hit, mx, my); if (h) penDrag = withSmooth(h); }
+  else if (penEdit) finishPenEdit();
+}
 function finishPenEdit() {
   const L = penEdit ? penEdit.L : null; penEdit = null; penDrag = null;
   if (L) {
-    const b = penBBox(L.pen);
-    if (L.pen.kind === "bezier") L.pen.anchors.forEach(a => { a.x -= b.minX; a.y -= b.minY; });
-    else if (L.pen.poly) L.pen.poly.forEach(p => { p[0] -= b.minX; p[1] -= b.minY; });
-    const t = L.transform, cos = Math.cos(t.rot), sin = Math.sin(t.rot);   // Verschiebung im Layer-Raum kompensieren → Pfad bleibt sichtbar an Ort
-    t.x += (b.minX * t.scale) * cos - (b.minY * t.scale) * sin; t.y += (b.minX * t.scale) * sin + (b.minY * t.scale) * cos;
-    penRecompute(L);
+    const oldCw = L.cw, oldCh = L.ch, b = penBBox(L.pen), mX = b.minX, mY = b.minY;   // cw/ch waren während der Bearbeitung eingefroren
+    if (L.pen.kind === "bezier") L.pen.anchors.forEach(a => { a.x -= mX; a.y -= mY; });
+    else if (L.pen.poly) L.pen.poly.forEach(p => { p[0] -= mX; p[1] -= mY; });
+    penRecompute(L);   // neue cw/ch
+    // Transform so anpassen, dass die Welt-Position des Pfades exakt erhalten bleibt (auch bei Rotation/Skalierung) —
+    // berücksichtigt die Verschiebung des Rotations-Pivots durch geänderte cw/ch.
+    const t = L.transform, sc = t.scale, cos = Math.cos(t.rot), sin = Math.sin(t.rot);
+    const dHx = oldCw / 2 - L.cw / 2, dHy = oldCh / 2 - L.ch / 2, ux = (mX - dHx) * sc, uy = (mY - dHy) * sc;
+    t.x += sc * dHx + (ux * cos - uy * sin); t.y += sc * dHy + (ux * sin + uy * cos);
   }
-  redraw(); markDirty();
+  cv.style.cursor = S.tool === "select" ? "default" : "crosshair"; redraw(); markDirty();
 }
-function startPenEdit(L) { if (isPenLayer(L) && L.pen.kind === "bezier") { selectLayer(L.id); penEdit = { L }; cv.style.cursor = "crosshair"; setStatus(UI.t("Pfad bearbeiten: Anker/Griffe ziehen, Enter/Esc fertig.", "Edit path: drag anchors/handles, Enter/Esc to finish.")); redraw(); } }
+function startPenEdit(L) { if (isPenLayer(L) && L.pen && L.pen.kind === "bezier") { selectLayer(L.id); penEdit = { L }; cv.style.cursor = "crosshair"; setStatus(UI.t("Pfad bearbeiten: Anker/Griffe ziehen, Enter/Esc fertig.", "Edit path: drag anchors/handles, Enter/Esc to finish.")); redraw(); } }
 function drawPenOverlay() {
   ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
   const dot = (s, fill) => { ctx.beginPath(); ctx.arc(s[0], s[1], 3.5, 0, 7); ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke(); };
@@ -520,7 +542,7 @@ function drawPenOverlay() {
     if (poly.length > 1) { ctx.strokeStyle = UI.palette().marker; ctx.lineWidth = 1.4; ctx.beginPath(); const p0 = scrPt(poly[0][0], poly[0][1]); ctx.moveTo(p0[0], p0[1]); for (let i = 1; i < poly.length; i++) { const p = scrPt(poly[i][0], poly[i][1]); ctx.lineTo(p[0], p[1]); } ctx.stroke(); }
     for (const a of penDraft.anchors) { const s = scrPt(a.x, a.y); if (a.hOut) { const h = scrPt(a.x + a.hOut[0], a.y + a.hOut[1]); ctx.strokeStyle = "rgba(120,120,120,.8)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(h[0], h[1]); ctx.stroke(); dot(h, "#fff"); } if (a.hIn) { const h = scrPt(a.x + a.hIn[0], a.y + a.hIn[1]); ctx.strokeStyle = "rgba(120,120,120,.8)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(h[0], h[1]); ctx.stroke(); dot(h, "#fff"); } dot(s, UI.palette().marker); }
   }
-  if (penEdit) { const L = penEdit.L, lm = layerMap(L), S2 = (cx, cy) => { const p = lm([cx, cy]); return [p[0] / devicePixelRatio, p[1] / devicePixelRatio]; };
+  if (penEdit) { const L = penEdit.L, S2 = (cx, cy) => penToScreen(L, cx, cy);
     for (const a of L.pen.anchors) { const s = S2(a.x, a.y); if (a.hOut) { const h = S2(a.x + a.hOut[0], a.y + a.hOut[1]); ctx.strokeStyle = "rgba(120,120,120,.8)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(h[0], h[1]); ctx.stroke(); dot(h, "#fff"); } if (a.hIn) { const h = S2(a.x + a.hIn[0], a.y + a.hIn[1]); ctx.strokeStyle = "rgba(120,120,120,.8)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(h[0], h[1]); ctx.stroke(); dot(h, "#fff"); } dot(s, UI.palette().marker); } }
   ctx.restore();
 }
@@ -529,7 +551,7 @@ cv.addEventListener("contextmenu", e => e.preventDefault());   // Strg-Klick-Men
 cv.addEventListener("dblclick", e => {
   if (S.tool !== "select" || penEdit) return;
   const [mx, my] = px2mm(e.offsetX, e.offsetY);
-  for (let i = S.layers.length - 1; i >= 0; i--) { const Li = S.layers[i]; if (Li.visible && isPenLayer(Li) && Li.pen.kind === "bezier" && pointInLayer(Li, mx, my)) { startPenEdit(Li); return; } }
+  for (let i = S.layers.length - 1; i >= 0; i--) { const Li = S.layers[i]; if (Li.visible && isPenLayer(Li) && Li.pen && Li.pen.kind === "bezier" && pointInLayer(Li, mx, my)) { startPenEdit(Li); return; } }
 });
 // Pen-/Freihand-Mausbewegung & -loslassen (eigene Listener; Select-Logik bleibt unberührt)
 window.addEventListener("mousemove", e => {
@@ -537,17 +559,18 @@ window.addEventListener("mousemove", e => {
   const r = cv.getBoundingClientRect(), [mx, my] = px2mm(e.clientX - r.left, e.clientY - r.top);
   if (penEdit && penDrag) { const [cx, cy] = mat2content(penEdit.L, mx, my), a = penDrag.a;
     if (penDrag.mode === "anchor") { a.x = cx; a.y = cy; }
-    else if (penDrag.mode === "hOut") { a.hOut = [cx - a.x, cy - a.y]; a.hIn = [-a.hOut[0], -a.hOut[1]]; }
-    else if (penDrag.mode === "hIn") { a.hIn = [cx - a.x, cy - a.y]; a.hOut = [-a.hIn[0], -a.hIn[1]]; }
-    penRecompute(penEdit.L); redraw(); return; }
+    else if (penDrag.mode === "hOut") { a.hOut = [cx - a.x, cy - a.y]; if (penDrag.smooth) a.hIn = [-a.hOut[0], -a.hOut[1]]; }   // Gegengriff nur spiegeln, wenn der Anker glatt war (Cusps bleiben erhalten)
+    else if (penDrag.mode === "hIn") { a.hIn = [cx - a.x, cy - a.y]; if (penDrag.smooth) a.hOut = [-a.hIn[0], -a.hIn[1]]; }
+    penEdit.L.strokesCache = penFlatten(penEdit.L.pen); redraw(); return; }   // cw/ch eingefroren lassen → Rotations-Pivot bleibt fix (kein Nachlaufen)
   if (penDrag && penDrag.mode === "new") { const a = penDrag.a; a.hOut = [mx - a.x, my - a.y]; a.hIn = [-a.hOut[0], -a.hOut[1]]; redraw(); return; }
-  if (freeDraft) { const last = freeDraft[freeDraft.length - 1]; if (Math.hypot(mx - last[0], my - last[1]) > 0.5) { freeDraft.push([mx, my]); redraw(); } }
+  if (freeDraft) { const last = freeDraft[freeDraft.length - 1], ls = scrPt(last[0], last[1]), cs = scrPt(mx, my); if (Math.hypot(cs[0] - ls[0], cs[1] - ls[1]) > 1.5) { freeDraft.push([mx, my]); redraw(); } }   // Abtastung in Screen-px (zoom-unabhängig)
 });
 window.addEventListener("mouseup", () => { if (freeDraft) { finishFree(); return; } if (penDrag) penDrag = null; });
 cv.addEventListener("mousedown", e => {
   const [mx, my] = px2mm(e.offsetX, e.offsetY);
   if (e.button !== 0) return;
-  if (penEdit) { penEditDown(mx, my); return; }                 // Pfad-Bearbeitungsmodus
+  if (S.tool === "edit") { editToolDown(mx, my); return; }       // Knoten bearbeiten
+  if (penEdit) { penEditDown(mx, my); return; }                 // Pfad-Bearbeitung (per Doppelklick gestartet)
   if (S.tool === "free") { freeDraft = [[mx, my]]; redraw(); return; }
   if (S.tool === "pen") { penDown(mx, my); return; }
   // Alt/Strg gedrückt + 3D-Modell-Ebene unter dem Cursor → Trackball (3D-Drehung) statt Verschieben
@@ -614,7 +637,7 @@ window.addEventListener("mousemove", e => {
     const alt = e.altKey || e.metaKey;          // Alt/Cmd: Mitte als Anker, sonst gegenüberliegende Ecke
     const A = alt ? drag.Ac : drag.Ao, off = alt ? [0, 0] : drag.oppOff, d0 = alt ? drag.d0c : drag.d0o;
     let s = drag.s0 * (Math.hypot(mx - A[0], my - A[1]) / d0);
-    s = Math.max(0.05, Math.min(50, s));
+    s = clampScale(s);
     const cos = Math.cos(drag.rot), sin = Math.sin(drag.rot), ox = off[0] * s, oy = off[1] * s;
     const Cx = A[0] - (ox * cos - oy * sin), Cy = A[1] - (ox * sin + oy * cos);   // Center so, dass Anker fix bleibt
     L.transform.scale = s; L.transform.x = Cx - (L.cw / 2) * s; L.transform.y = Cy - (L.ch / 2) * s;
@@ -667,6 +690,7 @@ function addLayer(type, tool) {
   selectLayer(L.id);
 }
 function afterSelChange() {
+  if (penEdit && !(S.selIds.length === 1 && S.selId === penEdit.L.id)) finishPenEdit();   // Auswahl gewechselt → Pfad-Bearbeitung sauber beenden (kein Leak auf alte Ebene)
   const L = sel(); if (L) ensureFrame(L);
   document.querySelectorAll(".toolframe").forEach(fr => fr.classList.toggle("active", L && L._frame && fr === L._frame));
   if (L && isModelLayer(L) && L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "requestModelState" }, "*");
@@ -715,6 +739,7 @@ function updatePropsUI() {
 function deleteSelected() {
   if (!S.selIds.length) return;
   const ids = S.selIds.slice();
+  if (penEdit && ids.includes(penEdit.L.id)) { penEdit = null; penDrag = null; }   // bearbeitete Ebene wird gelöscht → kein Geister-Overlay/Orphan-Drag
   let anchor = Math.min(...ids.map(id => S.layers.findIndex(L => L.id === id)).filter(i => i >= 0));
   for (const id of ids) { const i = S.layers.findIndex(L => L.id === id); if (i < 0) continue; const L = S.layers[i]; if (L._frame) L._frame.remove(); S.layers.splice(i, 1); }
   selectLayer(S.layers.length ? S.layers[Math.min(anchor, S.layers.length - 1)].id : null);
@@ -727,6 +752,7 @@ function duplicateSelected() {
     N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
     N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
     N.color = L.color; N.mode = L.mode; N.modelEuler = L.modelEuler ? { x: L.modelEuler.x, y: L.modelEuler.y, z: L.modelEuler.z } : null;
+    if (L.pen) N.pen = JSON.parse(JSON.stringify(L.pen));   // Pfad-Daten mitkopieren (sonst nicht editierbar)
     S.layers.push(N); ensureFrame(N); newIds.push(N.id);
   }
   S.selIds = newIds; S.selId = newIds[newIds.length - 1]; afterSelChange();
@@ -796,11 +822,11 @@ function saveLayout() {
 const AUTOSAVE_KEY = "ttl_studio_layout";
 let autosaveT = 0, autosaveOff = false;
 function autosave() {
-  if (autosaveOff) return;
+  if (autosaveOff || penEdit) return;   // während laufender Pfad-Bearbeitung keinen Zwischenstand (eingefrorene cw/ch, unkompensiertes Transform) sichern
   try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeLayout())); }
   catch (e) { autosaveOff = true; console.warn("Autospeichern deaktiviert (Speicher voll?):", e.message); }   // Quota → still aufgeben
 }
-function markDirty() { if (autosaveT || autosaveOff) return; autosaveT = setTimeout(() => { autosaveT = 0; autosave(); }, 600); }   // gedrosselt
+function markDirty() { if (autosaveT || autosaveOff || penEdit) return; autosaveT = setTimeout(() => { autosaveT = 0; autosave(); }, 600); }   // gedrosselt; während Pfad-Bearbeitung pausiert
 function flushAutosave() { if (autosaveT) { clearTimeout(autosaveT); autosaveT = 0; autosave(); } }   // beim Verlassen sofort sichern
 window.addEventListener("pagehide", flushAutosave);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushAutosave(); });
@@ -833,7 +859,11 @@ function loadLayout(obj) {
 function syncSelInputs() {
   if (S.selIds.length !== 1) return; const L = sel(); if (!L) return;
   $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y);
-  $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI);
+  const hasDims = L.cw > 0 && L.ch > 0;   // Maße erst bekannt, wenn das Tool seine Striche gemeldet hat (Modell-Ebene lädt asynchron)
+  $("inLw").disabled = $("inLh").disabled = !hasDims;
+  $("inLw").value = hasDims ? Math.max(1, Math.round(L.cw * L.transform.scale)) : "";   // echte mm = Inhaltsmaß × Skalierung (≥1, da Feld min=1)
+  $("inLh").value = hasDims ? Math.max(1, Math.round(L.ch * L.transform.scale)) : "";
+  $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI);
   $("inLcolorOn").checked = !!L.color; $("inLcolor").value = L.color ? rgbStrToHex(L.color) : "#000000";
   $("inLmode").value = L.mode || "KCPenDraw";
 }
@@ -1005,8 +1035,9 @@ const TICONS = {
   shapes: '<rect x="3" y="13" width="8" height="8" rx="1"/><circle cx="16" cy="8" r="5"/>',
   select: '<path d="M5 3l6 16 2.5-6.5L20 10z"/>',
   pennib: '<path d="M12 3l5 5-7 13-3-3z"/><path d="M12 3l-5 5 3 3"/><circle cx="11" cy="12" r="1.2"/>',
+  editnode: '<path d="M5 18C9 8 15 8 19 6"/><rect x="3" y="16" width="4" height="4"/><rect x="17" y="4" width="4" height="4"/><circle cx="12" cy="10.5" r="1.4"/>',
 };
-const MODE_TOOLS = [{ mode: "select", icon: "select", t: ["Auswählen / Bewegen", "Select / Move"] }, { mode: "free", icon: "pen", t: ["Freihand zeichnen", "Freehand draw"] }, { mode: "pen", icon: "pennib", t: ["Pfad (Bézier)", "Path (Bézier)"] }];
+const MODE_TOOLS = [{ mode: "select", icon: "select", t: ["Auswählen / Bewegen", "Select / Move"] }, { mode: "free", icon: "pen", t: ["Freihand zeichnen", "Freehand draw"] }, { mode: "pen", icon: "pennib", t: ["Pfad (Bézier)", "Path (Bézier)"] }, { mode: "edit", icon: "editnode", t: ["Knoten bearbeiten", "Edit nodes"] }];
 const TOOLBAR = [...MODE_TOOLS, { sep: 1 }, { type: "text" }, { type: "image" }, { type: "misc", tool: "model" }, { sep: 1 },
   ...MISC_TOOLS.map(([v]) => ({ type: "misc", tool: v }))];
 const tb = $("toolbar");
@@ -1027,8 +1058,12 @@ $("tbScroll").style.pointerEvents = "none";   // Fade nur Hinweis; Klicks gehen 
 // Auswahl-Transform + Buttons
 $("btnDel").onclick = deleteSelected;
 $("btnDup").onclick = duplicateSelected;
-for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLs", "scale"], ["inLr", "rot"]])
-  $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; if (key === "scale") v = Math.max(0.05, v || 1); L.transform[key] = v; redraw(); markDirty(); });
+for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLr", "rot"]])
+  $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; L.transform[key] = v; redraw(); markDirty(); });
+// Größe in echten mm — an die (uniforme) Skalierung gekoppelt: B/H teilen sich einen Faktor, daher die jeweils andere Achse mitführen (Skalierungsgrenzen wie beim Griff-Ziehen)
+$("inLw").addEventListener("input", () => { const L = sel(); if (!L || !L.cw) return; const mm = +$("inLw").value; if (!(mm > 0)) return; L.transform.scale = clampScale(mm / L.cw); $("inLh").value = Math.max(1, Math.round(L.ch * L.transform.scale)); redraw(); markDirty(); });
+$("inLh").addEventListener("input", () => { const L = sel(); if (!L || !L.ch) return; const mm = +$("inLh").value; if (!(mm > 0)) return; L.transform.scale = clampScale(mm / L.ch); $("inLw").value = Math.max(1, Math.round(L.cw * L.transform.scale)); redraw(); markDirty(); });
+for (const id of ["inLw", "inLh"]) $(id).addEventListener("change", () => syncSelInputs());   // nach der Eingabe (Blur/Enter) die echten, geklammerten mm anzeigen
 // Farbe pro Ebene (überschreibt Tool-/Multicolor-Farben, solange aktiv)
 function applyLayerColor() { const L = sel(); if (!L) return; L.color = $("inLcolorOn").checked ? hexToRgbStr($("inLcolor").value) : null; renderList(); redraw(); }
 $("inLmode").addEventListener("change", () => { const L = sel(); if (!L) return; L.mode = $("inLmode").value; renderList(); redraw(); });
@@ -1067,7 +1102,9 @@ for (const s of DIST_BTNS) $("distRow").appendChild(abtn(s, "distbtn", () => dis
 function applyLangExtras() {   // Tooltips (title-Attribute werden nicht vom TreeWalker übersetzt) bei Sprachwechsel auffrischen
   document.querySelectorAll("#toolbar .toolbtn").forEach(b => { const t = b._t; if (!t) return; b.title = t.mode ? UI.t(t.t[0], t.t[1]) : t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); });
   document.querySelectorAll(".abtn").forEach(b => { if (b._spec) b.title = UI.t(b._spec.t[0], b._spec.t[1]); });
-  const sf = $("inLs").closest(".obf"); if (sf) sf.title = UI.t("Skalierung", "Scale");
+  const wf = $("inLw").closest(".obf"); if (wf) wf.title = UI.t("Breite (mm)", "Width (mm)");
+  const hf = $("inLh").closest(".obf"); if (hf) hf.title = UI.t("Höhe (mm)", "Height (mm)");
+  const al = $("obAspect"); if (al) al.title = UI.t("Breite & Höhe sind proportional gekoppelt (gleichmäßige Skalierung)", "Width & height are aspect-locked (uniform scaling)");
   const rf = $("inLr").closest(".obf"); if (rf) rf.title = UI.t("Drehung (°)", "Rotation (°)");
   $("inLmode").title = UI.t("Plotter-Modus", "Plotter mode");
 }

@@ -61,11 +61,21 @@ let ok = true;
   // Transform: ersten Layer (QR) verschieben + skalieren + drehen via Inputs
   await page.evaluate(() => { selectLayer(S.layers[0].id); });
   await page.fill('#inLx', '60'); await page.dispatchEvent('#inLx', 'input');
-  await page.fill('#inLs', '0.6'); await page.dispatchEvent('#inLs', 'input');
+  // Größe wird jetzt in echten mm angezeigt (B = cw·scale). Für scale 0.6 also cw·0.6 in das Breitenfeld.
+  const cw = await page.evaluate(() => S.layers[0].cw);
+  await page.fill('#inLw', String(cw * 0.6)); await page.dispatchEvent('#inLw', 'input');
   await page.fill('#inLr', '30'); await page.dispatchEvent('#inLr', 'input');
   const tf = await page.evaluate(() => S.layers[0].transform);
-  console.log('QR transform:', JSON.stringify(tf));
-  if (!(tf.x === 60 && Math.abs(tf.scale - 0.6) < 1e-6 && Math.abs(tf.rot - Math.PI / 6) < 1e-3)) { console.log('FAIL transform'); ok = false; }
+  // Breiten-/Höhenfeld muss die echten mm zeigen (cw·scale, ch·scale), gekoppelt an die Skalierung
+  const dims = await page.evaluate(() => ({ w: +document.getElementById('inLw').value, h: +document.getElementById('inLh').value, ew: Math.round(S.layers[0].cw * S.layers[0].transform.scale), eh: Math.round(S.layers[0].ch * S.layers[0].transform.scale) }));
+  console.log('QR transform:', JSON.stringify(tf), '| mm-Anzeige:', JSON.stringify(dims));
+  if (!(tf.x === 60 && Math.abs(tf.scale - 0.6) < 1e-4 && Math.abs(tf.rot - Math.PI / 6) < 1e-3)) { console.log('FAIL transform'); ok = false; }
+  if (!(dims.w === dims.ew && dims.h === dims.eh)) { console.log('FAIL: mm-Anzeige nicht an Skalierung gekoppelt'); ok = false; }
+  // Review-Fix: getippte mm dürfen die Skalierung nicht über die Griff-Grenzen (0.05–50) hinaus treiben
+  const clamp = await page.evaluate(() => { const cw = S.layers[0].cw; const inp = document.getElementById('inLw'); inp.value = String(cw * 9999); inp.dispatchEvent(new Event('input', { bubbles: true })); return S.layers[0].transform.scale; });
+  console.log('scale nach Riesen-Breite:', clamp);
+  if (clamp > 50.0001) { console.log('FAIL: Skalierung nicht geklammert'); ok = false; }
+  await page.evaluate(() => { selectLayer(S.layers[0].id); const inp = document.getElementById('inLw'); inp.value = String(S.layers[0].cw * 0.6); inp.dispatchEvent(new Event('input', { bubbles: true })); });   // zurück auf 0.6 für den Export
 
   // Export (Dateiname-Feld liegt im versteckten Container, Export via Menü-Funktion)
   fs.mkdirSync('/tmp/studio_test', { recursive: true });

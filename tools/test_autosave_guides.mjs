@@ -33,13 +33,14 @@ const studioUrl = 'file://' + path.join(appDir, 'studio.html');
   await page.evaluate(() => { try { localStorage.removeItem('ttl_studio_layout'); } catch {} });
   await page.evaluate(() => addLayer('misc', 'qr'));
   await page.waitForFunction(() => S.layers.length && S.layers[0].strokesCache.length > 0, null, { timeout: 20000 });
-  // QR 120×120 bei y=150 → maxY=270 (>255 Zeichnen, <285 Schneiden)
-  const warnDraw = await page.evaluate(() => { const L = S.layers[0]; L.transform = { x: 0, y: 150, scale: 1, rot: 0 }; L.mode = 'KCPenDraw'; selectLayer(L.id); redraw(); return $('warnInfo').textContent; });
+  // Bereiche unten verankert (Grenze oben): Zeichnen y∈[45,300], Schneiden y∈[15,300].
+  // QR 120×120 bei y=30 → minY=30: außerhalb Zeichnen (<45), aber innerhalb Schneiden (>=15).
+  const warnDraw = await page.evaluate(() => { const L = S.layers[0]; L.transform = { x: 0, y: 30, scale: 1, rot: 0 }; L.mode = 'KCPenDraw'; selectLayer(L.id); redraw(); return $('warnInfo').textContent; });
   const warnCut = await page.evaluate(() => { S.layers[0].mode = 'KCBasicCut'; redraw(); return $('warnInfo').textContent; });
-  const inside = await page.evaluate(() => { S.layers[0].transform.y = 10; redraw(); return $('warnInfo').textContent; });
+  const inside = await page.evaluate(() => { S.layers[0].transform.y = 60; redraw(); return $('warnInfo').textContent; });   // minY=60 → innerhalb beider Bereiche
   console.log('warn draw:', JSON.stringify(warnDraw), '| cut:', JSON.stringify(warnCut), '| inside:', JSON.stringify(inside));
   if (!(warnDraw && /\d/.test(warnDraw))) { console.log('FAIL: keine Warnung außerhalb Zeichenbereich'); ok = false; }
-  if (warnCut !== '') { console.log('FAIL: Schneiden sollte bei y=150 (maxY 270<285) keine Warnung geben'); ok = false; }
+  if (warnCut !== '') { console.log('FAIL: Schneiden sollte bei y=30 (minY 30>=15) keine Warnung geben'); ok = false; }
   if (inside !== '') { console.log('FAIL: innerhalb sollte keine Warnung geben'); ok = false; }
   await page.close();
 }
