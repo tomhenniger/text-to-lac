@@ -229,7 +229,7 @@
 <script src="configs.js"></script>
 <script src="lac.js?v=4"></script>
 <script src="ui.js?v=7"></script>
-<script src="embed.js?v=2"></script>
+<script src="embed.js?v=3"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -1152,7 +1152,7 @@ if (window.HS_EMBED && window.HSEmbed) HSEmbed.register({
     const mc = $("inpMC") && $("inpMC").checked && S.groups.length > 1;
     const src = (S.groups && S.groups.length) ? S.groups : [{ name: "Bild", color: null, strokes: S.strokes }];
     const groups = src.map(g => ({ name: g.name, color: mc && g.color ? hexRgb(g.color).join(" ") + " 255" : null, polylines: g.strokes }));
-    return { cw: W, ch: H, groups };
+    return { cw: W, ch: H, hasSource: !!(S.gray && S.gray.length), groups };   // Bild ist datei-basiert: hasSource = Bild geladen
   },
   recompute: () => recompute(),
 });

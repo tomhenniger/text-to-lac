@@ -281,7 +281,7 @@ function hexToRgbStr(hex) { const n = parseInt(hex.slice(1), 16); return (n >> 1
 function rgbStrToHex(c) { const p = (c || "").split(" "); const h = v => (+v || 0).toString(16).padStart(2, "0"); return "#" + h(p[0]) + h(p[1]) + h(p[2]); }
 function embedUrl(L) {
   const base = L.type === "text" ? "index.html?embed=1" : L.type === "image" ? "bild.html?embed=1" : "misc.html?embed=1&tool=" + L.tool;
-  return base + "&v=2";   // Cache-Bust für die eingebettete Tool-HTML
+  return base + "&v=3";   // Cache-Bust für die eingebettete Tool-HTML (hasSource-Flag)
 }
 
 /* ---------- Transform-Math ---------- */
@@ -750,7 +750,8 @@ function duplicateSelected() {
   for (const L of src) {
     const N = makeLayer(L.type, L.tool); N.name = L.name + UI.t(" Kopie", " copy");
     N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
-    N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
+    N.strokesCache = L.strokesCache.slice(); N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
+    N._restored = N.type !== "pen" && N.strokesCache.length > 0;   // Kopie einer datei-basierten Ebene kann ihre Datei nicht reproduzieren → gecachte Striche schützen
     N.color = L.color; N.mode = L.mode; N.modelEuler = L.modelEuler ? { x: L.modelEuler.x, y: L.modelEuler.y, z: L.modelEuler.z } : null;
     if (L.pen) N.pen = JSON.parse(JSON.stringify(L.pen));   // Pfad-Daten mitkopieren (sonst nicht editierbar)
     S.layers.push(N); ensureFrame(N); newIds.push(N.id);
@@ -849,6 +850,7 @@ function loadLayout(obj) {
     L.color = d.color || null; L.mode = d.mode || "KCPenDraw"; L.modelEuler = d.modelEuler || null;
     L.groups = d.groups || null;
     L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
+    L._restored = L.type !== "pen" && L.strokesCache.length > 0;   // gecachte Striche schützen, bis das (lazy) iframe echte Striche liefert
     if (L.type === "pen" && d.pen) { L.pen = d.pen; penRecompute(L); }   // Pfad-Ebene wieder editierbar machen
     S.layers.push(L);   // iframe wird erst beim Bearbeiten erzeugt (lazy)
   }
@@ -930,8 +932,14 @@ window.addEventListener("message", e => {
     L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*");
     if (isModelLayer(L)) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "requestModelState" }, "*");   // 3D-Drehung holen, sobald das iframe bereit ist
   } else if (m.type === "strokes") {
+    const incoming = (m.groups && m.groups.length) ? m.groups.flatMap(g => g.polylines) : [];
+    // Wiederhergestellte Ebene (Striche aus dem Cache, iframe gerade erst erzeugt): das frische iframe meldet beim Laden
+    // seinen LEEREN Anfangszustand (datei-basierte Tools wie SVG/Bild haben ihre Datei nach dem Reload verloren) — diesen
+    // leeren Stand NICHT übernehmen, sonst verschwinden die wiederhergestellten Striche beim Auswählen der Ebene.
+    if (L._restored && incoming.length === 0 && L.strokesCache.length > 0 && !m.hasSource) return;   // nur den leeren Anfangsstand ohne geladene Quelle ignorieren; „Quelle geladen, aber leer" zählt
+    L._restored = false;   // ab jetzt liefert das iframe die maßgeblichen Striche
     L.groups = m.groups || null;
-    L.strokesCache = (m.groups && m.groups.length) ? m.groups.flatMap(g => g.polylines) : [];
+    L.strokesCache = incoming;
     L.cw = m.cw || 0; L.ch = m.ch || 0; L.params = m.params;
     if (sel() === L) updatePropsUI();   // Striche jetzt da → Ausricht-/Verteil-Buttons sofort aktivieren (nicht erst nach Re-Select)
     scheduleRedraw(); renderList(); setStatus(S.layers.length + " Layer · ausgewählt: " + (sel() ? sel().name : "–"));

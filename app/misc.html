@@ -377,7 +377,7 @@
 <script src="lac.js?v=4"></script>
 <script src="qrcode.js"></script>
 <script src="ui.js?v=7"></script>
-<script src="embed.js?v=2"></script>
+<script src="embed.js?v=3"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -2699,7 +2699,11 @@ if (window.HS_EMBED) {
 if (window.HS_EMBED && window.HSEmbed) HSEmbed.register({
   tool: "misc",
   subtool: () => $("inpTool").value,
-  getStrokes: () => ({ cw: S.cw, ch: S.ch, groups: [{ name: ($("inpFname").value || "misc"), color: null, polylines: S.strokes }] }),
+  getStrokes: () => {
+    const t = $("inpTool").value;   // hasSource nur für datei-basierte Werkzeuge true (Datei geladen) — sonst false (parametrisch, kein unspeicherbarer Quell-Input)
+    const FILE_SRC = { svg: !!__svgData, wave: !!__waveData, model: !!__modelRaw, tsp: !!window.__tspGray };
+    return { cw: S.cw, ch: S.ch, hasSource: (t in FILE_SRC) ? FILE_SRC[t] : false, groups: [{ name: ($("inpFname").value || "misc"), color: null, polylines: S.strokes }] };
+  },
   recompute: () => window.__miscRecompute(),
   selectTool: (t) => { const el = $("inpTool"); if (el) { el.value = t; el.dispatchEvent(new Event("input", { bubbles: true })); } },
   toolList: () => [...document.querySelectorAll('#inpTool option')].map(o => ({ value: o.value, label: o.textContent.trim() })),

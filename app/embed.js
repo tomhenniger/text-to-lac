@@ -35,7 +35,7 @@
     if (!api) return;
     let d; try { d = api.getStrokes(); } catch (e) { return; }
     if (!d) return;
-    post({ type: "strokes", tool: api.tool, subtool: api.subtool ? api.subtool() : "", cw: d.cw, ch: d.ch, groups: d.groups, params: snapshot() });
+    post({ type: "strokes", tool: api.tool, subtool: api.subtool ? api.subtool() : "", cw: d.cw, ch: d.ch, groups: d.groups, hasSource: !!d.hasSource, params: snapshot() });
   }
   function schedule() { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; emit(); }); }
 
