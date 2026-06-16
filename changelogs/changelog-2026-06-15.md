@@ -38,6 +38,9 @@
 
 ## UI-Änderungen
 
+- **Layer-Studio: Build-Plate standardmäßig weiß** (wie die Light-Version) — die Arbeitsfläche folgt nicht mehr dem Dark-Theme, sondern ist als Papier weiß (dunkle Tinte), unabhängig vom UI-Theme.
+- **Layer-Studio: eigene Modals** statt der Browser-Standarddialoge (Arbeitsfläche, Dateiname, „Neu", Fehlermeldungen) — gestyltes Overlay mit Abbrechen/OK, Enter/Esc.
+- **Layer-Studio: Ebenenlisten-Icons als SVG** (Sichtbarkeit/Reihenfolge) statt Emojis.
 - **Layer-Studio: Ausricht-Werkzeuge in eine obere Options-Leiste** (Photoshop-Stil) verschoben — Bezugs-Auswahl + Ausrichten/Verteilen sitzen jetzt am oberen Bildschirmrand statt im Eigenschaften-Panel; die Buttons aktivieren/deaktivieren sich je nach Auswahl, rechts steht die Anzahl der gewählten Ebenen.
 - **Layer-Studio: ein-/ausklappbare Seiten-Panels** — „Ebenen“ und „Eigenschaften“ lassen sich per Klick auf die Kopfzeile zuklappen (Pfeil-Indikator), um mehr Platz für das eingebettete Werkzeug in der Sidebar zu schaffen.
 - **Layer-Studio: Dreh-Griff steht jetzt radial** (senkrecht auf der Oberkante der Auswahlbox) statt seitlich versetzt.
@@ -47,6 +50,8 @@
 
 ## Bugfixes
 
+- Layer-Studio: die erste angelegte Ebene ließ sich erst nach erneutem Auswählen ausrichten — die Ausricht-/Verteil-Buttons werden jetzt sofort aktiv, sobald die Striche ankommen.
+- Misc Tools / 3D: der Hilfetext erschien im englischen UI auf Deutsch (i18n-Schlüssel passte nicht mehr zum aktualisierten Text) — behoben.
 - Layer-Studio: Duplizieren übernimmt jetzt Farbe und 3D-Drehung der Vorlage; SVG-Export schreibt die Farben pro Gruppe (vorher alles schwarz, obwohl `.lac` farbig war); exakte 3D-Winkel bleiben auch bei Gimbal-Lock (y=90°) erhalten; der Studio-Trackball rechnet Drehungen pro Frame gebündelt (flüssiger bei großen Modellen).
 - **3D-Modell: verdeckte Kanten drastisch schneller** — die Verdeckungsrechnung nutzt jetzt einen Software-Tiefenpuffer (z-Buffer, alle Dreiecke einmal pro Ansicht gerastert) statt pro Kantenpunkt zu raycasten und cacht das Ergebnis pro Ansicht. Ein Moduswechsel ist dadurch praktisch sofort (statt spürbarer Verzögerung): ~1000 Dreiecke unter 10 ms, gecachter Moduswechsel < 1 ms.
 - **3D-Modell im Studio drehbar** — im eingebetteten Tool wird die 3D-Vorschau jetzt eingeblendet (unter den Einstellungen), sodass sich das Modell auch im Layer-Studio per Ziehen frei drehen lässt.
