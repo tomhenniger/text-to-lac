@@ -62,6 +62,10 @@
                border-top: 1px solid var(--border); display: flex; gap: 18px; }
   .toolopts { display: none; }
   .toolopts.active { display: block; }
+  /* Im Studio-Embed: Zeichenfläche fürs Stift-Tool einblenden */
+  html.embed.embed-draw body { flex-direction: column; }
+  html.embed.embed-draw #main { display: flex !important; height: 360px; flex: none; order: -1; border-bottom: 1px solid var(--border); }   /* Zeichenfläche oben → immer sichtbar */
+  html.embed.embed-draw #main canvas { cursor: crosshair; }
   .qrsub { display: none; }
   .qrsub.active { display: block; }
   .filepick { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
@@ -91,6 +95,10 @@
         <optgroup label="Codes" data-de="Codes">
           <option value="spotify">Spotify-Code</option>
           <option value="qr">QR-Code</option>
+        </optgroup>
+        <optgroup label="Zeichnen" data-de="Zeichnen">
+          <option value="pen">Stift (Freihand)</option>
+          <option value="shapes">Grundformen</option>
         </optgroup>
         <optgroup label="Vorlagen &amp; Utility" data-de="Vorlagen &amp; Utility">
           <option value="svg">SVG-Import</option>
@@ -179,6 +187,30 @@
         </select>
         <div class="checkrow"><input type="checkbox" id="inpQrOutline" checked><span>Kontur nachfahren (crispe Kanten)</span></div>
         <div class="hint">Mehr Fehlerkorrektur = robuster lesbar, aber dichteres Muster (mehr Stiftweg). Lass rundherum etwas weißen Rand frei (Ruhezone), damit Scanner den Code finden.</div>
+      </div>
+      <div class="toolopts" data-tool="pen">
+        <label>Glättung</label>
+        <div class="slider"><input type="range" id="inpPenSmooth" min="0" max="3" step="0.1" value="1"><span class="val" id="valPenSmooth"></span></div>
+        <div class="btnrow"><button type="button" id="btnPenUndo">Rückgängig</button><button type="button" id="btnPenClear">Leeren</button></div>
+        <div class="hint">Auf der Fläche ziehen zum Zeichnen (im Studio Alt/Strg nicht nötig). Shift+Ziehen = verschieben, Mausrad = Zoom. Glättung reduziert das Zittern.</div>
+      </div>
+      <div class="toolopts" data-tool="shapes">
+        <label>Form</label>
+        <select id="inpShape">
+          <option value="rect">Rechteck</option>
+          <option value="roundrect">Rechteck (abgerundet)</option>
+          <option value="ellipse">Ellipse / Kreis</option>
+          <option value="polygon">Vieleck</option>
+          <option value="star">Stern</option>
+          <option value="line">Linie</option>
+        </select>
+        <div class="row"><div><label>Breite (mm)</label><input type="number" id="inpShapeW" value="80" min="1" max="600" step="1"></div><div><label>Höhe (mm)</label><input type="number" id="inpShapeH" value="60" min="1" max="600" step="1"></div></div>
+        <label>Eckradius (mm)</label><div class="slider"><input type="range" id="inpShapeR" min="0" max="80" step="1" value="10"><span class="val" id="valShapeR"></span></div>
+        <div class="row"><div><label>Ecken / Zacken</label><input type="number" id="inpShapeN" value="5" min="3" max="60" step="1"></div><div><label>Innenradius (%)</label><input type="number" id="inpShapeInner" value="50" min="5" max="95" step="1"></div></div>
+        <label>Drehung (°)</label><div class="slider"><input type="range" id="inpShapeRot" min="0" max="360" step="1" value="0"><span class="val" id="valShapeRot"></span></div>
+        <div class="checkrow"><input type="checkbox" id="inpShapeFill"><span>Füllen (Schraffur)</span></div>
+        <label>Füll-Winkel (°)</label><div class="slider"><input type="range" id="inpShapeFillAng" min="0" max="180" step="5" value="45"><span class="val" id="valShapeFillAng"></span></div>
+        <div class="hint">Grundformen als Stiftlinien. Eckradius gilt fürs abgerundete Rechteck, Ecken/Zacken für Vieleck/Stern, Innenradius nur für den Stern. Füllung nutzt die Stiftbreite oben als Abstand.</div>
       </div>
             <div class="toolopts" data-tool="svg">
 <label>SVG-Datei</label>
@@ -2296,7 +2328,67 @@ function initModel() {
   });
 }
 
-const BUILDERS = { qr: buildQR , svg: buildSvg, paper: buildPaper, pentest: buildPentest, spacefill: buildSpacefill, spiro: buildSpiro, maze: buildMaze, fxplot: buildFxplot, tsp: buildTsp, wave: buildWave, model: buildModel };   // weitere Tools registrieren sich hier
+/* ---------- Stift (Freihand) ---------- */
+let __penStrokes = [], __penCur = null;
+function penPt(clientX, clientY) { const r = cv.getBoundingClientRect(); return [((clientX - r.left) - S.view.ox) / S.view.scale, ((clientY - r.top) - S.view.oy) / S.view.scale]; }
+function buildPen() {
+  const amt = +$("inpPenSmooth").value || 0;
+  S.strokes = __penStrokes.map(s => s.length > 2 ? rdp(s, 0.3 + amt) : s).filter(s => s.length >= 2);
+  if (S.strokes.length) { S.cw = +$("inpMatW").value; S.ch = +$("inpMatH").value; }   // volle Arbeitsfläche → gezeichnete mm-Koordinaten bleiben an Ort
+  else { S.cw = S.ch = 0; }                                                            // leer → Studio-Invariante (keine Auswahlbox/Align)
+  draw(); setStatus(S.strokes.length + " " + UI.t("Striche", "strokes"));
+}
+cv.addEventListener("mousedown", e => {
+  if (e.button !== 0 || $("inpTool").value !== "pen" || e.shiftKey) return;        // nur linke Maustaste
+  __penCur = [penPt(e.clientX, e.clientY)]; __penStrokes.push(__penCur); e.stopImmediatePropagation();
+}, true);
+window.addEventListener("mousemove", e => { if (!__penCur) return; if ($("inpTool").value !== "pen") { __penCur = null; return; } __penCur.push(penPt(e.clientX, e.clientY)); buildPen(); });
+window.addEventListener("mouseup", () => { if (!__penCur) return; if (__penCur.length < 2) __penStrokes.pop(); __penCur = null; buildPen(); });
+
+/* ---------- Grundformen ---------- */
+function hatchPolygon(poly, spacing, angleDeg) {   // Schraffur-Linien innerhalb eines geschlossenen Polygons (Even-Odd)
+  const a = angleDeg * Math.PI / 180, ca = Math.cos(-a), sa = Math.sin(-a), cb = Math.cos(a), sb = Math.sin(a);
+  const rot = poly.map(([x, y]) => [x * ca - y * sa, x * sa + y * ca]);
+  let minY = 1e9, maxY = -1e9; for (const [, y] of rot) { if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  const out = [];
+  for (let yy = minY + spacing * 0.5; yy < maxY; yy += spacing) {
+    const xs = [];
+    for (let i = 0; i < rot.length; i++) { const [x1, y1] = rot[i], [x2, y2] = rot[(i + 1) % rot.length];
+      if ((y1 <= yy && y2 > yy) || (y2 <= yy && y1 > yy)) xs.push(x1 + (yy - y1) / (y2 - y1) * (x2 - x1)); }
+    xs.sort((p, q) => p - q);
+    for (let i = 0; i + 1 < xs.length; i += 2) { const a0 = [xs[i], yy], b0 = [xs[i + 1], yy];
+      out.push([[a0[0] * cb - a0[1] * sb, a0[0] * sb + a0[1] * cb], [b0[0] * cb - b0[1] * sb, b0[0] * sb + b0[1] * cb]]); }
+  }
+  return out;
+}
+function buildShapes() {
+  const kind = $("inpShape").value, W = Math.max(1, +$("inpShapeW").value), H = Math.max(1, +$("inpShapeH").value);
+  const rx = W / 2, ry = H / 2, rot = (+$("inpShapeRot").value || 0) * Math.PI / 180, pen = Math.max(0.2, +$("inpPenW").value || 0.45);
+  let poly = [], open = false;
+  if (kind === "line") { poly = [[-rx, 0], [rx, 0]]; open = true; }
+  else if (kind === "rect") poly = [[-rx, -ry], [rx, -ry], [rx, ry], [-rx, ry]];
+  else if (kind === "roundrect") {
+    const r = Math.max(0, Math.min(+$("inpShapeR").value || 0, Math.min(rx, ry))), k = 8;
+    const corner = (cx, cy, a0) => { const pts = []; for (let i = 0; i <= k; i++) { const a = a0 + (i / k) * (Math.PI / 2); pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return pts; };
+    poly = [].concat(corner(rx - r, ry - r, 0), corner(-rx + r, ry - r, Math.PI / 2), corner(-rx + r, -ry + r, Math.PI), corner(rx - r, -ry + r, -Math.PI / 2));
+  } else if (kind === "ellipse") { const k = 96; for (let i = 0; i < k; i++) { const a = i / k * 2 * Math.PI; poly.push([rx * Math.cos(a), ry * Math.sin(a)]); } }
+  else if (kind === "polygon") { const n = Math.max(3, Math.min(60, +$("inpShapeN").value | 0)); for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + i / n * 2 * Math.PI; poly.push([rx * Math.cos(a), ry * Math.sin(a)]); } }
+  else if (kind === "star") { const n = Math.max(3, Math.min(60, +$("inpShapeN").value | 0)), inr = Math.max(0.05, Math.min(0.95, (+$("inpShapeInner").value || 50) / 100)); for (let i = 0; i < 2 * n; i++) { const a = -Math.PI / 2 + i / (2 * n) * 2 * Math.PI, rr = i % 2 ? inr : 1; poly.push([rx * rr * Math.cos(a), ry * rr * Math.sin(a)]); } }
+  const cs = Math.cos(rot), sn = Math.sin(rot);
+  let pr = poly.map(([x, y]) => [x * cs - y * sn, x * sn + y * cs]);
+  const fill = !open && $("inpShapeFill").checked ? hatchPolygon(pr, pen, +$("inpShapeFillAng").value || 0) : [];
+  const strokes = [];
+  if (open) strokes.push(pr); else strokes.push(pr.concat([pr[0]]));   // Kontur (geschlossen)
+  for (const f of fill) strokes.push(f);
+  let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  for (const s of strokes) for (const [x, y] of s) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  const bw = Math.max(maxX - minX, pen), bh = Math.max(maxY - minY, pen), ox = (bw - (maxX - minX)) / 2, oy = (bh - (maxY - minY)) / 2;   // dünne/Linien-Formen nicht auf 0 kollabieren
+  S.strokes = strokes.map(s => s.map(([x, y]) => [x - minX + ox, y - minY + oy]));
+  S.cw = bw; S.ch = bh;
+  finishCompute(UI.t("Form", "shape") + ": " + kind);
+}
+
+const BUILDERS = { qr: buildQR , svg: buildSvg, paper: buildPaper, pentest: buildPentest, spacefill: buildSpacefill, spiro: buildSpiro, maze: buildMaze, fxplot: buildFxplot, tsp: buildTsp, wave: buildWave, model: buildModel, pen: buildPen, shapes: buildShapes };   // weitere Tools registrieren sich hier
 async function recompute() {
   const tool = $("inpTool").value;
   try {
@@ -2444,6 +2536,11 @@ function showToolOpts() {
   const tool = $("inpTool").value;
   document.querySelectorAll(".toolopts").forEach(el => el.classList.toggle("active", el.dataset.tool === tool));
   if (tool !== "model") { modelOrbit = null; __modelOrbiting = false; }   // laufenden Orbit beim Tool-Wechsel verwerfen
+  if (tool !== "pen") __penCur = null;                                    // laufenden Stiftzug beim Tool-Wechsel verwerfen
+  if (window.HS_EMBED) {                                  // Stift-Tool braucht im Studio eine Zeichenfläche
+    document.documentElement.classList.toggle("embed-draw", tool === "pen");
+    if (tool === "pen") requestAnimationFrame(() => { try { resize(); fitView(); } catch (e) {} });
+  }
 }
 // Native File-Inputs durch gestylten Button + Dateiname ersetzen
 function prettifyFileInputs() {
@@ -2486,13 +2583,15 @@ for (const id of ["inpSpLogo", "inpSpMode", "inpSpOutline", "inpQrText", "inpQrE
   $(id).addEventListener("input", recompute);
 $("inpQrType").addEventListener("input", () => { showQrSub(); recompute(); });
 showQrSub();
-const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"], ["inpSvgRes", "valSvgRes", " u"], ["inpSvgSimplify", "valSvgSimplify", " mm"], ["inpPaperSpace", "valPaperSpace", " mm"], ["ptSqSize", "valPtSqSize", "mm"], ["ptScaleLen", "valPtScaleLen", "mm"], ["ptRings", "valPtRings", ""], ["ptGap", "valPtGap", "mm"], ["inpSfOrder", "valInpSfOrder", ""], ["inpSpA", "valSpA", ""], ["inpSpB", "valSpB", ""], ["inpSpC", "valSpC", ""], ["inpSpTurns", "valSpTurns", ""], ["inpSpDetail", "valSpDetail", " pts"], ["inpMazeCols", "valMazeCols", ""], ["inpTspPoints", "valTspPoints", " Punkte"], ["inpWaveBars", "valWaveBars", ""], ["inpModelCrease", "valModelCrease", "°"]];
+const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"], ["inpSvgRes", "valSvgRes", " u"], ["inpSvgSimplify", "valSvgSimplify", " mm"], ["inpPaperSpace", "valPaperSpace", " mm"], ["ptSqSize", "valPtSqSize", "mm"], ["ptScaleLen", "valPtScaleLen", "mm"], ["ptRings", "valPtRings", ""], ["ptGap", "valPtGap", "mm"], ["inpSfOrder", "valInpSfOrder", ""], ["inpSpA", "valSpA", ""], ["inpSpB", "valSpB", ""], ["inpSpC", "valSpC", ""], ["inpSpTurns", "valSpTurns", ""], ["inpSpDetail", "valSpDetail", " pts"], ["inpMazeCols", "valMazeCols", ""], ["inpTspPoints", "valTspPoints", " Punkte"], ["inpWaveBars", "valWaveBars", ""], ["inpModelCrease", "valModelCrease", "°"], ["inpPenSmooth", "valPenSmooth", ""], ["inpShapeR", "valShapeR", " mm"], ["inpShapeRot", "valShapeRot", "°"], ["inpShapeFillAng", "valShapeFillAng", "°"]];
 for (const [id, vid, unit] of SLIDERS) {
   const upd = () => { $(vid).textContent = $(id).value + unit; };
   $(id).addEventListener("input", () => { upd(); recompute(); });
   upd();
 }
-for (const id of ["inpSvgClose","inpPaperH","inpPaperType","ptRegistration","ptSerpentine","inpSfType","inpSpType","inpMazeH","inpMazeSeed","inpFxExpr","inpFxXmin","inpFxXmax","inpFxAxes","inpTspInvert","inpWaveStyle","inpWaveHeight","inpModelSilhouette","inpModelZup","inpModelHidden"]) { const el = $(id); if (el) el.addEventListener("input", recompute); }
+for (const id of ["inpSvgClose","inpPaperH","inpPaperType","ptRegistration","ptSerpentine","inpSfType","inpSpType","inpMazeH","inpMazeSeed","inpFxExpr","inpFxXmin","inpFxXmax","inpFxAxes","inpTspInvert","inpWaveStyle","inpWaveHeight","inpModelSilhouette","inpModelZup","inpModelHidden","inpShape","inpShapeW","inpShapeH","inpShapeN","inpShapeInner","inpShapeFill"]) { const el = $(id); if (el) el.addEventListener("input", recompute); }
+$("btnPenUndo").onclick = () => { __penStrokes.pop(); buildPen(); };
+$("btnPenClear").onclick = () => { __penStrokes = []; buildPen(); };
 try { initSvg(); } catch (e) { console.error("initSvg", e); }
 try { initMaze(); } catch (e) { console.error("initMaze", e); }
 try { initTsp(); } catch (e) { console.error("initTsp", e); }
@@ -2563,6 +2662,18 @@ Object.assign(I18N_EN, {
   "Zu viele Dreiecke (": "Too many triangles (",
   "Keine Kanten — Winkel/Silhouette anpassen.": "No edges — adjust angle/silhouette.",
   "Dreiecke": "faces", "Kanten": "edges"
+});
+Object.assign(I18N_EN, {
+  "Zeichnen": "Drawing", "Stift (Freihand)": "Pen (freehand)", "Grundformen": "Basic shapes",
+  "Glättung": "Smoothing", "Rückgängig": "Undo", "Leeren": "Clear", "Striche": "strokes",
+  "Auf der Fläche ziehen zum Zeichnen (im Studio Alt/Strg nicht nötig). Shift+Ziehen = verschieben, Mausrad = Zoom. Glättung reduziert das Zittern.":
+    "Drag on the canvas to draw (no Alt/Ctrl needed in the studio). Shift+drag = pan, wheel = zoom. Smoothing reduces jitter.",
+  "Form": "Shape", "Breite (mm)": "Width (mm)", "Drehung (°)": "Rotation (°)", "Rechteck": "Rectangle", "Rechteck (abgerundet)": "Rounded rectangle", "Ellipse / Kreis": "Ellipse / circle",
+  "Vieleck": "Polygon", "Stern": "Star", "Linie": "Line",
+  "Eckradius (mm)": "Corner radius (mm)", "Ecken / Zacken": "Sides / points", "Innenradius (%)": "Inner radius (%)",
+  "Füllen (Schraffur)": "Fill (hatch)", "Füll-Winkel (°)": "Fill angle (°)",
+  "Grundformen als Stiftlinien. Eckradius gilt fürs abgerundete Rechteck, Ecken/Zacken für Vieleck/Stern, Innenradius nur für den Stern. Füllung nutzt die Stiftbreite oben als Abstand.":
+    "Basic shapes as pen lines. Corner radius applies to the rounded rectangle, sides/points to polygon/star, inner radius only to the star. Fill uses the pen width above as spacing.",
 });
 UI.initTheme();
 UI.onThemeChange(() => draw());

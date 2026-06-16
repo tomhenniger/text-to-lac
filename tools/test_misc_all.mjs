@@ -59,6 +59,15 @@ for (const v of ['paper', 'pentest', 'spacefill', 'spiro', 'maze', 'fxplot']) {
   await sel(v); results[v] = await read(); await shot(v);
 }
 
+// 2b) shapes (parametrisch): Stern mit Füllung
+await sel('shapes');
+await page.evaluate(() => { const s = document.getElementById('inpShape'); s.value = 'star'; s.dispatchEvent(new Event('input', { bubbles: true })); const f = document.getElementById('inpShapeFill'); f.checked = true; f.dispatchEvent(new Event('input', { bubbles: true })); });
+await page.waitForTimeout(300); results['shapes'] = await read(); await shot('shapes');
+// Linie (achsenparallel) darf NICHT cw=0/ch=0 liefern (sonst im Studio nicht editierbar)
+const lineBox = await page.evaluate(() => { const s = document.getElementById('inpShape'); s.value = 'line'; s.dispatchEvent(new Event('input', { bubbles: true })); return { cw: S.cw, ch: S.ch, n: S.strokes.length }; });
+const lineOk = lineBox.cw > 0 && lineBox.ch > 0 && lineBox.n >= 1;
+console.log('shapes line bbox:', JSON.stringify(lineBox), lineOk ? 'OK' : 'FAIL');
+
 // 3) file tools
 await sel('svg'); await injectFile('inpSvgFile', 'svg'); await page.waitForTimeout(900); results['svg'] = await read(); await shot('svg');
 await sel('tsp'); await injectFile('inpTspFile', 'png'); await page.waitForTimeout(2500); results['tsp'] = await read(); await shot('tsp');
@@ -73,6 +82,7 @@ await browser.close();
 
 console.log('=== results ===');
 let ok = true;
+if (!lineOk) { console.log('FAIL: Linien-Form hat 0-Dimension (im Studio nicht editierbar)'); ok = false; }
 for (const [k, r] of Object.entries(results)) {
   const good = r.n > 0 && r.cw > 0;
   console.log(`${good ? 'OK ' : 'FAIL'} ${k.padEnd(12)} strokes=${String(r.n).padStart(6)} cw=${r.cw} ch=${r.ch} | ${r.info}`);

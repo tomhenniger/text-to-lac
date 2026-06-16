@@ -94,7 +94,7 @@
         type: "PathObject",
       });
       components.push({ obj_id: oid, transform: `1 0 0 1 ${fmtN(mcx)} ${fmtN(mcy)}` });
-      objectSettings.push({ obj_id: oid, process_type: processType });
+      objectSettings.push({ obj_id: oid, process_type: grp.processType || processType });   // pro Objekt: Zeichnen/Ausmalen/Schneiden
       plateComponents.push({ obj_id: oid, transform: `1 0 0 1 ${fmtN(mcx)} ${fmtN(mcy)}` });
       oid += 1;
     }

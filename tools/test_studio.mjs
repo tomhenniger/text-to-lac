@@ -55,13 +55,17 @@ let ok = true;
 
   // Export (Dateiname-Feld liegt im versteckten Container, Export via Menü-Funktion)
   fs.mkdirSync('/tmp/studio_test', { recursive: true });
-  await page.evaluate(() => { $('inFname').value = 'KompoTest'; });
+  // QR-Ebene auf "Schneiden" setzen → muss als KCBasicCut exportiert werden, der Rest bleibt KCPenDraw
+  await page.evaluate(() => { $('inFname').value = 'KompoTest'; S.layers[0].mode = 'KCBasicCut'; });
   const [dl] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportLac())]);
   await dl.saveAs('/tmp/studio_test/k.lac');
   execSync('cd /tmp/studio_test && rm -rf out && mkdir out && unzip -oq k.lac -d out');
   const objs = JSON.parse(fs.readFileSync('/tmp/studio_test/out/2D/2dmodel.json', 'utf8')).canvas_list[0].obj_list;
   console.log('.lac Objekte:', objs.map(o => o.name + '(' + o.path_data.length + ')').join(', '));
   if (objs.length < 2 || objs.some(o => !o.path_data || o.path_data.length < 10)) { console.log('FAIL export'); ok = false; }
+  const proc = JSON.parse(fs.readFileSync('/tmp/studio_test/out/Metadata2D/project_settings.json', 'utf8')).canvas_settings[0].object_settings.map(o => o.process_type);
+  console.log('Prozess-Typen:', JSON.stringify(proc));
+  if (!(proc.includes('KCBasicCut') && proc.includes('KCPenDraw'))) { console.log('FAIL: Plotter-Modus pro Objekt nicht im Export'); ok = false; }
 
   await page.screenshot({ path: '/tmp/studio_test/studio.png', clip: { x: 320, y: 0, width: 1180, height: 900 } });
   if (errs.length) { console.log('JS ERRORS:', JSON.stringify(errs)); ok = false; }

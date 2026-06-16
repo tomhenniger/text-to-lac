@@ -39,7 +39,8 @@
              cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .toolbtn:hover { background: var(--hover); border-color: var(--border); }
   .tbsep { width: 28px; height: 1px; background: var(--border); margin: 3px 0; }
-  #main { flex: 1; position: relative; min-width: 0; }
+  #main { flex: 1; position: relative; min-width: 0; background: #e9ece9; }   /* heller Arbeitsbereich (Papier-Desk), unabhängig vom Theme */
+  html[data-theme="dark"] #main { background: #e9ece9; }
   canvas { display: block; width: 100%; height: 100%; cursor: default; }
   /* Rechtes Panel */
   #rightpanel { width: 360px; flex: none; background: var(--panel); border-left: 1px solid var(--border);
@@ -158,6 +159,12 @@
             <div><label>Skalierung</label><input type="number" id="inLs" step="0.05" min="0.05"></div>
             <div><label>Drehung (°)</label><input type="number" id="inLr" step="1"></div>
           </div>
+          <label>Plotter-Modus</label>
+          <select id="inLmode">
+            <option value="KCPenDraw">Stift zeichnen</option>
+            <option value="KCPenDrawFill">Ausmalen (Füllen)</option>
+            <option value="KCBasicCut">Schneiden</option>
+          </select>
           <div class="row" style="align-items:center;margin-top:8px">
             <label style="margin:0;flex:0 0 auto;display:flex;align-items:center;gap:6px"><input type="checkbox" id="inLcolorOn" style="width:auto">Farbe</label>
             <input type="color" id="inLcolor" value="#000000" style="flex:0 0 auto;width:42px;height:28px;padding:0;border-radius:6px">
@@ -201,7 +208,7 @@ const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
 
 const PAPERS = { none: null, A4P: [210, 297], A4L: [297, 210], A5P: [148, 210], A3P: [297, 420], Letter: [215.9, 279.4] };
-const MISC_TOOLS = [["qr","QR-Code"],["spotify","Spotify-Code"],["svg","SVG-Import"],["paper","Papier / Raster"],
+const MISC_TOOLS = [["pen","Stift (Freihand)"],["shapes","Grundformen"],["qr","QR-Code"],["spotify","Spotify-Code"],["svg","SVG-Import"],["paper","Papier / Raster"],
   ["pentest","Stift-Test"],["spacefill","Space-Filling-Kurven"],["spiro","Spirograph / Lissajous"],
   ["maze","Labyrinth"],["fxplot","Funktionsplotter"],["tsp","TSP- / Stipple-Art"],["wave","Audio-Waveform"]];
 function toolLabel(t){ const m=MISC_TOOLS.find(x=>x[0]===t); return t==="model"?"3D-Modell":(m?m[1]:t); }
@@ -213,7 +220,7 @@ let snapGuides = null;
 function makeLayer(type, tool) {
   return { id: LID++, type, tool: tool || null, label: tool ? toolLabel(tool) : (type === "text" ? "Text" : "Bild"),
     visible: true, transform: { x: 40, y: 40, scale: 1, rot: 0 }, params: null,
-    strokesCache: [], groups: null, cw: 0, ch: 0, color: null, modelEuler: null, _frame: null };
+    strokesCache: [], groups: null, cw: 0, ch: 0, color: null, mode: "KCPenDraw", modelEuler: null, _frame: null };
 }
 function isModelLayer(L) { return !!L && L.type === "misc" && L.tool === "model"; }
 function hexToRgbStr(hex) { const n = parseInt(hex.slice(1), 16); return (n >> 16 & 255) + " " + (n >> 8 & 255) + " " + (n & 255) + " 255"; }
@@ -279,12 +286,15 @@ function redraw() {
     if (!L.visible) continue;
     const f = layerMap(L);
     const groups = (L.groups && L.groups.length) ? L.groups : [{ color: null, polylines: L.strokesCache }];
+    const cut = L.mode === "KCBasicCut";
+    ctx.setLineDash(cut ? [1.6, 1.2] : []);   // Schneiden gestrichelt darstellen
     for (const g of groups) {
-      ctx.strokeStyle = groupColor(L.color || g.color, M.ink);
+      ctx.strokeStyle = cut && !L.color && !g.color ? "#d23b3b" : groupColor(L.color || g.color, M.ink);
       ctx.beginPath();
       for (const st of g.polylines) { if (st.length < 2) continue; const p0 = f(st[0]); ctx.moveTo(p0[0], p0[1]); for (let i = 1; i < st.length; i++) { const p = f(st[i]); ctx.lineTo(p[0], p[1]); } }
       ctx.stroke();
     }
+    ctx.setLineDash([]);
   }
   // Snap-Guides
   if (snapGuides) { ctx.strokeStyle = P.marker; ctx.lineWidth = 0.3; ctx.beginPath();
@@ -527,7 +537,7 @@ function duplicateSelected() {
     const N = makeLayer(L.type, L.tool); N.label = L.label;
     N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
     N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
-    N.color = L.color; N.modelEuler = L.modelEuler ? { x: L.modelEuler.x, y: L.modelEuler.y, z: L.modelEuler.z } : null;
+    N.color = L.color; N.mode = L.mode; N.modelEuler = L.modelEuler ? { x: L.modelEuler.x, y: L.modelEuler.y, z: L.modelEuler.z } : null;
     S.layers.push(N); ensureFrame(N); newIds.push(N.id);
   }
   S.selIds = newIds; S.selId = newIds[newIds.length - 1]; afterSelChange();
@@ -569,7 +579,7 @@ function renderList() {
 function saveLayout() {
   const data = { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper,
     layers: S.layers.map(L => ({ type: L.type, tool: L.tool, label: L.label, visible: L.visible,
-      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, modelEuler: L.modelEuler,
+      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler,
       groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
@@ -585,7 +595,7 @@ function loadLayout(obj) {
     L.label = d.label || L.label; L.visible = d.visible !== false;
     if (d.transform) L.transform = d.transform;
     L.params = d.params || null; L.cw = +d.cw || 0; L.ch = +d.ch || 0;
-    L.color = d.color || null; L.modelEuler = d.modelEuler || null;
+    L.color = d.color || null; L.mode = d.mode || "KCPenDraw"; L.modelEuler = d.modelEuler || null;
     L.groups = d.groups || null;
     L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
     S.layers.push(L);   // iframe wird erst beim Bearbeiten erzeugt (lazy)
@@ -598,6 +608,7 @@ function syncSelInputs() {
   $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y);
   $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI);
   $("inLcolorOn").checked = !!L.color; $("inLcolor").value = L.color ? rgbStrToHex(L.color) : "#000000";
+  $("inLmode").value = L.mode || "KCPenDraw";
 }
 function syncModelEuler() {
   const L = sel(); if (!L || !L.modelEuler) return;
@@ -703,7 +714,7 @@ function buildGroups() {
     const f = layerMap(L);
     const groups = (L.groups && L.groups.length) ? L.groups : [{ name: L.label, color: null, polylines: L.strokesCache }];
     groups.forEach(g => { const polys = g.polylines.map(st => st.map(f)).filter(st => st.length >= 2);
-      if (polys.length) out.push({ name: L.label + (groups.length > 1 ? " — " + g.name : ""), color: L.color || g.color || undefined, strokes: polys }); });
+      if (polys.length) out.push({ name: L.label + (groups.length > 1 ? " — " + g.name : ""), color: L.color || g.color || undefined, processType: L.mode || "KCPenDraw", strokes: polys }); });
   }
   return out;
 }
@@ -762,6 +773,8 @@ const TICONS = {
   fxplot: '<path d="M4 4v16h16"/><path d="M4 16C8 8 12 20 20 8"/>',
   tsp: '<path d="M6 7l5-2 6 4-9 5 5 3"/><circle cx="6" cy="7" r="1.2"/><circle cx="11" cy="5" r="1.2"/><circle cx="17" cy="9" r="1.2"/><circle cx="8" cy="14" r="1.2"/><circle cx="13" cy="17" r="1.2"/>',
   wave: '<path d="M4 12v2M7 9v6M10 5v14M13 9v6M16 7v10M19 11v2"/>',
+  pen: '<path d="M4 20l4-1L19 8a2 2 0 0 0-3-3L5 16z"/><path d="M14 7l3 3"/>',
+  shapes: '<rect x="3" y="13" width="8" height="8" rx="1"/><circle cx="16" cy="8" r="5"/>',
 };
 const TOOLBAR = [{ type: "text", label: "Text" }, { type: "image", label: "Bild" }, { type: "misc", tool: "model", label: "3D-Modell" }, { sep: 1 },
   ...MISC_TOOLS.map(([v, l]) => ({ type: "misc", tool: v, label: l }))];
@@ -782,6 +795,7 @@ for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLs", "scale"], ["inLr
   $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; if (key === "scale") v = Math.max(0.05, v || 1); L.transform[key] = v; redraw(); });
 // Farbe pro Ebene (überschreibt Tool-/Multicolor-Farben, solange aktiv)
 function applyLayerColor() { const L = sel(); if (!L) return; L.color = $("inLcolorOn").checked ? hexToRgbStr($("inLcolor").value) : null; renderList(); redraw(); }
+$("inLmode").addEventListener("change", () => { const L = sel(); if (!L) return; L.mode = $("inLmode").value; renderList(); redraw(); });
 $("inLcolorOn").addEventListener("change", applyLayerColor);
 $("inLcolor").addEventListener("input", () => { if (!$("inLcolorOn").checked) $("inLcolorOn").checked = true; applyLayerColor(); });
 // 3D-Drehung (Modell) exakt eingeben → an das eingebettete Tool senden
@@ -920,6 +934,7 @@ const I18N_EN = {
   "Keine gültige .handschrift-Datei.": "Not a valid .handschrift file.",
   "Datei konnte nicht gelesen werden.": "Could not read file.", "Layer geladen": "layers loaded",
   "Ausrichten an": "Align to", "Auswahl": "Selection", "Blatt": "Sheet", "ausgewählt": "selected", "Farbe": "Color",
+  "Plotter-Modus": "Plotter mode", "Stift zeichnen": "Pen draw", "Ausmalen (Füllen)": "Fill (pen fill)", "Schneiden": "Cut",
   "Multicolor-Ebenen behalten ihre Farben, solange „Farbe“ aus ist.": "Multicolor layers keep their colors while “Color” is off.",
   "3D-Drehung Modell (°) — X / Y / Z": "3D model rotation (°) — X / Y / Z",
   "Alt/Strg + Ziehen auf der Fläche dreht das Modell als Trackball; hier exakte Winkel eingeben.": "Alt/Ctrl + drag on the canvas rotates the model as a trackball; enter exact angles here.",
