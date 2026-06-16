@@ -62,6 +62,10 @@
                border-top: 1px solid var(--border); display: flex; gap: 18px; }
   .toolopts { display: none; }
   .toolopts.active { display: block; }
+  /* Im Studio-Embed: 3D-Vorschau einblenden, damit man das Modell frei drehen kann */
+  html.embed.embed-model body { flex-direction: column; }
+  html.embed.embed-model #main { display: flex !important; height: 320px; flex: none; border-top: 1px solid var(--border); }
+  html.embed.embed-model #main canvas { cursor: grab; }
   .qrsub { display: none; }
   .qrsub.active { display: block; }
   .filepick { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
@@ -304,7 +308,7 @@
         <label>Ansicht</label>
         <div class="btnrow"><button type="button" id="btnModelFront">Vorne</button><button type="button" id="btnModelIso">Iso</button><button type="button" id="btnModelTop">Oben</button></div>
         <button type="button" id="btnModelReset" style="width:100%;margin-top:8px">Ansicht zurücksetzen</button>
-        <div class="hint">STL laden, dann im Vorschaufenster ziehen zum freien Drehen in 3D (Shift+Ziehen = verschieben, Mausrad = Zoom). Erzeugt eine Blaupausen-Zeichnung aus Knickkanten + Außenkontur. „Nur sichtbare“ blendet verdeckte Kanten per Verdeckungsrechnung aus, „Verdeckte gestrichelt“ zeichnet sie gestrichelt. Die längste Seite wird auf die eingestellte Größe skaliert.</div>
+        <div class="hint">STL laden, dann in der 3D-Vorschau ziehen zum freien Drehen in alle Richtungen (Shift+Ziehen = verschieben, Mausrad = Zoom). Im Studio erscheint die Vorschau unter den Einstellungen. Erzeugt eine Blaupausen-Zeichnung aus Knickkanten + Außenkontur. „Nur sichtbare“ blendet verdeckte Kanten aus, „Verdeckte gestrichelt“ zeichnet sie gestrichelt. Die längste Seite wird auf die eingestellte Größe skaliert.</div>
       </div>
     </div>
   </details>
@@ -607,6 +611,62 @@ function showQrSub() {
   const t = $("inpQrType").value;
   document.querySelectorAll(".qrsub").forEach(el => el.classList.toggle("active", el.dataset.qt === t));
 }
+// Exakte achsenparallele Außenkontur einer Zellenmenge (Marching-Squares entlang Zellkanten) — für crispe 90°-Ecken (QR)
+function rectiContour(grid, w, h) {
+  const fill = (x, y) => x >= 0 && y >= 0 && x < w && y < h && grid[y * w + x];
+  const V = (x, y) => y * (w + 1) + x;
+  const out = new Map();                              // Startknoten → Endknoten (gerichtete Randkanten, Innenfläche rechts)
+  const add = (x0, y0, x1, y1) => { const k = V(x0, y0); let a = out.get(k); if (!a) { a = []; out.set(k, a); } a.push([x1, y1]); };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!grid[y * w + x]) continue;
+    if (!fill(x, y - 1)) add(x, y, x + 1, y);         // oben  → +x
+    if (!fill(x + 1, y)) add(x + 1, y, x + 1, y + 1); // rechts → +y
+    if (!fill(x, y + 1)) add(x + 1, y + 1, x, y + 1); // unten  → -x
+    if (!fill(x - 1, y)) add(x, y + 1, x, y);         // links  → -y
+  }
+  const pop = (vx, vy, pdx, pdy) => {                 // bevorzugt geradeaus (kollineare Strecken zusammenfassen)
+    const a = out.get(V(vx, vy)); if (!a || !a.length) return null;
+    let bi = 0; for (let i = 0; i < a.length; i++) if (a[i][0] - vx === pdx && a[i][1] - vy === pdy) { bi = i; break; }
+    return a.splice(bi, 1)[0];
+  };
+  const loops = [];
+  for (const [startK, arr] of out) {
+    const sx = startK % (w + 1), sy = Math.floor(startK / (w + 1));
+    while (arr.length) {
+      let e0 = arr.splice(0, 1)[0], cx = e0[0], cy = e0[1];
+      const loop = [[sx, sy], [cx, cy]];
+      let pdx = cx - sx, pdy = cy - sy, vx = cx, vy = cy, guard = (w + 1) * (h + 1) * 4;
+      while (!(vx === sx && vy === sy) && guard-- > 0) {
+        const nxt = pop(vx, vy, pdx, pdy); if (!nxt) break;
+        loop.push(nxt); pdx = nxt[0] - vx; pdy = nxt[1] - vy; vx = nxt[0]; vy = nxt[1];
+      }
+      loops.push(simplifyRecti(loop));
+    }
+  }
+  return loops;
+}
+function simplifyRecti(loop) {                        // kollineare Zwischenpunkte entfernen → minimales Polygon
+  let pts = loop.slice();
+  const closed = pts.length > 2 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1];
+  if (closed) pts.pop();
+  const n = pts.length; if (n < 2) return loop;
+  const keep = [];
+  if (closed) {                                        // zyklisch: jeden Punkt mit Vorgänger/Nachfolger vergleichen
+    for (let i = 0; i < n; i++) {
+      const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n];
+      if (Math.sign(b[0] - a[0]) !== Math.sign(c[0] - b[0]) || Math.sign(b[1] - a[1]) !== Math.sign(c[1] - b[1])) keep.push(b);
+    }
+    if (keep.length) keep.push(keep[0].slice());       // schließen
+  } else {                                             // offener (abgebrochener) Pfad: Endpunkte behalten, kein Phantom-Schluss
+    keep.push(pts[0]);
+    for (let i = 1; i < n - 1; i++) {
+      const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+      if (Math.sign(b[0] - a[0]) !== Math.sign(c[0] - b[0]) || Math.sign(b[1] - a[1]) !== Math.sign(c[1] - b[1])) keep.push(b);
+    }
+    keep.push(pts[n - 1]);
+  }
+  return keep;
+}
 function buildQR() {
   const text = qrData();
   if (!text || text === "tel:" || text === "mailto:" || text === "SMSTO::") {
@@ -631,7 +691,14 @@ function buildQR() {
   const s = moduleMm / ppm;
   const bb = { minX: 0, minY: 0, maxX: gw - 1, maxY: gh - 1 };
   S.strokes = fillVertical(ink, gw, gh, bb, s, s, pen);
-  if ($("inpQrOutline").checked) S.strokes.push(...outlineStrokes(ink, gw, gh, bb, s, s));
+  if ($("inpQrOutline").checked) {                      // crispe Kontur direkt aus dem Modulraster (exakte 90°-Ecken)
+    const mods = new Uint8Array(cnt * cnt);
+    for (let r = 0; r < cnt; r++) for (let col = 0; col < cnt; col++) if (qr.isDark(r, col)) mods[r * cnt + col] = 1;
+    // Die Füllung (fillVertical) setzt Pixel als Punkte (Spalte p → p·s); ein Modul m endet daher s mm vor m·moduleMm.
+    // Kontur um eine halbe Pixelbreite nach außen versetzen, damit sie die Füll-Linien beidseitig sauber einrahmt.
+    const half = 0.5 * s;
+    for (const loop of rectiContour(mods, cnt, cnt)) S.strokes.push(loop.map(([x, y]) => [x * moduleMm - half, y * moduleMm - half]));
+  }
   S.cw = gw * s; S.ch = gh * s;
   finishCompute(cnt + "×" + cnt + " " + UI.t("Module", "modules"));
 }
@@ -2093,31 +2160,68 @@ function modelSilhouette(d3) {
   }
   return { segs, keys };
 }
-function ensureModelMesh() {            // solides Mesh nur fürs Verdeckungs-Raycasting
-  const d = __modelData; if (d.mesh) return d.mesh;
-  d.geo.computeBoundingBox(); d.geo.computeBoundingSphere();
-  d.mesh = new THREE.Mesh(d.geo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
-  return d.mesh;
-}
 function pushDashes(out, p0, p1, dash, gap) {
   const dx = p1[0] - p0[0], dy = p1[1] - p0[1], len = Math.hypot(dx, dy); if (len < 1e-6) return;
   const ux = dx / len, uy = dy / len; let t = 0;
   while (t < len) { const e = Math.min(len, t + dash); out.push([[p0[0] + ux * t, p0[1] + uy * t], [p0[0] + ux * e, p0[1] + uy * e]]); t = e + gap; }
 }
+// Software-Tiefenpuffer (z-Buffer) für schnelle Verdeckungsrechnung — rastert alle Dreiecke EINMAL pro Ansicht
+// statt pro Kantenpunkt zu raycasten. Pro Zelle wird die kamerannächste Tiefe (max. vz) gespeichert.
+function buildDepthMap(minX, minY, maxX, maxY) {
+  const d = __modelData, pos = d.positions, nTri = pos.length / 9, R = __modelRot;
+  const spanX = (maxX - minX) || 1, spanY = (maxY - minY) || 1, G = 600;
+  const W = spanX >= spanY ? G : Math.max(64, Math.round(G * spanX / spanY));   // Nebenachse nicht kollabieren (sehr flache Ansichten)
+  const H = spanY > spanX ? G : Math.max(64, Math.round(G * spanY / spanX));
+  const depth = new Float32Array(W * H).fill(-Infinity), sx = (W - 1) / spanX, sy = (H - 1) / spanY;
+  const R0 = R[0], R1 = R[1], R2 = R[2], R3 = R[3], R4 = R[4], R5 = R[5], R6 = R[6], R7 = R[7], R8 = R[8];
+  for (let t = 0; t < nTri; t++) {
+    const o = t * 9, ax = pos[o], ay = pos[o + 1], az = pos[o + 2], bx = pos[o + 3], by = pos[o + 4], bz = pos[o + 5], cx = pos[o + 6], cy = pos[o + 7], cz = pos[o + 8];
+    const Ax = (R0 * ax + R1 * ay + R2 * az - minX) * sx, Ay = (R3 * ax + R4 * ay + R5 * az - minY) * sy, Az = R6 * ax + R7 * ay + R8 * az;
+    const Bx = (R0 * bx + R1 * by + R2 * bz - minX) * sx, By = (R3 * bx + R4 * by + R5 * bz - minY) * sy, Bz = R6 * bx + R7 * by + R8 * bz;
+    const Cx = (R0 * cx + R1 * cy + R2 * cz - minX) * sx, Cy = (R3 * cx + R4 * cy + R5 * cz - minY) * sy, Cz = R6 * cx + R7 * cy + R8 * cz;
+    const loX = Math.max(0, Math.floor(Math.min(Ax, Bx, Cx))), hiX = Math.min(W - 1, Math.ceil(Math.max(Ax, Bx, Cx)));
+    const loY = Math.max(0, Math.floor(Math.min(Ay, By, Cy))), hiY = Math.min(H - 1, Math.ceil(Math.max(Ay, By, Cy)));
+    const den = (By - Cy) * (Ax - Cx) + (Cx - Bx) * (Ay - Cy); if (Math.abs(den) < 1e-9) continue;
+    const inv = 1 / den;
+    for (let yy = loY; yy <= hiY; yy++) for (let xx = loX; xx <= hiX; xx++) {
+      const w0 = ((By - Cy) * (xx - Cx) + (Cx - Bx) * (yy - Cy)) * inv;
+      const w1 = ((Cy - Ay) * (xx - Cx) + (Ax - Cx) * (yy - Cy)) * inv;
+      const w2 = 1 - w0 - w1; if (w0 < -0.001 || w1 < -0.001 || w2 < -0.001) continue;
+      const z = w0 * Az + w1 * Bz + w2 * Cz, idx = yy * W + xx;
+      if (z > depth[idx]) depth[idx] = z;
+    }
+  }
+  return { depth, W, H, minX, minY, sx, sy };
+}
+function depthMapForView(bounds) {            // pro Ansicht (Rotation + Bounds) cachen → Moduswechsel ist sofort
+  const d = __modelData;
+  const sig = __modelRot.map(v => v.toFixed(5)).join(",") + "|" + bounds.minX.toFixed(3) + "," + bounds.minY.toFixed(3) + "," + bounds.maxX.toFixed(3) + "," + bounds.maxY.toFixed(3);
+  if (d._dmSig === sig && d._dm) return d._dm;
+  d._dm = buildDepthMap(bounds.minX, bounds.minY, bounds.maxX, bounds.maxY); d._dmSig = sig;
+  return d._dm;
+}
 // Verdeckte-Kanten-Behandlung: mode = "all" (alles), "visible" (nur sichtbar), "dashed" (verdeckt gestrichelt)
-function projectEdges(segs3, pr, TX, mode) {
+function projectEdges(segs3, pr, TX, mode, bounds) {
   const out = [];
   const push2 = (p0, p1) => { if (Math.abs(p0[0] - p1[0]) > 1e-6 || Math.abs(p0[1] - p1[1]) > 1e-6) out.push([p0, p1]); };   // achsenparallele (Punkt-)Kanten verwerfen
   if (mode === "all") { for (const s of segs3) push2(TX(pr(s[0], s[1], s[2])), TX(pr(s[3], s[4], s[5]))); return out; }
-  const d = __modelData, mesh = ensureModelMesh(), ray = new THREE.Raycaster();
-  const camAxis = new THREE.Vector3(__modelRot[6], __modelRot[7], __modelRot[8]).normalize();   // Richtung zur Kamera (Ortho)
-  const dir = camAxis.clone().multiplyScalar(-1);
-  const L = d.maxDim * 2, eps = d.maxDim * 2e-3;
-  const org = new THREE.Vector3(), Pv = new THREE.Vector3();
+  const d = __modelData, dm = depthMapForView(bounds), bias = d.maxDim * 0.008;
+  const R6 = __modelRot[6], R7 = __modelRot[7], R8 = __modelRot[8];
   const visible = (x, y, z) => {
-    Pv.set(x, y, z); org.copy(camAxis).multiplyScalar(L).add(Pv);    // Strahl von Kameraseite zum Punkt P (tP = L)
-    ray.set(org, dir); const hit = ray.intersectObject(mesh, false);
-    return !hit.length || hit[0].distance >= L - eps;               // näher als P getroffen → verdeckt
+    const p = pr(x, y, z), gx = Math.round((p[0] - dm.minX) * dm.sx), gy = Math.round((p[1] - dm.minY) * dm.sy);
+    if (gx < 0 || gy < 0 || gx >= dm.W || gy >= dm.H) return true;
+    // Steile (fast kantenparallele) Flächen verdecken sonst ihre eigene Randkante.
+    // Vergleich gegen die KLEINSTE (fernste) Flächentiefe der 3x3-Nachbarschaft (Hintergrundzellen ignorieren),
+    // damit die nähere Eigenfläche die Randkante nicht verdeckt, echte Verdeckung aber erhalten bleibt.
+    let near = Infinity, found = false;
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+      const nx = gx + ox, ny = gy + oy; if (nx < 0 || ny < 0 || nx >= dm.W || ny >= dm.H) continue;
+      const dz = dm.depth[ny * dm.W + nx]; if (dz === -Infinity) continue;
+      if (dz < near) { near = dz; found = true; }
+    }
+    if (!found) return true;                                           // nur Hintergrund ringsum → Silhouettenkante, sichtbar
+    const vz = R6 * x + R7 * y + R8 * z;
+    return vz >= near - bias;                                          // nichts Näheres (in der Umgebung) davor → sichtbar
   };
   const dash = Math.max(1.2, (+$("inpSize").value) * 0.012), gap = dash * 0.7;
   for (const s of segs3) {
@@ -2161,8 +2265,8 @@ function reprojectModel(fit) {
   const scale = (+$("inpSize").value) / longest;
   const TX = p => [(p[0] - minX) * scale, (maxY - p[1]) * scale];
   const modeSel = $("inpModelHidden") ? $("inpModelHidden").value : "all";
-  const liveOrbit = __modelOrbiting && __modelData.faceCount > 1500;     // große Modelle beim Drehen flüssig halten
-  S.strokes = projectEdges(segs3, pr, TX, liveOrbit ? "all" : modeSel);
+  const liveOrbit = __modelOrbiting && __modelData.faceCount > 20000;    // nur sehr große Modelle beim Drehen ohne HLR
+  S.strokes = projectEdges(segs3, pr, TX, liveOrbit ? "all" : modeSel, { minX, minY, maxX, maxY });
   S.cw = (maxX - minX) * scale; S.ch = (maxY - minY) * scale;
   if (fit) finishCompute(__modelData.faceCount + " " + UI.t("Dreiecke", "faces") + " · " + S.strokes.length + " " + UI.t("Kanten", "edges") + (__modelData.name ? " · " + __modelData.name : ""));
   else draw();
@@ -2260,7 +2364,7 @@ function fitView() {
 function resize() {
   const r = cv.parentElement.getBoundingClientRect();
   cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio;
-  draw();
+  if ($("inpTool").value === "model" && __modelData) fitView(); else draw();   // 3D-Vorschau bei Größenänderung neu einpassen
 }
 window.addEventListener("resize", resize);
 // Pan & Zoom
@@ -2283,11 +2387,12 @@ cv.addEventListener("mousedown", e => {
 }, true);
 window.addEventListener("mousemove", e => {
   if (!modelOrbit) return;
+  if ($("inpTool").value !== "model") { modelOrbit = null; __modelOrbiting = false; return; }   // Tool gewechselt → Orbit verwerfen
   const ay = (e.clientX - modelOrbit.sx) * 0.01, ax = (e.clientY - modelOrbit.sy) * 0.01;   // Bildschirmachsen → freies Taumeln
   __modelRot = m3ortho(m3mul(m3mul(m3rotY(ay), m3rotX(ax)), modelOrbit.R0));                 // Delta im Ansichtsraum vor-multiplizieren
   if (!modelRaf) modelRaf = requestAnimationFrame(() => { modelRaf = 0; reprojectModel(false); });
 });
-window.addEventListener("mouseup", () => { if (modelOrbit) { modelOrbit = null; __modelOrbiting = false; reprojectModel(false); } });   // finaler Pass mit Verdeckung
+window.addEventListener("mouseup", () => { if (modelOrbit) { modelOrbit = null; __modelOrbiting = false; if ($("inpTool").value === "model") reprojectModel(false); } });   // finaler Pass mit Verdeckung
 cv.addEventListener("wheel", e => {
   e.preventDefault();
   const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
@@ -2342,6 +2447,11 @@ $("btnSvg").onclick = () => {
 function showToolOpts() {
   const tool = $("inpTool").value;
   document.querySelectorAll(".toolopts").forEach(el => el.classList.toggle("active", el.dataset.tool === tool));
+  if (tool !== "model") { modelOrbit = null; __modelOrbiting = false; }   // laufenden Orbit beim Tool-Wechsel verwerfen
+  if (window.HS_EMBED) {                                  // im Studio die 3D-Vorschau nur fürs Modell-Tool zeigen
+    document.documentElement.classList.toggle("embed-model", tool === "model");
+    if (tool === "model") requestAnimationFrame(() => { try { resize(); fitView(); } catch (e) {} });
+  }
 }
 // Native File-Inputs durch gestylten Button + Dateiname ersetzen
 function prettifyFileInputs() {
@@ -2455,7 +2565,7 @@ Object.assign(I18N_EN, {
   "Nur sichtbare": "Visible only",
   "Verdeckte gestrichelt": "Hidden dashed",
   "STL laden, dann im Vorschaufenster ziehen zum freien Drehen in 3D (Shift+Ziehen = verschieben, Mausrad = Zoom). Erzeugt eine Blaupausen-Zeichnung aus Knickkanten + Außenkontur. „Nur sichtbare“ blendet verdeckte Kanten per Verdeckungsrechnung aus, „Verdeckte gestrichelt“ zeichnet sie gestrichelt. Die längste Seite wird auf die eingestellte Größe skaliert.":
-    "Load an STL, then drag in the preview to rotate freely in 3D (Shift+drag = pan, wheel = zoom). Produces a blueprint-style drawing from crease edges + outline. “Visible only” hides occluded edges via hidden-line removal, “Hidden dashed” draws them dashed. The longest side is scaled to the chosen size.",
+    "Load an STL, then drag in the 3D preview to rotate freely in all directions (Shift+drag = pan, wheel = zoom). In the studio the preview appears below the settings. Produces a blueprint-style drawing from crease edges + outline. “Visible only” hides occluded edges, “Hidden dashed” draws them dashed. The longest side is scaled to the chosen size.",
   "STL-Datei laden.": "Load an STL file.", "Lade 3D …": "Loading 3D …",
   "Keine Dreiecke in der STL.": "No triangles in the STL.",
   "Zu viele Dreiecke (": "Too many triangles (",

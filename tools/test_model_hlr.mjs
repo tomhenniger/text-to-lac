@@ -72,6 +72,31 @@ await page.evaluate(() => { const s = document.getElementById('inpModelHidden');
 await page.waitForTimeout(200);
 await page.screenshot({ path: '/tmp/model_test/cube_hlr.png', clip: { x: 340, y: 0, width: 1160, height: 900 } });
 
+// --- Performance: dichteres Modell (UV-Kugel ~968 Dreiecke), HLR-Aufbau muss schnell sein (z-Buffer statt Raycast) ---
+{
+  await page.evaluate(() => {
+    const nLat = 22, nLon = 22, R = 10, P = (i, j) => { const th = Math.PI * i / nLat, ph = 2 * Math.PI * j / nLon; return [R * Math.sin(th) * Math.cos(ph), R * Math.cos(th), R * Math.sin(th) * Math.sin(ph)]; };
+    const faces = []; for (let i = 0; i < nLat; i++) for (let j = 0; j < nLon; j++) { const a = P(i, j), b = P(i + 1, j), c = P(i + 1, j + 1), d = P(i, j + 1); faces.push([a, b, c], [a, c, d]); }
+    const nT = faces.length, buf = new ArrayBuffer(84 + nT * 50), dv = new DataView(buf); dv.setUint32(80, nT, true); let o = 84;
+    for (const f of faces) { o += 12; for (const p of f) { dv.setFloat32(o, p[0], true); dv.setFloat32(o + 4, p[1], true); dv.setFloat32(o + 8, p[2], true); o += 12; } o += 2; }
+    const inp = document.getElementById('inpModelFile'); const dt = new DataTransfer(); dt.items.add(new File([buf], 'kugel.stl', { type: 'model/stl' })); inp.files = dt.files;
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.waitForFunction(() => S.strokes.length > 0 && /kugel/.test(document.getElementById('stInfo').textContent), null, { timeout: 15000 });
+  // Cache leeren und einen frischen HLR-Aufbau (visible) timen
+  const ms = await page.evaluate(() => {
+    __modelData._dmSig = null; $('inpModelHidden').value = 'visible';
+    const t0 = performance.now(); reprojectModel(true); return performance.now() - t0;
+  });
+  const faces = await page.evaluate(() => __modelData.faceCount);
+  console.log(`HLR-Aufbau (frisch) für ${faces} Dreiecke: ${ms.toFixed(1)} ms`);
+  if (!(ms < 1500)) { console.log('FAIL: HLR zu langsam'); ok = false; }
+  // Moduswechsel bei gleicher Ansicht muss dank Cache quasi sofort sein
+  const ms2 = await page.evaluate(() => { const t0 = performance.now(); $('inpModelHidden').value = 'dashed'; reprojectModel(true); return performance.now() - t0; });
+  console.log(`Moduswechsel (gecachte Tiefe): ${ms2.toFixed(1)} ms`);
+  await page.screenshot({ path: '/tmp/model_test/sphere_hlr.png', clip: { x: 340, y: 0, width: 1160, height: 900 } });
+}
+
 if (errs.length) { console.log('JS ERRORS:', JSON.stringify(errs)); ok = false; }
 await browser.close();
 console.log(ok ? '\n✅ 3D HLR + FREE-ROTATE TEST PASSED' : '\n❌ FAIL');

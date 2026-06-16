@@ -76,6 +76,23 @@
   .hint { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
   .btnrow { display: flex; gap: 8px; margin-top: 8px; } .btnrow button { flex: 1; }
   #statusbar { flex: none; padding: 4px 12px; font-size: 11px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--border); }
+  /* Options-/Ausricht-Leiste oben (Photoshop-Stil) */
+  #optionsbar { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 10px; background: var(--panel);
+                border-bottom: 1px solid var(--border); flex: none; overflow-x: auto; }
+  #optionsbar .obLabel { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  #optionsbar select { width: auto; min-width: 118px; padding: 4px 8px; }
+  #optionsbar select:disabled { opacity: .5; }
+  .obsep { width: 1px; height: 22px; background: var(--border); margin: 0 3px; flex: none; }
+  .abar { display: flex; gap: 4px; }
+  #optionsbar .abtn { width: 32px; }
+  /* einklappbare Panels */
+  .panelhead { cursor: pointer; user-select: none; }
+  .panelhead .chev { width: 8px; height: 8px; margin-right: 8px; border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted);
+                     transform: rotate(45deg); transition: transform .15s; flex: none; }
+  .panel-collapsed .panelhead .chev { transform: rotate(-45deg); }
+  #layersPanel.panel-collapsed { min-height: 0; max-height: none; flex: none; }
+  #layersPanel.panel-collapsed #layersBody { display: none; }
+  #propsPanel.panel-collapsed #propsForm { display: none; }
   #hidden { display: none; }
 </style>
 </head>
@@ -90,19 +107,33 @@
   <button class="tb" id="btnTheme"></button>
 </div>
 
+<div id="optionsbar">
+  <span class="obLabel">Ausrichten an</span>
+  <select id="alignRef">
+    <option value="selection">Auswahl</option>
+    <option value="area">Arbeitsfläche</option>
+    <option value="sheet">Blatt</option>
+  </select>
+  <span class="obsep"></span>
+  <div class="abar" id="alignRow"></div>
+  <span class="obsep"></span>
+  <div class="abar" id="distRow"></div>
+  <span class="obLabel" id="obSelInfo" style="margin-left:auto"></span>
+</div>
+
 <div id="workspace">
   <div id="toolbar"></div>
   <div id="main"><canvas id="cv"></canvas></div>
   <div id="rightpanel">
     <div id="layersPanel">
-      <div class="panelhead">Ebenen</div>
+      <div class="panelhead"><span class="chev"></span>Ebenen</div>
       <div id="layersBody">
         <div id="layerList"></div>
         <div class="hint" id="layerHint">Noch keine Ebenen. Werkzeug links anklicken, um eine Ebene anzulegen, dann auf der Fläche ziehen.</div>
       </div>
     </div>
     <div id="propsPanel">
-      <div class="panelhead">Eigenschaften <span class="sp"></span><span id="propLabel" style="font-weight:400;color:var(--muted)"></span></div>
+      <div class="panelhead"><span class="chev"></span>Eigenschaften <span class="sp"></span><span id="propLabel" style="font-weight:400;color:var(--muted)"></span></div>
       <div id="propsForm">
         <div class="hint" id="multiNote" style="display:none"></div>
         <div id="selDetails" style="display:none">
@@ -114,17 +145,6 @@
             <div><label>Skalierung</label><input type="number" id="inLs" step="0.05" min="0.05"></div>
             <div><label>Drehung (°)</label><input type="number" id="inLr" step="1"></div>
           </div>
-        </div>
-        <div id="alignBox" style="display:none">
-          <label id="lblAlign">Ausrichten an</label>
-          <select id="alignRef">
-            <option value="selection">Auswahl</option>
-            <option value="area">Arbeitsfläche</option>
-            <option value="sheet">Blatt</option>
-          </select>
-          <div class="aligngrid" id="alignRow"></div>
-          <div class="aligngrid dist" id="distRow"></div>
-          <div class="hint" id="distHint">Verteilen braucht mindestens 3 Ebenen.</div>
         </div>
         <div class="btnrow" id="selActions" style="display:none"><button id="btnDup">Duplizieren</button><button id="btnDel">Löschen</button></div>
         <div class="hint" id="selHint" style="display:none">Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°). Mehrfachauswahl: Cmd/Strg- oder Shift-Klick in der Ebenenliste, Shift-Klick auf der Fläche; Pfeiltasten verschieben (Shift = 10 mm).</div>
@@ -267,8 +287,9 @@ function drawGroupBounds(layers, P) {
   ctx.restore();
 }
 function rotateHandlePos(c) {
-  const mx = (c[0][0] + c[1][0]) / 2, my = (c[0][1] + c[1][1]) / 2;
-  let nx = (c[0][1] - c[3][1]), ny = -(c[0][0] - c[3][0]);   // Normale der oberen Kante nach außen
+  const mx = (c[0][0] + c[1][0]) / 2, my = (c[0][1] + c[1][1]) / 2;   // Mitte obere Kante
+  const cx = (c[0][0] + c[2][0]) / 2, cy = (c[0][1] + c[2][1]) / 2;   // Box-Mitte (Diagonale)
+  let nx = mx - cx, ny = my - cy;                                      // radial von der Mitte nach außen → steht senkrecht auf der Oberkante
   const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
   return [mx + nx * 26, my + ny * 26];
 }
@@ -410,20 +431,21 @@ function updatePropsUI() {
   $("selDetails").style.display = one ? "" : "none";
   $("selHint").style.display = one ? "" : "none";
   $("multiNote").style.display = multi ? "" : "none";
-  $("alignBox").style.display = n >= 1 ? "" : "none";
   $("selActions").style.display = n >= 1 ? "" : "none";
   $("noSel").style.display = n >= 1 ? "none" : "";
   $("propLabel").textContent = multi ? (n + " " + UI.t("Ebenen", "layers")) : (one ? sel().label : "");
   if (multi) $("multiNote").textContent = n + " " + UI.t("Ebenen ausgewählt — relativ zueinander ausrichten/verteilen.", "layers selected — align/distribute relative to each other.");
+  // obere Ausricht-Leiste aktivieren/deaktivieren
   const refSel = $("alignRef"), selOpt = refSel.querySelector('option[value=selection]');
   if (!n) refSel._forced = false;                                                              // keinen Stand über Laden/Neu hinweg behalten
   if (one && refSel.value === "selection") { refSel.value = "area"; refSel._forced = true; }   // „Auswahl“ ergibt für 1 Ebene keinen Sinn
   if (multi && refSel._forced && refSel.value === "area") { refSel.value = "selection"; }       // nur die Auto-Ersetzung zurücknehmen, keine bewusste Wahl
   if (multi) refSel._forced = false;
-  selOpt.disabled = !multi;
+  selOpt.disabled = !multi; refSel.disabled = !n;
   const nUsable = selLayers().filter(L => L.cw && L.ch).length;                                 // Buttons an der real nutzbaren Anzahl ausrichten
+  document.querySelectorAll("#alignRow .abtn").forEach(b => b.disabled = !nUsable);
   document.querySelectorAll(".distbtn").forEach(b => b.disabled = nUsable < 3);
-  $("distHint").style.display = (n >= 1 && nUsable < 3) ? "" : "none";
+  $("obSelInfo").textContent = n ? (n + " " + UI.t("ausgewählt", "selected")) : "";
   if (one) syncSelInputs();
 }
 function deleteSelected() {
@@ -666,6 +688,8 @@ function abtn(spec, cls, fn) {
 for (const s of ALIGN_BTNS) $("alignRow").appendChild(abtn(s, "", () => alignLayers(s.k)));
 for (const s of DIST_BTNS) $("distRow").appendChild(abtn(s, "distbtn", () => distribute(s.k)));
 $("alignRef").addEventListener("change", () => { $("alignRef")._forced = false; });   // bewusste Wahl nicht mehr automatisch überschreiben
+// Panels ein-/ausklappen (mehr Platz in der Sidebar)
+document.querySelectorAll(".panelhead").forEach(h => h.addEventListener("click", () => { const p = h.closest("#layersPanel,#propsPanel"); if (p) p.classList.toggle("panel-collapsed"); }));
 $("fileLoad").addEventListener("change", () => {
   const f = $("fileLoad").files[0]; if (!f) return;
   const rd = new FileReader();
@@ -767,7 +791,7 @@ const I18N_EN = {
     "Saves the layout as a <code>.handschrift</code> file (layers, position, parameters and strokes). To continue later or share.",
   "Keine gültige .handschrift-Datei.": "Not a valid .handschrift file.",
   "Datei konnte nicht gelesen werden.": "Could not read file.", "Layer geladen": "layers loaded",
-  "Ausrichten an": "Align to", "Auswahl": "Selection", "Blatt": "Sheet",
+  "Ausrichten an": "Align to", "Auswahl": "Selection", "Blatt": "Sheet", "ausgewählt": "selected",
   "Verteilen braucht mindestens 3 Ebenen.": "Distribute needs at least 3 layers.",
   "Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°). Mehrfachauswahl: Cmd/Strg- oder Shift-Klick in der Ebenenliste, Shift-Klick auf der Fläche; Pfeiltasten verschieben (Shift = 10 mm).":
     "Corner handles = scale (opposite corner fixed; Alt/Cmd = center). Circle = rotate (Shift = 15°). Multi-select: Cmd/Ctrl- or Shift-click in the layer list, Shift-click on the canvas; arrow keys nudge (Shift = 10 mm).",

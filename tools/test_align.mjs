@@ -24,12 +24,12 @@ await page.evaluate(() => {
 // --- Multiselect-Status ---
 {
   const n = await page.evaluate(() => S.selIds.length);
-  const alignVis = await page.evaluate(() => getComputedStyle($('alignBox')).display !== 'none');
+  const alignEnabled = await page.evaluate(() => !document.querySelector('#alignRow .abtn').disabled);
   const distEnabled = await page.evaluate(() => !document.querySelector('.distbtn').disabled);
   const primary = await page.evaluate(() => document.querySelectorAll('.lrow.primary').length);
   const selRows = await page.evaluate(() => document.querySelectorAll('.lrow.sel').length);
-  console.log(`multiselect: n=${n} alignBox=${alignVis} distEnabled=${distEnabled} primaryRows=${primary} selRows=${selRows}`);
-  if (n !== 3 || !alignVis || !distEnabled || primary !== 1 || selRows !== 3) { console.log('FAIL multiselect-status'); ok = false; }
+  console.log(`multiselect: n=${n} alignEnabled=${alignEnabled} distEnabled=${distEnabled} primaryRows=${primary} selRows=${selRows}`);
+  if (n !== 3 || !alignEnabled || !distEnabled || primary !== 1 || selRows !== 3) { console.log('FAIL multiselect-status'); ok = false; }
 }
 
 // --- Align left (Bezug: Auswahl) → alle minX gleich = min(10,50,120)=10 ---

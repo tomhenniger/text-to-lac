@@ -37,12 +37,18 @@
 
 ## UI-Änderungen
 
+- **Layer-Studio: Ausricht-Werkzeuge in eine obere Options-Leiste** (Photoshop-Stil) verschoben — Bezugs-Auswahl + Ausrichten/Verteilen sitzen jetzt am oberen Bildschirmrand statt im Eigenschaften-Panel; die Buttons aktivieren/deaktivieren sich je nach Auswahl, rechts steht die Anzahl der gewählten Ebenen.
+- **Layer-Studio: ein-/ausklappbare Seiten-Panels** — „Ebenen“ und „Eigenschaften“ lassen sich per Klick auf die Kopfzeile zuklappen (Pfeil-Indikator), um mehr Platz für das eingebettete Werkzeug in der Sidebar zu schaffen.
+- **Layer-Studio: Dreh-Griff steht jetzt radial** (senkrecht auf der Oberkante der Auswahlbox) statt seitlich versetzt.
 - Misc Tools: native File-Inputs (SVG-/Bild-/Audio-Import) durch gestylten „Datei wählen"-Button mit Datei-Icon und Dateinamen ersetzt.
 - Misc Tools: Abstand/Stil des „Neu würfeln"-Buttons im Labyrinth korrigiert (volle Breite, sauberer Abstand).
 - Misc Tools: SVG-Import zeichnet (und exportiert) die Elemente in genau ihrer Dokument-Reihenfolge — Pen-Tool-Strichreihenfolge bleibt erhalten; Hinweis im Tool ergänzt.
 
 ## Bugfixes
 
+- **3D-Modell: verdeckte Kanten drastisch schneller** — die Verdeckungsrechnung nutzt jetzt einen Software-Tiefenpuffer (z-Buffer, alle Dreiecke einmal pro Ansicht gerastert) statt pro Kantenpunkt zu raycasten und cacht das Ergebnis pro Ansicht. Ein Moduswechsel ist dadurch praktisch sofort (statt spürbarer Verzögerung): ~1000 Dreiecke unter 10 ms, gecachter Moduswechsel < 1 ms.
+- **3D-Modell im Studio drehbar** — im eingebetteten Tool wird die 3D-Vorschau jetzt eingeblendet (unter den Einstellungen), sodass sich das Modell auch im Layer-Studio per Ziehen frei drehen lässt.
+- **QR-Code „Kontur nachfahren“: crispe 90°-Ecken** — die Außenkontur wird jetzt exakt aus dem Modulraster getract (achsenparallel) statt per Skelettierung+Glättung, die die rechten Winkel des QR-Codes verbogen hat.
 - Layer-Studio: Verschieben mit aktivem Snapping klebte an der Snap-Linie fest (die Snap-Korrektur wurde nicht vom Cursorweg abgezogen) — der Layer löst sich jetzt wieder sauber, sobald man weit genug zieht. „Verteilen“ (Bezug Auswahl) ließ bei überlappenden/größenverschiedenen Ebenen die äußere Bounding-Box schrumpfen; jetzt bleiben die Außenkanten fix. Versteckte Ebenen zeigen keine greifbaren Skalier-/Dreh-Griffe mehr; Sprachwechsel werden an eingebettete Tools weitergereicht.
 - 3D-Modell: achsenparallele Kanten (die zu einem Punkt projizieren) werden nicht mehr als Null-Längen-Striche exportiert.
 - Misc Tools / Export: Der Objektname in der `.lac` (und damit der in der Bambu Suite angezeigte Name) war fest „Spotify" statt aus dem Dateinamen-Feld abgeleitet. Objekt- und Dateiname kommen jetzt beide aus dem Feld „Dateiname"; beim Datei-Import (SVG/Bild/Audio) wird das Feld automatisch mit dem Dateinamen vorbelegt.
