@@ -6,6 +6,7 @@
   - **Umrisse / Linien (Vektor)** — wie bisher, folgt den Vektorpfaden direkt (ideal für Strich-/Linien-SVGs).
   - **Mittellinie** — rastert die gefüllte SVG und zieht die Mittellinie (Skelett) jedes Strichs: eine durchgehende Linie pro Strich. Ideal für Signaturen — die Form wird sauber als einzelne Stiftlinien geplottet statt als Umriss-Fragmente (mit Schwelle automatisch/manuell und Mindest-Strichlänge zur Entstörung).
   - **Flächen füllen** — füllt die Flächen mit dichter Schraffur (Abstand ≈ Stiftbreite, Winkel einstellbar) und fährt optional die Außenkontur nach; gibt die Strichstärke wieder.
+  - **Automatische Modus-Wahl:** beim Laden wird erkannt, ob die SVG gefüllt ist (Flächen ohne Kontur) — dann wird direkt „Mittellinie" gewählt, damit gefüllte Signaturen nicht mehr als zerstückelte Umrisse landen; Strich-/Linien-SVGs bleiben auf „Umrisse". Eine manuelle Modus-Wahl wird respektiert.
 - **Layer-Studio: Werkzeug „Knoten bearbeiten"** — neben den beiden Stift-Varianten (Freihand, Bézier-Pfad) gibt es jetzt ein eigenes Werkzeug zum Bearbeiten von Pfaden. Mit aktivem Werkzeug einen Bézier-Pfad anklicken und Anker bzw. Kurvengriffe direkt auf der Fläche ziehen; war der Anker glatt, wird der Gegengriff gespiegelt, an Ecken (Cusps) bleiben die Griffe unabhängig. Bearbeitung per Enter/Esc beenden. Der gewählte Pfad lässt sich weiterhin auch per Doppelklick (Auswahl-Werkzeug) bearbeiten.
 
 ## UI-Änderungen

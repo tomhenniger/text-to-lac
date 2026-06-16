@@ -1012,6 +1012,7 @@ function svgElementPolys(el, res) {
   }
   return polys;
 }
+let __svgAutoMode = true;                            // solange der Nutzer den Modus nicht selbst wählt: passenden Modus automatisch setzen
 function otsu(buf) {                                  // Otsu-Schwelle über 0..255-Histogramm
   const hist = new Float64Array(256);
   for (let i = 0; i < buf.length; i++) hist[Math.max(0, Math.min(255, Math.round(buf[i])))]++;
@@ -1027,6 +1028,22 @@ function otsu(buf) {                                  // Otsu-Schwelle über 0..
     if (v > maxVar) { maxVar = v; thr = i; }
   }
   return thr;
+}
+function svgStyleProp(el, prop) { const st = el.getAttribute("style"); if (!st) return ""; const m = new RegExp("(?:^|;)\\s*" + prop + "\\s*:\\s*([^;]+)", "i").exec(st); return m ? m[1].trim() : ""; }
+function svgIsFilled() {                              // gefüllte SVG (Flächen ohne Kontur) erkennen → Outline-Trace würde sie zerpflücken
+  if (!__svgData) return false;
+  const els = __svgData.doc.querySelectorAll("path,polygon,rect,circle,ellipse,line,polyline");
+  let filled = 0, total = 0;
+  for (const el of els) {
+    total++;
+    const tag = el.tagName.toLowerCase();
+    const fill = (el.getAttribute("fill") || svgStyleProp(el, "fill") || "").toLowerCase();
+    const stroke = (el.getAttribute("stroke") || svgStyleProp(el, "stroke") || "").toLowerCase();
+    const isFilled = fill ? fill !== "none" : (tag !== "line" && tag !== "polyline");   // SVG-Default: fill schwarz (außer Linien)
+    const isStroked = stroke && stroke !== "none";
+    if (isFilled && !isStroked) filled++;
+  }
+  return total > 0 && filled / total >= 0.5;
 }
 function svgContentBBox() {                           // Bounding-Box aller zeichenbaren Elemente (in SVG-Einheiten)
   if (!__svgData) return null;
@@ -1142,7 +1159,12 @@ function svgReadFile(file) {
       }
       const wAttr = parseFloat(root.getAttribute("width")), hAttr = parseFloat(root.getAttribute("height"));
       __svgData = { doc: doc, root: root, vb: vb, w: isNaN(wAttr) ? 0 : wAttr, h: isNaN(hAttr) ? 0 : hAttr, name: file.name, gray: null };
-      window.__miscRecompute();   // Umriss-Modus sofort
+      if (__svgAutoMode && $("inpSvgMode")) {   // gefüllte SVG (z. B. Signatur) → Mittellinie, sonst zerpflückt der Umriss-Trace die Flächen
+        const want = svgIsFilled() ? "centerline" : "outline";
+        if ($("inpSvgMode").value !== want) { $("inpSvgMode").value = want; if (typeof showSvgMode === "function") showSvgMode(); }
+        if (want === "centerline") setStatus(UI.t("Gefüllte SVG erkannt → Modus 'Mittellinie'.", "Filled SVG detected → 'Centerline' mode."));
+      }
+      window.__miscRecompute();   // Modus sofort anwenden
       svgRasterize(1000).then(r => { if (__svgData && __svgData.root === root) { __svgData.gray = r.gray; __svgData.gw = r.w; __svgData.gh = r.h; window.__miscRecompute(); } })
         .catch(e => { console.warn("SVG-Rasterung:", e && e.message); if (__svgData && __svgData.root === root) { __svgData.rasterFailed = true; window.__miscRecompute(); } });   // Mittellinie/Füllen brauchen das Raster
     } catch (e) {
@@ -2730,7 +2752,7 @@ for (const [id, vid, unit] of SLIDERS) {
 }
 for (const id of ["inpSvgClose","inpSvgAuto","inpSvgFillOutline","inpPaperH","inpPaperType","ptRegistration","ptSerpentine","inpSfType","inpSpType","inpMazeH","inpMazeSeed","inpFxExpr","inpFxXmin","inpFxXmax","inpFxAxes","inpTspInvert","inpWaveStyle","inpWaveHeight","inpModelSilhouette","inpModelZup","inpModelHidden","inpShape","inpShapeW","inpShapeH","inpShapeN","inpShapeInner","inpShapeFill"]) { const el = $(id); if (el) el.addEventListener("input", recompute); }
 function showSvgMode() { const m = ($("inpSvgMode") && $("inpSvgMode").value) || "outline"; document.querySelectorAll(".svgmode").forEach(el => { el.style.display = el.dataset.svgmode === m ? "" : "none"; }); }
-if ($("inpSvgMode")) $("inpSvgMode").addEventListener("input", () => { showSvgMode(); recompute(); });
+if ($("inpSvgMode")) $("inpSvgMode").addEventListener("input", () => { __svgAutoMode = false; showSvgMode(); recompute(); });   // bewusste Wahl nicht mehr automatisch überschreiben
 showSvgMode();
 $("btnPenUndo").onclick = () => { __penStrokes.pop(); buildPen(); };
 $("btnPenClear").onclick = () => { __penStrokes = []; buildPen(); };

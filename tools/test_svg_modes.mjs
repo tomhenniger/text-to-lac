@@ -37,6 +37,11 @@ await page.evaluate((svg) => {
 await page.waitForFunction(() => typeof __svgData !== 'undefined' && __svgData && __svgData.gray, null, { timeout: 8000 }).catch(() => {});
 await page.waitForTimeout(400);
 
+// Auto-Erkennung: gefüllte SVG (fill, kein stroke) muss automatisch auf „Mittellinie" springen — sonst zerpflückt der Umriss-Trace die Flächen
+const autoFilled = await page.evaluate(() => document.getElementById('inpSvgMode').value);
+console.log('Auto-Modus (gefüllt):', autoFilled);
+if (autoFilled !== 'centerline') { console.log('FAIL: gefüllte SVG nicht automatisch auf Mittellinie'); ok = false; }
+
 await setMode('outline'); const out = await read(); await page.screenshot({ path: '/tmp/svg_modes/outline.png', clip: { x: 340, y: 0, width: 1160, height: 900 } });
 await setMode('centerline'); const cen = await read(); await page.screenshot({ path: '/tmp/svg_modes/centerline.png', clip: { x: 340, y: 0, width: 1160, height: 900 } });
 await setMode('fill'); const fil = await read(); await page.screenshot({ path: '/tmp/svg_modes/fill.png', clip: { x: 340, y: 0, width: 1160, height: 900 } });

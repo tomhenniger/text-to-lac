@@ -26,11 +26,20 @@ await page.evaluate((svg) => {
 // auf Rasterung im iframe warten
 await page.waitForFunction(() => { const L = S.layers[S.layers.length - 1], d = L._frame.contentWindow.__svgData; return d && d.gray; }, null, { timeout: 8000 }).catch(() => {});
 await page.waitForTimeout(600);
+
+// Auto-Erkennung: gefüllte Signatur muss automatisch auf „Mittellinie" gestellt worden sein (sonst zerpflückt der Umriss-Trace die Flächen)
+const autoMode = await page.evaluate(() => S.layers[0]._frame.contentDocument.getElementById('inpSvgMode').value);
+console.log('Auto-Modus nach Laden:', autoMode);
+if (autoMode !== 'centerline') { console.log('FAIL: gefüllte SVG nicht automatisch auf Mittellinie gestellt'); ok = false; }
+
+const setEmbedMode = (m) => page.evaluate((m) => { const fr = S.layers[0]._frame, doc = fr.contentDocument; const sel = doc.getElementById('inpSvgMode'); sel.value = m; sel.dispatchEvent(new fr.contentWindow.Event('input', { bubbles: true })); }, m);
+
+// Zum Vergleich explizit auf „Umrisse" stellen (zerpflückte Variante)
+await setEmbedMode('outline'); await page.waitForTimeout(700);
 const outline = await page.evaluate(() => { const L = S.layers[0]; return { n: L.strokesCache.length, pts: L.strokesCache.reduce((a, s) => a + s.length, 0) }; });
 
-// Im Embed auf „Mittellinie" umschalten → Striche müssen im Studio-Layer ankommen
-await page.evaluate(() => { const fr = S.layers[0]._frame, doc = fr.contentDocument; const sel = doc.getElementById('inpSvgMode'); sel.value = 'centerline'; sel.dispatchEvent(new fr.contentWindow.Event('input', { bubbles: true })); });
-await page.waitForTimeout(900);
+// Wieder „Mittellinie" → Striche müssen im Studio-Layer ankommen
+await setEmbedMode('centerline'); await page.waitForTimeout(900);
 const centerline = await page.evaluate(() => { const L = S.layers[0]; return { n: L.strokesCache.length, pts: L.strokesCache.reduce((a, s) => a + s.length, 0), cw: +L.cw.toFixed(1) }; });
 
 console.log('Studio outline   :', JSON.stringify(outline));
