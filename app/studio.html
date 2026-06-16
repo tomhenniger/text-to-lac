@@ -54,6 +54,12 @@
   .lrow.sel { border-color: var(--accent); background: var(--hover); }
   .lrow .ln { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lrow .ic { width: 22px; height: 24px; padding: 0; font-size: 13px; line-height: 1; border-radius: 5px; }
+  .lrow.primary { box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .aligngrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px; }
+  .aligngrid.dist { grid-template-columns: repeat(2, 1fr); }
+  .abtn { height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; color: var(--text); }
+  .abtn:hover:not([disabled]) { border-color: var(--accent); }
+  .abtn[disabled] { opacity: .38; cursor: default; }
   #propsPanel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   #propsForm { padding: 8px 10px; border-bottom: 1px solid var(--border); }
   #editorBody { flex: 1; position: relative; min-height: 0; }
@@ -98,6 +104,7 @@
     <div id="propsPanel">
       <div class="panelhead">Eigenschaften <span class="sp"></span><span id="propLabel" style="font-weight:400;color:var(--muted)"></span></div>
       <div id="propsForm">
+        <div class="hint" id="multiNote" style="display:none"></div>
         <div id="selDetails" style="display:none">
           <div class="row">
             <div><label>X (mm)</label><input type="number" id="inLx" step="1"></div>
@@ -107,9 +114,20 @@
             <div><label>Skalierung</label><input type="number" id="inLs" step="0.05" min="0.05"></div>
             <div><label>Drehung (°)</label><input type="number" id="inLr" step="1"></div>
           </div>
-          <div class="btnrow"><button id="btnDup">Duplizieren</button><button id="btnDel">Löschen</button></div>
-          <div class="hint">Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°).</div>
         </div>
+        <div id="alignBox" style="display:none">
+          <label id="lblAlign">Ausrichten an</label>
+          <select id="alignRef">
+            <option value="selection">Auswahl</option>
+            <option value="area">Arbeitsfläche</option>
+            <option value="sheet">Blatt</option>
+          </select>
+          <div class="aligngrid" id="alignRow"></div>
+          <div class="aligngrid dist" id="distRow"></div>
+          <div class="hint" id="distHint">Verteilen braucht mindestens 3 Ebenen.</div>
+        </div>
+        <div class="btnrow" id="selActions" style="display:none"><button id="btnDup">Duplizieren</button><button id="btnDel">Löschen</button></div>
+        <div class="hint" id="selHint" style="display:none">Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°). Mehrfachauswahl: Cmd/Strg- oder Shift-Klick in der Ebenenliste, Shift-Klick auf der Fläche; Pfeiltasten verschieben (Shift = 10 mm).</div>
         <div class="hint" id="noSel">Keine Ebene ausgewählt. Werkzeug links wählen oder Ebene oben anklicken.</div>
       </div>
       <div id="editorBody"></div>
@@ -140,7 +158,7 @@ const MISC_TOOLS = [["qr","QR-Code"],["spotify","Spotify-Code"],["svg","SVG-Impo
   ["maze","Labyrinth"],["fxplot","Funktionsplotter"],["tsp","TSP- / Stipple-Art"],["wave","Audio-Waveform"]];
 function toolLabel(t){ const m=MISC_TOOLS.find(x=>x[0]===t); return t==="model"?"3D-Modell":(m?m[1]:t); }
 
-const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, paper: "A4P", snap: true };
+const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, selIds: [], paper: "A4P", snap: true };
 let LID = 1;
 let snapGuides = null;
 
@@ -215,22 +233,37 @@ function redraw() {
     ctx.stroke(); }
   ctx.restore();
   // Auswahl-Box + Griffe (Screen-px)
-  const L = sel();
-  if (L && L.cw && L.ch) drawSelection(L, P);
+  const selLs = selLayers().filter(L => L.visible && L.cw && L.ch);
+  if (selLs.length === 1) drawSelection(selLs[0], P, true);
+  else if (selLs.length > 1) { selLs.forEach(L => drawSelection(L, P, false)); drawGroupBounds(selLs, P); }
 }
-function drawSelection(L, P) {
+function drawSelection(L, P, handles) {
   const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
   ctx.save();
   ctx.scale(devicePixelRatio, devicePixelRatio);   // Chrome in CSS-px zeichnen (sonst auf Retina verschoben/halb)
   ctx.strokeStyle = P.marker; ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(c[i][0], c[i][1]); ctx.closePath(); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = "#fff"; ctx.strokeStyle = P.marker; ctx.lineWidth = 1.2;
-  for (const p of c) { ctx.beginPath(); ctx.rect(p[0] - 4, p[1] - 4, 8, 8); ctx.fill(); ctx.stroke(); }
-  // Rotate-Handle: über Mitte der oberen Kante
-  const rh = rotateHandlePos(c);
-  ctx.beginPath(); ctx.moveTo((c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2); ctx.lineTo(rh[0], rh[1]); ctx.stroke();
-  ctx.beginPath(); ctx.arc(rh[0], rh[1], 5, 0, 7); ctx.fill(); ctx.stroke();
+  if (handles) {
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = P.marker; ctx.lineWidth = 1.2;
+    for (const p of c) { ctx.beginPath(); ctx.rect(p[0] - 4, p[1] - 4, 8, 8); ctx.fill(); ctx.stroke(); }
+    // Rotate-Handle: über Mitte der oberen Kante
+    const rh = rotateHandlePos(c);
+    ctx.beginPath(); ctx.moveTo((c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2); ctx.lineTo(rh[0], rh[1]); ctx.stroke();
+    ctx.beginPath(); ctx.arc(rh[0], rh[1], 5, 0, 7); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+function unionAABB(layers) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const L of layers) { const a = layerAABB(L); minX = Math.min(minX, a.minX); minY = Math.min(minY, a.minY); maxX = Math.max(maxX, a.maxX); maxY = Math.max(maxY, a.maxY); }
+  return { minX, minY, maxX, maxY };
+}
+function drawGroupBounds(layers, P) {
+  const a = unionAABB(layers); const p1 = mm2px(a.minX, a.minY), p2 = mm2px(a.maxX, a.maxY);
+  ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.strokeStyle = P.marker; ctx.globalAlpha = .65; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+  ctx.strokeRect(p1[0] / devicePixelRatio, p1[1] / devicePixelRatio, (p2[0] - p1[0]) / devicePixelRatio, (p2[1] - p1[1]) / devicePixelRatio);
   ctx.restore();
 }
 function rotateHandlePos(c) {
@@ -251,25 +284,36 @@ let rafP = 0; function scheduleRedraw() { if (rafP) return; rafP = requestAnimat
 
 /* ---------- Auswahl & Drag ---------- */
 function sel() { return S.layers.find(L => L.id === S.selId) || null; }
+function selLayers() { return S.selIds.map(id => S.layers.find(L => L.id === id)).filter(Boolean); }
 let drag = null;
 cv.addEventListener("mousedown", e => {
   const [mx, my] = px2mm(e.offsetX, e.offsetY);
-  const L = sel();
-  if (L && L.cw && L.ch) {
-    const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
-    const rh = rotateHandlePos(c);
-    if (Math.hypot(e.offsetX - rh[0], e.offsetY - rh[1]) < 9) { const cen = center(L); drag = { mode: "rot", a0: Math.atan2(my - cen[1], mx - cen[0]), r0: L.transform.rot, cen }; return; }
-    const wc = layerCorners(L), cen2 = center(L), lc = [[0, 0], [L.cw, 0], [L.cw, L.ch], [0, L.ch]];
-    for (let i = 0; i < 4; i++) if (Math.hypot(e.offsetX - c[i][0], e.offsetY - c[i][1]) < 9) {
-      const grab = wc[i], Ao = wc[(i + 2) % 4], oppL = lc[(i + 2) % 4];   // Ao = gegenüberliegende Ecke (Default-Anker)
-      drag = { mode: "scale", s0: L.transform.scale, rot: L.transform.rot, Ao, Ac: cen2,
-        oppOff: [oppL[0] - L.cw / 2, oppL[1] - L.ch / 2],
-        d0o: Math.hypot(grab[0] - Ao[0], grab[1] - Ao[1]) || 1e-6, d0c: Math.hypot(grab[0] - cen2[0], grab[1] - cen2[1]) || 1e-6 };
-      return;
+  // Griffe (Skalieren/Drehen) nur bei genau einer Auswahl
+  if (S.selIds.length === 1) {
+    const L = sel();
+    if (L && L.visible && L.cw && L.ch) {
+      const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
+      const rh = rotateHandlePos(c);
+      if (Math.hypot(e.offsetX - rh[0], e.offsetY - rh[1]) < 9) { const cen = center(L); drag = { mode: "rot", a0: Math.atan2(my - cen[1], mx - cen[0]), r0: L.transform.rot, cen }; return; }
+      const wc = layerCorners(L), cen2 = center(L), lc = [[0, 0], [L.cw, 0], [L.cw, L.ch], [0, L.ch]];
+      for (let i = 0; i < 4; i++) if (Math.hypot(e.offsetX - c[i][0], e.offsetY - c[i][1]) < 9) {
+        const grab = wc[i], Ao = wc[(i + 2) % 4], oppL = lc[(i + 2) % 4];   // Ao = gegenüberliegende Ecke (Default-Anker)
+        drag = { mode: "scale", s0: L.transform.scale, rot: L.transform.rot, Ao, Ac: cen2,
+          oppOff: [oppL[0] - L.cw / 2, oppL[1] - L.ch / 2],
+          d0o: Math.hypot(grab[0] - Ao[0], grab[1] - Ao[1]) || 1e-6, d0c: Math.hypot(grab[0] - cen2[0], grab[1] - cen2[1]) || 1e-6 };
+        return;
+      }
     }
   }
   // Layer treffen (oben zuerst)
-  for (let i = S.layers.length - 1; i >= 0; i--) { const Li = S.layers[i]; if (Li.visible && pointInLayer(Li, mx, my)) { selectLayer(Li.id); drag = { mode: "move", sx: mx, sy: my }; redraw(); return; } }
+  let hit = null;
+  for (let i = S.layers.length - 1; i >= 0; i--) { const Li = S.layers[i]; if (Li.visible && pointInLayer(Li, mx, my)) { hit = Li; break; } }
+  if (hit) {
+    if (e.shiftKey) { toggleSelect(hit.id); if (!S.selIds.includes(hit.id)) { drag = null; return; } }   // ab-/angewählt
+    else if (!S.selIds.includes(hit.id)) { selectLayer(hit.id); }                                          // sonst Auswahl ersetzen
+    drag = { mode: "move", sx: mx, sy: my, layers: selLayers().filter(L => L.cw && L.ch) };                // ganze Auswahl bewegen
+    return;
+  }
   // sonst: pan
   drag = { mode: "pan", sx: e.clientX, sy: e.clientY, ox: S.view.ox, oy: S.view.oy };
 });
@@ -279,11 +323,16 @@ window.addEventListener("mousemove", e => {
   if (drag.mode === "pan") { S.view.ox = drag.ox + (e.clientX - drag.sx); S.view.oy = drag.oy + (e.clientY - drag.sy); redraw(); return; }
   const r = cv.getBoundingClientRect();
   const [mx, my] = px2mm(e.clientX - r.left, e.clientY - r.top);
-  const L = sel(); if (!L) return;
   if (drag.mode === "move") {
-    L.transform.x += mx - drag.sx; L.transform.y += my - drag.sy; drag.sx = mx; drag.sy = my;
-    snapGuides = null; if (S.snap && !e.shiftKey) snapMove(L);   // Shift gedrückt = Snapping aus
-  } else if (drag.mode === "scale") {
+    const dx = mx - drag.sx, dy = my - drag.sy; drag.sx = mx; drag.sy = my;
+    if (drag.snapDx || drag.snapDy) for (const Li of drag.layers) { Li.transform.x -= drag.snapDx; Li.transform.y -= drag.snapDy; }   // letzten Snap zurücknehmen → Cursorweg bleibt erhalten
+    for (const Li of drag.layers) { Li.transform.x += dx; Li.transform.y += dy; }
+    snapGuides = null; drag.snapDx = 0; drag.snapDy = 0;
+    if (S.snap && !e.shiftKey && drag.layers.length) snapMove(drag.layers, drag);   // Shift gedrückt = Snapping aus
+    syncSelInputs(); redraw(); return;
+  }
+  const L = sel(); if (!L) return;
+  if (drag.mode === "scale") {
     const alt = e.altKey || e.metaKey;          // Alt/Cmd: Mitte als Anker, sonst gegenüberliegende Ecke
     const A = alt ? drag.Ac : drag.Ao, off = alt ? [0, 0] : drag.oppOff, d0 = alt ? drag.d0c : drag.d0o;
     let s = drag.s0 * (Math.hypot(mx - A[0], my - A[1]) / d0);
@@ -305,17 +354,19 @@ cv.addEventListener("wheel", e => { e.preventDefault();
   S.view.scale = ns; redraw();
 }, { passive: false });
 
-function snapMove(L) {
-  const tol = 4 / S.view.scale, bb = layerAABB(L);
+function snapMove(layers, drag) {
+  const tol = 4 / S.view.scale, bb = unionAABB(layers);   // gesamte Auswahl als ein Block snappen
+  const selSet = new Set(layers.map(L => L.id));
   const probesX = [bb.minX, (bb.minX + bb.maxX) / 2, bb.maxX], probesY = [bb.minY, (bb.minY + bb.maxY) / 2, bb.maxY];
   const tx = [], ty = [];
   tx.push(0, S.matW / 2, S.matW); ty.push(0, S.matH / 2, S.matH);   // Build-Plate: Kanten + Mitte
   const pa = PAPERS[S.paper]; if (pa) { const ox = (S.matW - pa[0]) / 2, oy = (S.matH - pa[1]) / 2; tx.push(ox, ox + pa[0] / 2, ox + pa[0]); ty.push(oy, oy + pa[1] / 2, oy + pa[1]); }
-  for (const o of S.layers) { if (o.id === L.id || !o.visible || !o.cw) continue; const a = layerAABB(o); tx.push(a.minX, (a.minX + a.maxX) / 2, a.maxX); ty.push(a.minY, (a.minY + a.maxY) / 2, a.maxY); }
+  for (const o of S.layers) { if (selSet.has(o.id) || !o.visible || !o.cw) continue; const a = layerAABB(o); tx.push(a.minX, (a.minX + a.maxX) / 2, a.maxX); ty.push(a.minY, (a.minY + a.maxY) / 2, a.maxY); }
   let bdx = null, gx = null, bdy = null, gy = null;
   for (const p of probesX) for (const t of tx) { const d = t - p; if (Math.abs(d) < tol && (bdx === null || Math.abs(d) < Math.abs(bdx))) { bdx = d; gx = t; } }
   for (const p of probesY) for (const t of ty) { const d = t - p; if (Math.abs(d) < tol && (bdy === null || Math.abs(d) < Math.abs(bdy))) { bdy = d; gy = t; } }
-  if (bdx !== null) L.transform.x += bdx; if (bdy !== null) L.transform.y += bdy;
+  if (bdx !== null) layers.forEach(L => L.transform.x += bdx); if (bdy !== null) layers.forEach(L => L.transform.y += bdy);
+  if (drag) { drag.snapDx = bdx || 0; drag.snapDy = bdy || 0; }   // angewandte Korrektur merken (Sticky-Snap vermeiden)
   snapGuides = { x: gx, y: gy };
 }
 
@@ -330,34 +381,77 @@ function addLayer(type, tool) {
   const L = makeLayer(type, tool); S.layers.push(L);
   selectLayer(L.id);
 }
-function selectLayer(id) {
-  S.selId = id; const L = sel();
-  if (L) ensureFrame(L);
+function afterSelChange() {
+  const L = sel(); if (L) ensureFrame(L);
   document.querySelectorAll(".toolframe").forEach(fr => fr.classList.toggle("active", L && L._frame && fr === L._frame));
-  $("selDetails").style.display = L ? "" : "none";
-  $("noSel").style.display = L ? "none" : "";
-  $("propLabel").textContent = L ? L.label : "";
-  if (L) syncSelInputs();
-  renderList(); redraw();
+  updatePropsUI(); renderList(); redraw();
 }
-function deleteLayer(id) {
-  const i = S.layers.findIndex(L => L.id === id); if (i < 0) return;
-  const L = S.layers[i]; if (L._frame) L._frame.remove(); S.layers.splice(i, 1);
-  selectLayer(S.layers.length ? S.layers[Math.min(i, S.layers.length - 1)].id : null);
+function selectLayer(id) {
+  S.selIds = id != null ? [id] : []; S.selId = id != null ? id : null;
+  afterSelChange();
 }
-function duplicateLayer(id) {
-  const L = S.layers.find(x => x.id === id); if (!L) return;
-  const N = makeLayer(L.type, L.tool); N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
-  N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
-  S.layers.push(N); ensureFrame(N);
-  selectLayer(N.id); renderList(); redraw();
+function toggleSelect(id) {
+  const i = S.selIds.indexOf(id);
+  if (i >= 0) { S.selIds.splice(i, 1); if (S.selId === id) S.selId = S.selIds.length ? S.selIds[S.selIds.length - 1] : null; }
+  else { S.selIds.push(id); S.selId = id; }
+  afterSelChange();
 }
+function rangeSelect(id) {
+  if (S.selId == null) { selectLayer(id); return; }
+  const i1 = S.layers.findIndex(L => L.id === S.selId), i2 = S.layers.findIndex(L => L.id === id);
+  if (i1 < 0 || i2 < 0) { selectLayer(id); return; }
+  const lo = Math.min(i1, i2), hi = Math.max(i1, i2);
+  S.selIds = S.layers.slice(lo, hi + 1).map(L => L.id); S.selId = id;
+  afterSelChange();
+}
+function selectAll() { S.selIds = S.layers.map(L => L.id); S.selId = S.layers.length ? S.layers[S.layers.length - 1].id : null; afterSelChange(); }
+function updatePropsUI() {
+  const n = S.selIds.length, one = n === 1, multi = n >= 2;
+  $("selDetails").style.display = one ? "" : "none";
+  $("selHint").style.display = one ? "" : "none";
+  $("multiNote").style.display = multi ? "" : "none";
+  $("alignBox").style.display = n >= 1 ? "" : "none";
+  $("selActions").style.display = n >= 1 ? "" : "none";
+  $("noSel").style.display = n >= 1 ? "none" : "";
+  $("propLabel").textContent = multi ? (n + " " + UI.t("Ebenen", "layers")) : (one ? sel().label : "");
+  if (multi) $("multiNote").textContent = n + " " + UI.t("Ebenen ausgewählt — relativ zueinander ausrichten/verteilen.", "layers selected — align/distribute relative to each other.");
+  const refSel = $("alignRef"), selOpt = refSel.querySelector('option[value=selection]');
+  if (!n) refSel._forced = false;                                                              // keinen Stand über Laden/Neu hinweg behalten
+  if (one && refSel.value === "selection") { refSel.value = "area"; refSel._forced = true; }   // „Auswahl“ ergibt für 1 Ebene keinen Sinn
+  if (multi && refSel._forced && refSel.value === "area") { refSel.value = "selection"; }       // nur die Auto-Ersetzung zurücknehmen, keine bewusste Wahl
+  if (multi) refSel._forced = false;
+  selOpt.disabled = !multi;
+  const nUsable = selLayers().filter(L => L.cw && L.ch).length;                                 // Buttons an der real nutzbaren Anzahl ausrichten
+  document.querySelectorAll(".distbtn").forEach(b => b.disabled = nUsable < 3);
+  $("distHint").style.display = (n >= 1 && nUsable < 3) ? "" : "none";
+  if (one) syncSelInputs();
+}
+function deleteSelected() {
+  if (!S.selIds.length) return;
+  const ids = S.selIds.slice();
+  let anchor = Math.min(...ids.map(id => S.layers.findIndex(L => L.id === id)).filter(i => i >= 0));
+  for (const id of ids) { const i = S.layers.findIndex(L => L.id === id); if (i < 0) continue; const L = S.layers[i]; if (L._frame) L._frame.remove(); S.layers.splice(i, 1); }
+  selectLayer(S.layers.length ? S.layers[Math.min(anchor, S.layers.length - 1)].id : null);
+}
+function duplicateSelected() {
+  if (!S.selIds.length) return;
+  const src = selLayers(), newIds = [];
+  for (const L of src) {
+    const N = makeLayer(L.type, L.tool); N.label = L.label;
+    N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
+    N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
+    S.layers.push(N); ensureFrame(N); newIds.push(N.id);
+  }
+  S.selIds = newIds; S.selId = newIds[newIds.length - 1]; afterSelChange();
+}
+function deleteLayer(id) { selectLayer(id); deleteSelected(); }
+function duplicateLayer(id) { selectLayer(id); duplicateSelected(); }
 function renderList() {
   const box = $("layerList"); box.innerHTML = "";
   $("layerHint").style.display = S.layers.length ? "none" : "";
   for (let i = S.layers.length - 1; i >= 0; i--) {
     const L = S.layers[i];
-    const row = document.createElement("div"); row.className = "lrow" + (L.id === S.selId ? " sel" : "");
+    const row = document.createElement("div"); row.className = "lrow" + (S.selIds.includes(L.id) ? " sel" : "") + (L.id === S.selId ? " primary" : "");
     const eye = document.createElement("button"); eye.className = "ic"; eye.textContent = L.visible ? "👁" : "🚫"; eye.title = "Sichtbar";
     eye.onclick = (ev) => { ev.stopPropagation(); L.visible = !L.visible; renderList(); redraw(); };
     const nm = document.createElement("span"); nm.className = "ln"; nm.textContent = L.label + (L.strokesCache.length ? "" : " (leer)");
@@ -366,7 +460,11 @@ function renderList() {
     const dn = document.createElement("button"); dn.className = "ic"; dn.textContent = "↓"; dn.title = "nach unten";
     dn.onclick = (ev) => { ev.stopPropagation(); if (i > 0) { S.layers.splice(i, 1); S.layers.splice(i - 1, 0, L); renderList(); redraw(); } };
     row.append(eye, nm, up, dn);
-    row.onclick = () => { selectLayer(L.id); };
+    row.onclick = (ev) => {
+      if (ev.metaKey || ev.ctrlKey) toggleSelect(L.id);
+      else if (ev.shiftKey) rangeSelect(L.id);
+      else selectLayer(L.id);
+    };
     box.appendChild(row);
   }
 }
@@ -383,7 +481,7 @@ function saveLayout() {
 }
 function loadLayout(obj) {
   if (!obj || obj.format !== "handschrift-studio") { alert(UI.t("Keine gültige .handschrift-Datei.", "Not a valid .handschrift file.")); return; }
-  S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; S.selId = null;
+  S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; S.selId = null; S.selIds = [];
   S.matW = +obj.matW || 300; S.matH = +obj.matH || 300; S.paper = obj.paper || "none";
   $("inMatW").value = S.matW; $("inMatH").value = S.matH; $("inPaper").value = S.paper;
   for (const d of (obj.layers || [])) {
@@ -395,11 +493,52 @@ function loadLayout(obj) {
     L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
     S.layers.push(L);   // iframe wird erst beim Bearbeiten erzeugt (lazy)
   }
-  $("selDetails").style.display = "none"; $("noSel").style.display = ""; $("propLabel").textContent = "";
-  renderList(); fitView(); redraw();
+  updatePropsUI(); renderList(); fitView(); redraw();
   setStatus(S.layers.length + " " + UI.t("Layer geladen", "layers loaded"));
 }
-function syncSelInputs() { const L = sel(); if (!L) return; $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y); $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI); }
+function syncSelInputs() { if (S.selIds.length !== 1) return; const L = sel(); if (!L) return; $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y); $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI); }
+
+/* ---------- Ausrichten & Verteilen (Photoshop-Stil) ---------- */
+function alignTargetBounds() {
+  const ref = $("alignRef").value;
+  if (ref === "area") return { minX: 0, minY: 0, maxX: S.matW, maxY: S.matH };
+  if (ref === "sheet") { const pa = PAPERS[S.paper]; if (pa) { const ox = (S.matW - pa[0]) / 2, oy = (S.matH - pa[1]) / 2; return { minX: ox, minY: oy, maxX: ox + pa[0], maxY: oy + pa[1] }; } return { minX: 0, minY: 0, maxX: S.matW, maxY: S.matH }; }
+  return unionAABB(selLayers().filter(L => L.cw && L.ch));   // "selection"
+}
+function alignLayers(edge) {
+  const Ls = selLayers().filter(L => L.cw && L.ch); if (!Ls.length) return;
+  const T = alignTargetBounds();
+  for (const L of Ls) {
+    const a = layerAABB(L); let dx = 0, dy = 0;
+    if (edge === "left") dx = T.minX - a.minX;
+    else if (edge === "hcenter") dx = (T.minX + T.maxX) / 2 - (a.minX + a.maxX) / 2;
+    else if (edge === "right") dx = T.maxX - a.maxX;
+    else if (edge === "top") dy = T.minY - a.minY;
+    else if (edge === "vcenter") dy = (T.minY + T.maxY) / 2 - (a.minY + a.maxY) / 2;
+    else if (edge === "bottom") dy = T.maxY - a.maxY;
+    L.transform.x += dx; L.transform.y += dy;
+  }
+  syncSelInputs(); renderList(); redraw();
+  setStatus(Ls.length + " " + UI.t("Ebenen ausgerichtet", "layers aligned"));
+}
+function distribute(axis) {
+  const Ls = selLayers().filter(L => L.cw && L.ch); if (Ls.length < 3) return;
+  const ref = $("alignRef").value, T = alignTargetBounds();
+  const items = Ls.map(L => ({ L, a: layerAABB(L) }));
+  if (axis === "h") {
+    items.sort((p, q) => (p.a.minX + p.a.maxX) / 2 - (q.a.minX + q.a.maxX) / 2);
+    const left = ref === "selection" ? Math.min(...items.map(it => it.a.minX)) : T.minX, right = ref === "selection" ? Math.max(...items.map(it => it.a.maxX)) : T.maxX;
+    const totalW = items.reduce((s, it) => s + (it.a.maxX - it.a.minX), 0), gap = (right - left - totalW) / (items.length - 1);
+    let cur = left; for (const it of items) { const w = it.a.maxX - it.a.minX; it.L.transform.x += cur - it.a.minX; cur += w + gap; }
+  } else {
+    items.sort((p, q) => (p.a.minY + p.a.maxY) / 2 - (q.a.minY + q.a.maxY) / 2);
+    const top = ref === "selection" ? Math.min(...items.map(it => it.a.minY)) : T.minY, bot = ref === "selection" ? Math.max(...items.map(it => it.a.maxY)) : T.maxY;
+    const totalH = items.reduce((s, it) => s + (it.a.maxY - it.a.minY), 0), gap = (bot - top - totalH) / (items.length - 1);
+    let cur = top; for (const it of items) { const h = it.a.maxY - it.a.minY; it.L.transform.y += cur - it.a.minY; cur += h + gap; }
+  }
+  syncSelInputs(); renderList(); redraw();
+  setStatus(Ls.length + " " + UI.t("Ebenen verteilt", "layers distributed"));
+}
 
 /* ---------- Embed-Nachrichten von den Tool-iframes ---------- */
 window.addEventListener("message", e => {
@@ -408,8 +547,9 @@ window.addEventListener("message", e => {
   if (!L) return;
   if (m.type === "ready") {
     if (L._pendingParams) { L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "restoreParams", params: L._pendingParams }, "*"); L._pendingParams = null; }
-    // Theme syncen
+    // Theme + Sprache syncen
     L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setTheme", theme: UI.theme() }, "*");
+    L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*");
   } else if (m.type === "strokes") {
     L.groups = m.groups || null;
     L.strokesCache = (m.groups && m.groups.length) ? m.groups.flatMap(g => g.polylines) : [];
@@ -500,10 +640,32 @@ for (const t of TOOLBAR) {
 }
 
 // Auswahl-Transform + Buttons
-$("btnDel").onclick = () => { if (sel()) deleteLayer(sel().id); };
-$("btnDup").onclick = () => { if (sel()) duplicateLayer(sel().id); };
+$("btnDel").onclick = deleteSelected;
+$("btnDup").onclick = duplicateSelected;
 for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLs", "scale"], ["inLr", "rot"]])
   $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; if (key === "scale") v = Math.max(0.05, v || 1); L.transform[key] = v; redraw(); });
+
+// Ausrichten-/Verteilen-Buttons (Photoshop-Icons)
+const ALIGN_BTNS = [
+  { k: "left", t: ["Linke Kanten", "Align left edges"], svg: '<line x1="3.5" y1="3" x2="3.5" y2="21"/><rect x="6" y="6" width="13" height="4"/><rect x="6" y="14" width="8" height="4"/>' },
+  { k: "hcenter", t: ["Horizontal zentrieren", "Align horizontal centers"], svg: '<line x1="12" y1="3" x2="12" y2="21"/><rect x="5" y="6" width="14" height="4"/><rect x="8" y="14" width="8" height="4"/>' },
+  { k: "right", t: ["Rechte Kanten", "Align right edges"], svg: '<line x1="20.5" y1="3" x2="20.5" y2="21"/><rect x="5" y="6" width="13" height="4"/><rect x="10" y="14" width="8" height="4"/>' },
+  { k: "top", t: ["Obere Kanten", "Align top edges"], svg: '<line x1="3" y1="3.5" x2="21" y2="3.5"/><rect x="6" y="6" width="4" height="13"/><rect x="14" y="6" width="4" height="8"/>' },
+  { k: "vcenter", t: ["Vertikal zentrieren", "Align vertical centers"], svg: '<line x1="3" y1="12" x2="21" y2="12"/><rect x="6" y="5" width="4" height="14"/><rect x="14" y="8" width="4" height="8"/>' },
+  { k: "bottom", t: ["Untere Kanten", "Align bottom edges"], svg: '<line x1="3" y1="20.5" x2="21" y2="20.5"/><rect x="6" y="5" width="4" height="13"/><rect x="14" y="10" width="4" height="8"/>' },
+];
+const DIST_BTNS = [
+  { k: "h", t: ["Horizontal verteilen", "Distribute horizontally"], svg: '<rect x="3" y="6" width="3" height="12"/><rect x="10.5" y="6" width="3" height="12"/><rect x="18" y="6" width="3" height="12"/>' },
+  { k: "v", t: ["Vertikal verteilen", "Distribute vertically"], svg: '<rect x="6" y="3" width="12" height="3"/><rect x="6" y="10.5" width="12" height="3"/><rect x="6" y="18" width="12" height="3"/>' },
+];
+function abtn(spec, cls, fn) {
+  const b = document.createElement("button"); b.className = "abtn" + (cls ? " " + cls : ""); b.title = UI.t(spec.t[0], spec.t[1]);
+  b.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">${spec.svg}</svg>`;
+  b.onclick = fn; return b;
+}
+for (const s of ALIGN_BTNS) $("alignRow").appendChild(abtn(s, "", () => alignLayers(s.k)));
+for (const s of DIST_BTNS) $("distRow").appendChild(abtn(s, "distbtn", () => distribute(s.k)));
+$("alignRef").addEventListener("change", () => { $("alignRef")._forced = false; });   // bewusste Wahl nicht mehr automatisch überschreiben
 $("fileLoad").addEventListener("change", () => {
   const f = $("fileLoad").files[0]; if (!f) return;
   const rd = new FileReader();
@@ -524,9 +686,10 @@ const MENUS = {
     { l: UI.t("Exportieren als SVG", "Export as SVG"), a: exportSvg },
   ],
   edit: () => [
-    { l: UI.t("Ebene duplizieren", "Duplicate layer"), a: () => sel() && duplicateLayer(sel().id) },
-    { l: UI.t("Ebene löschen", "Delete layer"), a: () => sel() && deleteLayer(sel().id) },
+    { l: UI.t("Ebene(n) duplizieren", "Duplicate layer(s)"), a: duplicateSelected },
+    { l: UI.t("Ebene(n) löschen", "Delete layer(s)"), a: deleteSelected },
     { sep: 1 },
+    { l: UI.t("Alles auswählen", "Select all"), a: selectAll },
     { l: UI.t("Auswahl aufheben", "Deselect"), a: () => selectLayer(null) },
   ],
   view: () => [
@@ -558,11 +721,19 @@ function showMenu(btn) {
 document.querySelectorAll(".menubtn").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); showMenu(b); }));
 dd.addEventListener("click", e => e.stopPropagation());
 document.addEventListener("click", closeMenu);
-// Tastatur: Entf löscht, Cmd/Ctrl+S speichert
+// Tastatur: Entf löscht Auswahl, Cmd/Ctrl+S speichert, Cmd/Ctrl+A wählt alles, Esc hebt auf, Pfeile verschieben
+const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 window.addEventListener("keydown", e => {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-  if ((e.key === "Delete" || e.key === "Backspace") && sel()) { e.preventDefault(); deleteLayer(sel().id); }
-  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveLayout(); }
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveLayout(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") { e.preventDefault(); selectAll(); }
+  else if ((e.key === "Delete" || e.key === "Backspace") && S.selIds.length) { e.preventDefault(); deleteSelected(); }
+  else if (e.key === "Escape" && S.selIds.length) { e.preventDefault(); selectLayer(null); }
+  else if (ARROWS[e.key] && S.selIds.length) {
+    e.preventDefault(); const step = e.shiftKey ? 10 : 1, [dx, dy] = ARROWS[e.key];
+    selLayers().forEach(L => { L.transform.x += dx * step; L.transform.y += dy * step; });
+    syncSelInputs(); redraw();
+  }
 });
 
 UI.initTheme();
@@ -596,10 +767,14 @@ const I18N_EN = {
     "Saves the layout as a <code>.handschrift</code> file (layers, position, parameters and strokes). To continue later or share.",
   "Keine gültige .handschrift-Datei.": "Not a valid .handschrift file.",
   "Datei konnte nicht gelesen werden.": "Could not read file.", "Layer geladen": "layers loaded",
+  "Ausrichten an": "Align to", "Auswahl": "Selection", "Blatt": "Sheet",
+  "Verteilen braucht mindestens 3 Ebenen.": "Distribute needs at least 3 layers.",
+  "Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°). Mehrfachauswahl: Cmd/Strg- oder Shift-Klick in der Ebenenliste, Shift-Klick auf der Fläche; Pfeiltasten verschieben (Shift = 10 mm).":
+    "Corner handles = scale (opposite corner fixed; Alt/Cmd = center). Circle = rotate (Shift = 15°). Multi-select: Cmd/Ctrl- or Shift-click in the layer list, Shift-click on the canvas; arrow keys nudge (Shift = 10 mm).",
 };
 function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
-UI.initLang(I18N_EN); applyLangDefaults(); UI.onLangChange(() => { applyLangDefaults(); renderList(); });
-resize(); fitView(); renderList();
+UI.initLang(I18N_EN); applyLangDefaults(); UI.onLangChange(() => { applyLangDefaults(); updatePropsUI(); renderList(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*"); }); });
+resize(); fitView(); renderList(); updatePropsUI();
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
