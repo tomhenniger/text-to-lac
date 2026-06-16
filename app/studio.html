@@ -565,9 +565,10 @@ function layerTypeIcon(L) {   // Werkzeug-Icon (zeigt den Ebenen-Typ), in der Eb
 function startRename(L, nm) {
   const inp = document.createElement("input"); inp.type = "text"; inp.value = L.name; inp.className = "lnedit";
   nm.replaceWith(inp); inp.focus(); inp.select();
-  const commit = () => { const v = inp.value.trim(); if (v) L.name = v; renderList(); };
-  inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") { e.preventDefault(); commit(); } else if (e.key === "Escape") { e.preventDefault(); renderList(); } };
-  inp.onblur = commit; inp.onclick = (e) => e.stopPropagation(); inp.ondblclick = (e) => e.stopPropagation();
+  let done = false;                                   // verhindert Doppel-Commit/Re-Entry, wenn renderList() das Feld entfernt
+  const finish = (save) => { if (done) return; done = true; inp.onblur = null; if (save) { const v = inp.value.trim(); if (v) L.name = v; } renderList(); };
+  inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") { e.preventDefault(); finish(true); } else if (e.key === "Escape") { e.preventDefault(); finish(false); } };
+  inp.onblur = () => finish(true); inp.onclick = (e) => e.stopPropagation(); inp.ondblclick = (e) => e.stopPropagation();
 }
 function renderList() {
   const box = $("layerList"); box.innerHTML = "";
@@ -579,7 +580,7 @@ function renderList() {
     eye.onclick = (ev) => { ev.stopPropagation(); L.visible = !L.visible; renderList(); redraw(); };
     const ti = document.createElement("span"); ti.className = "lti"; ti.innerHTML = layerTypeIcon(L); ti.title = layerLabel(L);
     ti.style.color = L.color ? groupColor(L.color, "var(--muted)") : "var(--muted)";   // Icon in Ebenenfarbe
-    const nm = document.createElement("span"); nm.className = "ln"; nm.textContent = L.name + (L.strokesCache.length ? "" : " (leer)");
+    const nm = document.createElement("span"); nm.className = "ln"; nm.textContent = L.name + (L.strokesCache.length ? "" : UI.t(" (leer)", " (empty)"));
     nm.title = UI.t("Doppelklick zum Umbenennen", "Double-click to rename");
     nm.ondblclick = (ev) => { ev.stopPropagation(); startRename(L, nm); };
     const up = document.createElement("button"); up.className = "ic"; up.innerHTML = liIcon("up"); up.title = UI.t("nach oben", "move up");
@@ -621,6 +622,7 @@ function loadLayout(obj) {
     L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
     S.layers.push(L);   // iframe wird erst beim Bearbeiten erzeugt (lazy)
   }
+  LSEQ = S.layers.reduce((mx, L) => { const m = /^Layer (\d+)$/.exec(L.name); return m ? Math.max(mx, +m[1] + 1) : mx; }, LSEQ);   // Zähler hinter geladene Namen setzen
   updatePropsUI(); renderList(); fitView(); redraw();
   setStatus(S.layers.length + " " + UI.t("Layer geladen", "layers loaded"));
 }
@@ -632,10 +634,12 @@ function syncSelInputs() {
   $("inLmode").value = L.mode || "KCPenDraw";
 }
 function syncModelEuler() {
-  const L = sel(); if (!L || !L.modelEuler) return;
+  const L = sel(); if (!L || !isModelLayer(L)) return;
   const a = document.activeElement && document.activeElement.id;
   if (a === "inLrx" || a === "inLry" || a === "inLrz") return;   // Eingabe nicht überschreiben
-  $("inLrx").value = Math.round(L.modelEuler.x); $("inLry").value = Math.round(L.modelEuler.y); $("inLrz").value = Math.round(L.modelEuler.z);
+  const e = L.modelEuler || { x: 0, y: 0, z: 0 };                // sonst stehen noch die Werte des vorigen Modells drin
+  $("inLrx").value = Math.round(e.x); $("inLry").value = Math.round(e.y); $("inLrz").value = Math.round(e.z);
+  for (const id of ["inLrx", "inLry", "inLrz"]) $(id).disabled = !L.modelEuler;   // erst editierbar, wenn das Tool die Drehung gemeldet hat
 }
 
 /* ---------- Ausrichten & Verteilen (Photoshop-Stil) ---------- */
@@ -806,7 +810,7 @@ for (const t of TOOLBAR) {
   b.title = t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool);
   b.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`;
   b.onclick = () => t.type === "misc" ? addLayer("misc", t.tool) : addLayer(t.type);
-  tb.appendChild(b);
+  b._t = t; tb.appendChild(b);
 }
 function updateTbScroll() { const t = $("toolbar"); $("tbScroll").classList.toggle("show", t.scrollHeight - t.scrollTop - t.clientHeight > 4); }
 $("toolbar").addEventListener("scroll", updateTbScroll);
@@ -826,8 +830,8 @@ $("inLcolor").addEventListener("input", () => { if (!$("inLcolorOn").checked) $(
 // 3D-Drehung (Modell) exakt eingeben → an das eingebettete Tool senden
 for (const id of ["inLrx", "inLry", "inLrz"])
   $(id).addEventListener("input", () => {
-    const L = sel(); if (!L || !isModelLayer(L)) return; ensureFrame(L);
-    const cur = L.modelEuler || { x: 0, y: 0, z: 0 }, num = (v, c) => { const n = parseFloat(v); return Number.isFinite(n) ? n : c; };   // leeres Feld → aktueller Wert
+    const L = sel(); if (!L || !isModelLayer(L) || !L.modelEuler) return; ensureFrame(L);   // erst editieren, wenn die echte Orientierung bekannt ist
+    const cur = L.modelEuler, num = (v, c) => { const n = parseFloat(v); return Number.isFinite(n) ? n : c; };   // leeres Feld → aktueller Wert
     const x = num($("inLrx").value, cur.x), y = num($("inLry").value, cur.y), z = num($("inLrz").value, cur.z);
     L.modelEuler = { x, y, z };   // getippte Werte sind maßgeblich; das Tool unterdrückt den Echo (kein Gimbal-Rückschreiben)
     if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setModelEuler", x, y, z }, "*");
@@ -847,12 +851,19 @@ const DIST_BTNS = [
   { k: "v", t: ["Vertikal verteilen", "Distribute vertically"], svg: '<rect x="6" y="3" width="12" height="3"/><rect x="6" y="10.5" width="12" height="3"/><rect x="6" y="18" width="12" height="3"/>' },
 ];
 function abtn(spec, cls, fn) {
-  const b = document.createElement("button"); b.className = "abtn" + (cls ? " " + cls : ""); b.title = UI.t(spec.t[0], spec.t[1]);
+  const b = document.createElement("button"); b.className = "abtn" + (cls ? " " + cls : ""); b.title = UI.t(spec.t[0], spec.t[1]); b._spec = spec;
   b.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">${spec.svg}</svg>`;
   b.onclick = fn; return b;
 }
 for (const s of ALIGN_BTNS) $("alignRow").appendChild(abtn(s, "", () => alignLayers(s.k)));
 for (const s of DIST_BTNS) $("distRow").appendChild(abtn(s, "distbtn", () => distribute(s.k)));
+function applyLangExtras() {   // Tooltips (title-Attribute werden nicht vom TreeWalker übersetzt) bei Sprachwechsel auffrischen
+  document.querySelectorAll("#toolbar .toolbtn").forEach(b => { const t = b._t; if (!t) return; b.title = t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); });
+  document.querySelectorAll(".abtn").forEach(b => { if (b._spec) b.title = UI.t(b._spec.t[0], b._spec.t[1]); });
+  const sf = $("inLs").closest(".obf"); if (sf) sf.title = UI.t("Skalierung", "Scale");
+  const rf = $("inLr").closest(".obf"); if (rf) rf.title = UI.t("Drehung (°)", "Rotation (°)");
+  $("inLmode").title = UI.t("Plotter-Modus", "Plotter mode");
+}
 $("alignRef").addEventListener("change", () => { $("alignRef")._forced = false; });   // bewusste Wahl nicht mehr automatisch überschreiben
 // Panels ein-/ausklappen (mehr Platz in der Sidebar)
 document.querySelectorAll(".panelhead").forEach(h => h.addEventListener("click", () => { const p = h.closest("#layersPanel,#propsPanel"); if (p) p.classList.toggle("panel-collapsed"); }));
@@ -970,7 +981,7 @@ const I18N_EN = {
     "Corner handles = scale (opposite corner fixed; Alt/Cmd = center). Circle = rotate (Shift = 15°). Multi-select: Cmd/Ctrl- or Shift-click in the layer list, Shift-click on the canvas; arrow keys nudge (Shift = 10 mm).",
 };
 function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
-UI.initLang(I18N_EN); applyLangDefaults(); UI.onLangChange(() => { applyLangDefaults(); updatePropsUI(); renderList(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*"); }); });
+UI.initLang(I18N_EN); applyLangDefaults(); applyLangExtras(); UI.onLangChange(() => { applyLangDefaults(); applyLangExtras(); updatePropsUI(); renderList(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*"); }); });
 resize(); fitView(); renderList(); updatePropsUI(); updateTbScroll();
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>

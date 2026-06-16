@@ -46,6 +46,18 @@ let ok = true;
   // generische Namen "Layer N" (nicht der Tool-Name)
   if (!(/^Layer \d+$/.test(layers[0].name) && /^Layer \d+$/.test(layers[1].name) && layers[0].name !== layers[1].name)) { console.log('FAIL: Ebenen heißen nicht "Layer N"'); ok = false; }
 
+  // Inline-Umbenennen: Escape verwirft, Enter übernimmt
+  const rn = await page.evaluate(() => {
+    const L = S.layers[0], orig = L.name, lns = document.querySelectorAll('.lrow .ln');
+    const fire = (inp, key) => inp.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    startRename(L, lns[lns.length - 1]); let inp = document.querySelector('.lnedit'); inp.value = 'VERWORFEN'; fire(inp, 'Escape');
+    const afterEsc = L.name;
+    const lns2 = document.querySelectorAll('.lrow .ln'); startRename(L, lns2[lns2.length - 1]); inp = document.querySelector('.lnedit'); inp.value = 'NeuerName'; fire(inp, 'Enter');
+    return { orig, afterEsc, afterEnter: L.name };
+  });
+  console.log('rename:', JSON.stringify(rn));
+  if (!(rn.afterEsc === rn.orig && rn.afterEnter === 'NeuerName')) { console.log('FAIL: Umbenennen (Escape/Enter)'); ok = false; }
+
   // Transform: ersten Layer (QR) verschieben + skalieren + drehen via Inputs
   await page.evaluate(() => { selectLayer(S.layers[0].id); });
   await page.fill('#inLx', '60'); await page.dispatchEvent('#inLx', 'input');
