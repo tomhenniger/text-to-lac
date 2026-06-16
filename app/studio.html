@@ -196,7 +196,7 @@
     </div>
   </div>
 </div>
-<div id="statusbar"><span id="stInfo">Bereit</span></div>
+<div id="statusbar"><span id="stInfo">Bereit</span><span id="warnInfo" style="color:#e2603b;margin-left:14px;font-weight:600"></span></div>
 <div id="modalBack"><div id="modalCard"></div></div>
 
 <div id="hidden">
@@ -216,13 +216,14 @@ const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
 
 const PAPERS = { none: null, A4P: [210, 297], A4L: [297, 210], A5P: [148, 210], A3P: [297, 420], Letter: [215.9, 279.4] };
+const MACHINE = { draw: [300, 255], cut: [300, 285] };   // A2L: Zeichen- bzw. Schneidebereich (mm), ab Ursprung oben links
 const MISC_TOOLS = [["pen","Stift (Freihand)","Pen (freehand)"],["shapes","Grundformen","Basic shapes"],["qr","QR-Code","QR code"],["spotify","Spotify-Code","Spotify code"],["svg","SVG-Import","SVG import"],["paper","Papier / Raster","Paper / grid"],
   ["pentest","Stift-Test","Pen test"],["spacefill","Space-Filling-Kurven","Space-filling curves"],["spiro","Spirograph / Lissajous","Spirograph / Lissajous"],
   ["maze","Labyrinth","Maze"],["fxplot","Funktionsplotter","Function plotter"],["tsp","TSP- / Stipple-Art","TSP / stipple art"],["wave","Audio-Waveform","Audio waveform"]];
 function toolLabel(t){ if(t==="model") return UI.t("3D-Modell","3D model"); const m=MISC_TOOLS.find(x=>x[0]===t); return m?UI.t(m[1],m[2]):t; }
 function layerLabel(L){ return L.type==="text"?UI.t("Text","Text"):L.type==="image"?UI.t("Bild","Image"):toolLabel(L.tool); }
 
-const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, selIds: [], paper: "A4P", snap: true, bg: "#ffffff" };
+const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, selIds: [], paper: "A4P", snap: true, bg: "#ffffff", guides: true };
 let LID = 1, LSEQ = 0;
 let snapGuides = null;
 
@@ -289,6 +290,13 @@ function redraw() {
   if (pa) { const ox = (S.matW - pa[0]) / 2, oy = (S.matH - pa[1]) / 2;
     ctx.strokeStyle = M.frame; ctx.lineWidth = 0.4; ctx.setLineDash([3, 2]);
     ctx.strokeRect(ox, oy, pa[0], pa[1]); ctx.setLineDash([]); }
+  // Maschinen-Bereiche (Zeichnen blau, Schneiden orange) ab Ursprung oben links
+  if (S.guides) {
+    ctx.lineWidth = 0.4; ctx.setLineDash([4, 2.5]);
+    ctx.strokeStyle = "rgba(30,110,210,0.55)"; ctx.strokeRect(0, 0, MACHINE.draw[0], MACHINE.draw[1]);
+    ctx.strokeStyle = "rgba(225,110,40,0.55)"; ctx.strokeRect(0, 0, MACHINE.cut[0], MACHINE.cut[1]);
+    ctx.setLineDash([]);
+  }
   // Layer
   ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 0.45;
   for (const L of S.layers) {
@@ -311,10 +319,47 @@ function redraw() {
     if (snapGuides.y != null) { ctx.moveTo(-1000, snapGuides.y); ctx.lineTo(S.matW + 1000, snapGuides.y); }
     ctx.stroke(); }
   ctx.restore();
+  // Maschinen-Labels + Bereichswarnung (Screen-px)
+  drawGuideLabels();
+  const viol = areaViolations();
+  if (viol.length) { for (const v of viol) drawViolation(v.L); }
+  updateWarn(viol);
   // Auswahl-Box + Griffe (Screen-px)
   const selLs = selLayers().filter(L => L.visible && L.cw && L.ch);
   if (selLs.length === 1) drawSelection(selLs[0], P, true);
   else if (selLs.length > 1) { selLs.forEach(L => drawSelection(L, P, false)); drawGroupBounds(selLs, P); }
+}
+function areaViolations() {   // Ebenen, deren AABB den Bereich ihres Modus (Schneiden=cut, sonst draw) verlässt
+  const out = [];
+  for (const L of S.layers) {
+    if (!L.visible || !L.cw || !L.ch) continue;
+    const a = layerAABB(L), m = L.mode === "KCBasicCut" ? MACHINE.cut : MACHINE.draw;
+    if (a.minX < -0.05 || a.minY < -0.05 || a.maxX > m[0] + 0.05 || a.maxY > m[1] + 0.05) out.push({ L, cut: L.mode === "KCBasicCut" });
+  }
+  return out;
+}
+function drawGuideLabels() {
+  if (!S.guides) return;
+  ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.font = "10px -apple-system, sans-serif"; ctx.textBaseline = "bottom";
+  const lab = (txt, mmX, mmY, col) => { const q = mm2px(mmX, mmY); ctx.fillStyle = col; ctx.fillText(txt, q[0] / devicePixelRatio + 3, q[1] / devicePixelRatio - 2); };
+  lab(UI.t("Zeichnen", "Drawing") + " " + MACHINE.draw[0] + "×" + MACHINE.draw[1], 0, MACHINE.draw[1], "rgba(30,110,210,0.9)");
+  lab(UI.t("Schneiden", "Cutting") + " " + MACHINE.cut[0] + "×" + MACHINE.cut[1], 0, MACHINE.cut[1], "rgba(225,110,40,0.95)");
+  ctx.restore();
+}
+function drawViolation(L) {
+  const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
+  ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.strokeStyle = "#e2603b"; ctx.lineWidth = 1.6; ctx.setLineDash([5, 3]);
+  ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(c[i][0], c[i][1]); ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+function updateWarn(viol) {
+  if (!viol || !viol.length) { $("warnInfo").textContent = ""; return; }
+  const draws = viol.filter(v => !v.cut).length, cuts = viol.filter(v => v.cut).length, parts = [];
+  if (draws) parts.push(draws + " " + UI.t("außerhalb des Zeichenbereichs", "outside drawing area"));
+  if (cuts) parts.push(cuts + " " + UI.t("außerhalb des Schneidebereichs", "outside cutting area"));
+  $("warnInfo").textContent = "⚠ " + parts.join(" · ");
 }
 function drawSelection(L, P, handles) {
   const c = layerCorners(L).map(p => { const q = mm2px(p[0], p[1]); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; });
@@ -447,7 +492,7 @@ window.addEventListener("mousemove", e => {
 window.addEventListener("mouseup", () => {
   if (drag) {
     if (drag.mode === "modelrot" && drag.L._frame && drag.L._frame.contentWindow) drag.L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "modelOrbitEnd" }, "*");
-    snapGuides = null; redraw();
+    snapGuides = null; redraw(); if (drag.mode !== "pan") markDirty();   // Transform geändert → autospeichern
   }
   drag = null;
 });
@@ -595,22 +640,40 @@ function renderList() {
     };
     box.appendChild(row);
   }
+  markDirty();   // Layout-Änderung → autospeichern (gedrosselt)
 }
 
 /* ---------- Speichern / Laden (.handschrift) ---------- */
-function saveLayout() {
-  const data = { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper,
+function serializeLayout() {
+  return { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper, bg: S.bg,
     layers: S.layers.map(L => ({ type: L.type, tool: L.tool, name: L.name, visible: L.visible,
       transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler,
       groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
+}
+function saveLayout() {
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(serializeLayout())], { type: "application/json" }));
   a.download = ($("inFname").value || "komposition") + ".handschrift"; a.click(); URL.revokeObjectURL(a.href);
+}
+/* ---------- Autospeichern des letzten Layouts (localStorage) ---------- */
+const AUTOSAVE_KEY = "ttl_studio_layout";
+let autosaveT = 0, autosaveOff = false;
+function autosave() {
+  if (autosaveOff) return;
+  try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeLayout())); }
+  catch (e) { autosaveOff = true; console.warn("Autospeichern deaktiviert (Speicher voll?):", e.message); }   // Quota → still aufgeben
+}
+function markDirty() { if (autosaveT || autosaveOff) return; autosaveT = setTimeout(() => { autosaveT = 0; autosave(); }, 600); }   // gedrosselt
+function restoreAutosave() {
+  let raw; try { raw = localStorage.getItem(AUTOSAVE_KEY); } catch { return; }
+  if (!raw) return;
+  let obj; try { obj = JSON.parse(raw); } catch { return; }
+  if (obj && obj.format === "handschrift-studio" && obj.layers && obj.layers.length) loadLayout(obj);
 }
 function loadLayout(obj) {
   if (!obj || obj.format !== "handschrift-studio") { modalAlert(UI.t("Keine gültige .handschrift-Datei.", "Not a valid .handschrift file.")); return; }
   S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; S.selId = null; S.selIds = [];
-  S.matW = +obj.matW || 300; S.matH = +obj.matH || 300; S.paper = obj.paper || "none";
+  S.matW = +obj.matW || 300; S.matH = +obj.matH || 300; S.paper = obj.paper || "none"; S.bg = obj.bg || "#ffffff";
   $("inMatW").value = S.matW; $("inMatH").value = S.matH; $("inPaper").value = S.paper;
   for (const d of (obj.layers || [])) {
     const L = makeLayer(d.type, d.tool);
@@ -770,12 +833,12 @@ async function newDoc() {
   if (S.layers.length && !(await modalConfirm(UI.t("Neues Projekt — aktuelles Layout verwerfen?", "New project — discard current layout?"), UI.t("Neu", "New")))) return;
   S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; selectLayer(null); fitView();
 }
-function setPaper(k) { S.paper = k; $("inPaper").value = k; redraw(); }
+function setPaper(k) { S.paper = k; $("inPaper").value = k; redraw(); markDirty(); }
 function toggleSnap() { S.snap = !S.snap; $("inSnap").checked = S.snap; }
 async function editMat() {
   const v = await modalPrompt(UI.t("Arbeitsfläche Breite × Höhe (mm)", "Work area width × height (mm)"), S.matW + " x " + S.matH, UI.t("Arbeitsfläche", "Work area"));
   if (!v) return; const m = v.match(/([\d.]+)\s*[x×*,]\s*([\d.]+)/); if (!m) return;
-  S.matW = +m[1] || 300; S.matH = +m[2] || 300; $("inMatW").value = S.matW; $("inMatH").value = S.matH; fitView();
+  S.matW = +m[1] || 300; S.matH = +m[2] || 300; $("inMatW").value = S.matW; $("inMatH").value = S.matH; fitView(); markDirty();
 }
 async function renameDoc() { const n = await modalPrompt(UI.t("Dateiname", "File name"), $("inFname").value, UI.t("Dateiname", "File name")); if (n != null) $("inFname").value = n.trim() || "Komposition"; }
 function zoomBy(f) { const r = cv.getBoundingClientRect(), cxp = r.width / 2, cyp = r.height / 2, ns = Math.min(40, Math.max(0.4, S.view.scale * f)); S.view.ox = cxp - (cxp - S.view.ox) * ns / S.view.scale; S.view.oy = cyp - (cyp - S.view.oy) * ns / S.view.scale; S.view.scale = ns; redraw(); }
@@ -821,7 +884,7 @@ $("tbScroll").style.pointerEvents = "none";   // Fade nur Hinweis; Klicks gehen 
 $("btnDel").onclick = deleteSelected;
 $("btnDup").onclick = duplicateSelected;
 for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLs", "scale"], ["inLr", "rot"]])
-  $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; if (key === "scale") v = Math.max(0.05, v || 1); L.transform[key] = v; redraw(); });
+  $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; if (key === "scale") v = Math.max(0.05, v || 1); L.transform[key] = v; redraw(); markDirty(); });
 // Farbe pro Ebene (überschreibt Tool-/Multicolor-Farben, solange aktiv)
 function applyLayerColor() { const L = sel(); if (!L) return; L.color = $("inLcolorOn").checked ? hexToRgbStr($("inLcolor").value) : null; renderList(); redraw(); }
 $("inLmode").addEventListener("change", () => { const L = sel(); if (!L) return; L.mode = $("inLmode").value; renderList(); redraw(); });
@@ -903,6 +966,7 @@ const MENUS = {
     { l: UI.t("Arbeitsfläche …", "Work area …"), a: editMat },
     { sep: 1 },
     { l: UI.t("Einrasten", "Snapping"), a: toggleSnap, chk: S.snap },
+    { l: UI.t("Maschinen-Bereiche", "Machine areas"), a: () => { S.guides = !S.guides; redraw(); }, chk: S.guides },
   ],
 };
 const dd = document.createElement("div"); dd.className = "menu"; $("menubar").appendChild(dd);
@@ -935,7 +999,7 @@ window.addEventListener("keydown", e => {
   else if (ARROWS[e.key] && S.selIds.length) {
     e.preventDefault(); const step = e.shiftKey ? 10 : 1, [dx, dy] = ARROWS[e.key];
     selLayers().forEach(L => { L.transform.x += dx * step; L.transform.y += dy * step; });
-    syncSelInputs(); redraw();
+    syncSelInputs(); redraw(); markDirty();
   }
 });
 
@@ -982,7 +1046,7 @@ const I18N_EN = {
 };
 function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
 UI.initLang(I18N_EN); applyLangDefaults(); applyLangExtras(); UI.onLangChange(() => { applyLangDefaults(); applyLangExtras(); updatePropsUI(); renderList(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*"); }); });
-resize(); fitView(); renderList(); updatePropsUI(); updateTbScroll();
+resize(); fitView(); renderList(); updatePropsUI(); updateTbScroll(); restoreAutosave();   // letztes Layout wiederherstellen
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
