@@ -86,9 +86,9 @@ await page.evaluate(() => {
 
 // --- Single-Select: alignRef "Auswahl" deaktiviert, Distribute deaktiviert ---
 {
-  const st = await page.evaluate(() => { selectLayer(S.layers[0].id); return { selOptDisabled: $('alignRef').querySelector('option[value=selection]').disabled, refVal: $('alignRef').value, distDisabled: document.querySelector('.distbtn').disabled, selDetails: getComputedStyle($('selDetails')).display !== 'none' }; });
+  const st = await page.evaluate(() => { selectLayer(S.layers[0].id); return { selOptDisabled: $('alignRef').querySelector('option[value=selection]').disabled, refVal: $('alignRef').value, distDisabled: document.querySelector('.distbtn').disabled, xform: getComputedStyle($('obXform')).display !== 'none' }; });
   console.log('single-select:', JSON.stringify(st));
-  if (!(st.selOptDisabled && st.refVal !== 'selection' && st.distDisabled && st.selDetails)) { console.log('FAIL single-select-ui'); ok = false; }
+  if (!(st.selOptDisabled && st.refVal !== 'selection' && st.distDisabled && st.xform)) { console.log('FAIL single-select-ui'); ok = false; }
 }
 
 // --- distribute (Bezug Auswahl) mit überlappenden/größenverschiedenen Layern: Bounding-Box bleibt fix ---

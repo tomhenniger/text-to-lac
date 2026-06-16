@@ -42,6 +42,7 @@
 
 ## UI-Änderungen
 
+- **Layer-Studio: obere Leiste ist jetzt eine Kontext-Leiste** — die Einstellungen der ausgewählten Ebene (Position X/Y, Skalierung, Drehung, 3D-Drehung beim Modell, Plotter-Modus, Farbe, Ausrichten/Verteilen, Duplizieren/Löschen) sitzen jetzt oben am Bildschirmrand statt im rechten Panel. Die Sidebar zeigt dadurch nur noch „Ebenen" und das eingebettete Werkzeug — deutlich aufgeräumter.
 - **Layer-Studio: generische, umbenennbare Ebenennamen** — Ebenen heißen jetzt neutral „Layer 0/1/2 …" (statt des Tool-Namens, der im englischen UI deutsch blieb). Umbenennen per Doppelklick auf den Namen, über Bearbeiten → „Ebene umbenennen …" oder beim Export als Objektname. In der Ebenenliste steht ein in der Ebenenfarbe getöntes Werkzeug-Icon, das den Typ zeigt; Werkzeug-Tooltips sind übersetzt.
 - **Layer-Studio: Werkzeugleiste zeigt Scrollbarkeit** — bei vielen Werkzeugen blendet sich am unteren Rand ein Verlauf mit Pfeil ein, und die Scrollleiste ist dünn sichtbar.
 - **Layer-Studio: Build-Plate standardmäßig weiß** (wie die Light-Version) — die Arbeitsfläche folgt nicht mehr dem Dark-Theme, sondern ist als Papier weiß (dunkle Tinte), unabhängig vom UI-Theme.

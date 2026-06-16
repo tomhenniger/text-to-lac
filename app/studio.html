@@ -96,6 +96,14 @@
   .obsep { width: 1px; height: 22px; background: var(--border); margin: 0 3px; flex: none; }
   .abar { display: flex; gap: 4px; }
   #optionsbar .abtn { width: 32px; }
+  #optionsbar select { min-width: 96px; }
+  #obCtx { display: none; align-items: center; gap: 6px; }
+  #optionsbar .obgrp { display: inline-flex; align-items: center; gap: 6px; }
+  #optionsbar .obf { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  #optionsbar .obf input[type=number] { width: 52px; padding: 4px 5px; }
+  #optionsbar .obf input[type=checkbox] { width: auto; }
+  #optionsbar input[type=color] { width: 30px; height: 26px; padding: 0; border-radius: 6px; flex: none; }
+  #optionsbar .obbtn { padding: 5px 9px; white-space: nowrap; }
   /* einklappbare Panels */
   .panelhead { cursor: pointer; user-select: none; }
   .panelhead .chev { width: 8px; height: 8px; margin-right: 8px; border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted);
@@ -103,7 +111,7 @@
   .panel-collapsed .panelhead .chev { transform: rotate(-45deg); }
   #layersPanel.panel-collapsed { min-height: 0; max-height: none; flex: none; }
   #layersPanel.panel-collapsed #layersBody { display: none; }
-  #propsPanel.panel-collapsed #propsForm { display: none; }
+  #propsPanel.panel-collapsed #editorBody { display: none; }
   /* eigene Modals (kein Browser-Standard) */
   #modalBack { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 300; }
   #modalBack.open { display: flex; }
@@ -130,17 +138,44 @@
 </div>
 
 <div id="optionsbar">
-  <span class="obLabel">Ausrichten an</span>
-  <select id="alignRef">
-    <option value="selection">Auswahl</option>
-    <option value="area">Arbeitsfläche</option>
-    <option value="sheet">Blatt</option>
-  </select>
-  <span class="obsep"></span>
-  <div class="abar" id="alignRow"></div>
-  <span class="obsep"></span>
-  <div class="abar" id="distRow"></div>
-  <span class="obLabel" id="obSelInfo" style="margin-left:auto"></span>
+  <span class="obLabel" id="obNoSel">Keine Ebene ausgewählt — Werkzeug links wählen oder Ebene anklicken.</span>
+  <div id="obCtx">
+    <span class="obgrp" id="obXform">
+      <span class="obf">X<input type="number" id="inLx" step="1"></span>
+      <span class="obf">Y<input type="number" id="inLy" step="1"></span>
+      <span class="obf" title="Skalierung">⤢<input type="number" id="inLs" step="0.05" min="0.05"></span>
+      <span class="obf" title="Drehung (°)">∠<input type="number" id="inLr" step="1"></span>
+      <span class="obsep"></span>
+    </span>
+    <span class="obgrp" id="obModelRot" style="display:none">
+      <span class="obf">3D&nbsp;X<input type="number" id="inLrx" step="1"></span>
+      <span class="obf">Y<input type="number" id="inLry" step="1"></span>
+      <span class="obf">Z<input type="number" id="inLrz" step="1"></span>
+      <span class="obsep"></span>
+    </span>
+    <span class="obgrp" id="obSingle">
+      <select id="inLmode" title="Plotter-Modus">
+        <option value="KCPenDraw">Zeichnen</option>
+        <option value="KCPenDrawFill">Ausmalen</option>
+        <option value="KCBasicCut">Schneiden</option>
+      </select>
+      <label class="obf"><input type="checkbox" id="inLcolorOn">Farbe</label>
+      <input type="color" id="inLcolor" value="#000000">
+      <span class="obsep"></span>
+    </span>
+    <span class="obLabel">Ausrichten</span>
+    <select id="alignRef">
+      <option value="selection">Auswahl</option>
+      <option value="area">Arbeitsfläche</option>
+      <option value="sheet">Blatt</option>
+    </select>
+    <div class="abar" id="alignRow"></div>
+    <div class="abar" id="distRow"></div>
+    <span class="obsep"></span>
+    <button class="obbtn" id="btnDup">Duplizieren</button>
+    <button class="obbtn" id="btnDel">Löschen</button>
+    <span class="obLabel" id="obSelInfo" style="margin-left:auto"></span>
+  </div>
 </div>
 
 <div id="workspace">
@@ -156,43 +191,7 @@
       </div>
     </div>
     <div id="propsPanel">
-      <div class="panelhead"><span class="chev"></span>Eigenschaften <span class="sp"></span><span id="propLabel" style="font-weight:400;color:var(--muted)"></span></div>
-      <div id="propsForm">
-        <div class="hint" id="multiNote" style="display:none"></div>
-        <div id="selDetails" style="display:none">
-          <div class="row">
-            <div><label>X (mm)</label><input type="number" id="inLx" step="1"></div>
-            <div><label>Y (mm)</label><input type="number" id="inLy" step="1"></div>
-          </div>
-          <div class="row">
-            <div><label>Skalierung</label><input type="number" id="inLs" step="0.05" min="0.05"></div>
-            <div><label>Drehung (°)</label><input type="number" id="inLr" step="1"></div>
-          </div>
-          <label>Plotter-Modus</label>
-          <select id="inLmode">
-            <option value="KCPenDraw">Stift zeichnen</option>
-            <option value="KCPenDrawFill">Ausmalen (Füllen)</option>
-            <option value="KCBasicCut">Schneiden</option>
-          </select>
-          <div class="row" style="align-items:center;margin-top:8px">
-            <label style="margin:0;flex:0 0 auto;display:flex;align-items:center;gap:6px"><input type="checkbox" id="inLcolorOn" style="width:auto">Farbe</label>
-            <input type="color" id="inLcolor" value="#000000" style="flex:0 0 auto;width:42px;height:28px;padding:0;border-radius:6px">
-            <span class="hint" id="colorHint" style="margin:0;flex:1">Multicolor-Ebenen behalten ihre Farben, solange „Farbe“ aus ist.</span>
-          </div>
-          <div id="modelRotBox" style="display:none">
-            <label>3D-Drehung Modell (°) — X / Y / Z</label>
-            <div class="row">
-              <div><input type="number" id="inLrx" step="1" title="X"></div>
-              <div><input type="number" id="inLry" step="1" title="Y"></div>
-              <div><input type="number" id="inLrz" step="1" title="Z"></div>
-            </div>
-            <div class="hint">Alt/Strg + Ziehen auf der Fläche dreht das Modell als Trackball; hier exakte Winkel eingeben.</div>
-          </div>
-        </div>
-        <div class="btnrow" id="selActions" style="display:none"><button id="btnDup">Duplizieren</button><button id="btnDel">Löschen</button></div>
-        <div class="hint" id="selHint" style="display:none">Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°). Mehrfachauswahl: Cmd/Strg- oder Shift-Klick in der Ebenenliste, Shift-Klick auf der Fläche; Pfeiltasten verschieben (Shift = 10 mm).</div>
-        <div class="hint" id="noSel">Keine Ebene ausgewählt. Werkzeug links wählen oder Ebene oben anklicken.</div>
-      </div>
+      <div class="panelhead"><span class="chev"></span>Werkzeug <span class="sp"></span><span id="propLabel" style="font-weight:400;color:var(--muted)"></span></div>
       <div id="editorBody"></div>
     </div>
   </div>
@@ -512,14 +511,13 @@ function rangeSelect(id) {
 function selectAll() { S.selIds = S.layers.map(L => L.id); S.selId = S.layers.length ? S.layers[S.layers.length - 1].id : null; afterSelChange(); }
 function updatePropsUI() {
   const n = S.selIds.length, one = n === 1, multi = n >= 2;
-  $("selDetails").style.display = one ? "" : "none";
-  $("selHint").style.display = one ? "" : "none";
-  $("multiNote").style.display = multi ? "" : "none";
-  $("selActions").style.display = n >= 1 ? "" : "none";
-  $("noSel").style.display = n >= 1 ? "none" : "";
+  // Kontext-Leiste oben: leer-Hinweis vs. Steuerung
+  $("obNoSel").style.display = n ? "none" : "";
+  $("obCtx").style.display = n ? "flex" : "none";
+  $("obXform").style.display = one ? "" : "none";                          // Transform nur bei 1 Auswahl
+  $("obSingle").style.display = one ? "" : "none";                         // Modus/Farbe nur bei 1 Auswahl
+  $("obModelRot").style.display = (one && isModelLayer(sel())) ? "" : "none";
   $("propLabel").textContent = multi ? (n + " " + UI.t("Ebenen", "layers")) : (one ? sel().name : "");
-  if (multi) $("multiNote").textContent = n + " " + UI.t("Ebenen ausgewählt — relativ zueinander ausrichten/verteilen.", "layers selected — align/distribute relative to each other.");
-  // obere Ausricht-Leiste aktivieren/deaktivieren
   const refSel = $("alignRef"), selOpt = refSel.querySelector('option[value=selection]');
   if (!n) refSel._forced = false;                                                              // keinen Stand über Laden/Neu hinweg behalten
   if (one && refSel.value === "selection") { refSel.value = "area"; refSel._forced = true; }   // „Auswahl“ ergibt für 1 Ebene keinen Sinn
@@ -529,8 +527,7 @@ function updatePropsUI() {
   const nUsable = selLayers().filter(L => L.cw && L.ch).length;                                 // Buttons an der real nutzbaren Anzahl ausrichten
   document.querySelectorAll("#alignRow .abtn").forEach(b => b.disabled = !nUsable);
   document.querySelectorAll(".distbtn").forEach(b => b.disabled = nUsable < 3);
-  $("obSelInfo").textContent = n ? (n + " " + UI.t("ausgewählt", "selected")) : "";
-  $("modelRotBox").style.display = (one && isModelLayer(sel())) ? "" : "none";
+  $("obSelInfo").textContent = multi ? (n + " " + UI.t("ausgewählt", "selected")) : "";
   if (one) { syncSelInputs(); syncModelEuler(); }
 }
 function deleteSelected() {
@@ -699,7 +696,7 @@ window.addEventListener("message", e => {
     L.strokesCache = (m.groups && m.groups.length) ? m.groups.flatMap(g => g.polylines) : [];
     L.cw = m.cw || 0; L.ch = m.ch || 0; L.params = m.params;
     if (sel() === L) updatePropsUI();   // Striche jetzt da → Ausricht-/Verteil-Buttons sofort aktivieren (nicht erst nach Re-Select)
-    scheduleRedraw(); renderList(); setStatus(S.layers.length + " Layer · ausgewählt: " + (sel() ? sel().label : "–"));
+    scheduleRedraw(); renderList(); setStatus(S.layers.length + " Layer · ausgewählt: " + (sel() ? sel().name : "–"));
   } else if (m.type === "modelState") {                 // aktuelle 3D-Drehung des Modells → Zahlenfelder
     L.modelEuler = m.euler; if (sel() === L) syncModelEuler();
   }
@@ -735,7 +732,7 @@ function buildGroups() {
   for (const L of S.layers) {
     if (!L.visible || !L.strokesCache.length) continue;
     const f = layerMap(L);
-    const groups = (L.groups && L.groups.length) ? L.groups : [{ name: L.label, color: null, polylines: L.strokesCache }];
+    const groups = (L.groups && L.groups.length) ? L.groups : [{ name: L.name, color: null, polylines: L.strokesCache }];
     groups.forEach(g => { const polys = g.polylines.map(st => st.map(f)).filter(st => st.length >= 2);
       if (polys.length) out.push({ name: L.name + (groups.length > 1 ? " — " + g.name : ""), color: L.color || g.color || undefined, processType: L.mode || "KCPenDraw", strokes: polys }); });
   }
@@ -963,7 +960,8 @@ const I18N_EN = {
   "Keine gültige .handschrift-Datei.": "Not a valid .handschrift file.",
   "Datei konnte nicht gelesen werden.": "Could not read file.", "Layer geladen": "layers loaded",
   "Ausrichten an": "Align to", "Auswahl": "Selection", "Blatt": "Sheet", "ausgewählt": "selected", "Farbe": "Color",
-  "Plotter-Modus": "Plotter mode", "Stift zeichnen": "Pen draw", "Ausmalen (Füllen)": "Fill (pen fill)", "Schneiden": "Cut",
+  "Plotter-Modus": "Plotter mode", "Zeichnen": "Draw", "Ausmalen": "Fill", "Schneiden": "Cut", "Ausrichten": "Align", "Werkzeug": "Tool",
+  "Keine Ebene ausgewählt — Werkzeug links wählen oder Ebene anklicken.": "No layer selected — pick a tool on the left or click a layer.",
   "Multicolor-Ebenen behalten ihre Farben, solange „Farbe“ aus ist.": "Multicolor layers keep their colors while “Color” is off.",
   "3D-Drehung Modell (°) — X / Y / Z": "3D model rotation (°) — X / Y / Z",
   "Alt/Strg + Ziehen auf der Fläche dreht das Modell als Trackball; hier exakte Winkel eingeben.": "Alt/Ctrl + drag on the canvas rotates the model as a trackball; enter exact angles here.",
