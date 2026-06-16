@@ -319,11 +319,9 @@ function redraw() {
     if (snapGuides.y != null) { ctx.moveTo(-1000, snapGuides.y); ctx.lineTo(S.matW + 1000, snapGuides.y); }
     ctx.stroke(); }
   ctx.restore();
-  // Maschinen-Labels + Bereichswarnung (Screen-px)
-  drawGuideLabels();
-  const viol = areaViolations();
-  if (viol.length) { for (const v of viol) drawViolation(v.L); }
-  updateWarn(viol);
+  // Maschinen-Labels + Bereichswarnung (Screen-px) — nur wenn die Maschinen-Bereiche eingeblendet sind
+  if (S.guides) { drawGuideLabels(); const viol = areaViolations(); for (const v of viol) drawViolation(v.L); updateWarn(viol); }
+  else updateWarn([]);
   // Auswahl-Box + Griffe (Screen-px)
   const selLs = selLayers().filter(L => L.visible && L.cw && L.ch);
   if (selLs.length === 1) drawSelection(selLs[0], P, true);
@@ -645,7 +643,7 @@ function renderList() {
 
 /* ---------- Speichern / Laden (.handschrift) ---------- */
 function serializeLayout() {
-  return { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper, bg: S.bg,
+  return { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper, bg: S.bg, fname: $("inFname").value,
     layers: S.layers.map(L => ({ type: L.type, tool: L.tool, name: L.name, visible: L.visible,
       transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler,
       groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
@@ -664,6 +662,9 @@ function autosave() {
   catch (e) { autosaveOff = true; console.warn("Autospeichern deaktiviert (Speicher voll?):", e.message); }   // Quota → still aufgeben
 }
 function markDirty() { if (autosaveT || autosaveOff) return; autosaveT = setTimeout(() => { autosaveT = 0; autosave(); }, 600); }   // gedrosselt
+function flushAutosave() { if (autosaveT) { clearTimeout(autosaveT); autosaveT = 0; autosave(); } }   // beim Verlassen sofort sichern
+window.addEventListener("pagehide", flushAutosave);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushAutosave(); });
 function restoreAutosave() {
   let raw; try { raw = localStorage.getItem(AUTOSAVE_KEY); } catch { return; }
   if (!raw) return;
@@ -674,7 +675,7 @@ function loadLayout(obj) {
   if (!obj || obj.format !== "handschrift-studio") { modalAlert(UI.t("Keine gültige .handschrift-Datei.", "Not a valid .handschrift file.")); return; }
   S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; S.selId = null; S.selIds = [];
   S.matW = +obj.matW || 300; S.matH = +obj.matH || 300; S.paper = obj.paper || "none"; S.bg = obj.bg || "#ffffff";
-  $("inMatW").value = S.matW; $("inMatH").value = S.matH; $("inPaper").value = S.paper;
+  $("inMatW").value = S.matW; $("inMatH").value = S.matH; $("inPaper").value = S.paper; if (obj.fname) $("inFname").value = obj.fname;
   for (const d of (obj.layers || [])) {
     const L = makeLayer(d.type, d.tool);
     L.name = d.name || d.label || L.name; L.visible = d.visible !== false;   // d.label: ältere Dateien
@@ -840,7 +841,7 @@ async function editMat() {
   if (!v) return; const m = v.match(/([\d.]+)\s*[x×*,]\s*([\d.]+)/); if (!m) return;
   S.matW = +m[1] || 300; S.matH = +m[2] || 300; $("inMatW").value = S.matW; $("inMatH").value = S.matH; fitView(); markDirty();
 }
-async function renameDoc() { const n = await modalPrompt(UI.t("Dateiname", "File name"), $("inFname").value, UI.t("Dateiname", "File name")); if (n != null) $("inFname").value = n.trim() || "Komposition"; }
+async function renameDoc() { const n = await modalPrompt(UI.t("Dateiname", "File name"), $("inFname").value, UI.t("Dateiname", "File name")); if (n != null) { $("inFname").value = n.trim() || "Komposition"; markDirty(); } }
 function zoomBy(f) { const r = cv.getBoundingClientRect(), cxp = r.width / 2, cyp = r.height / 2, ns = Math.min(40, Math.max(0.4, S.view.scale * f)); S.view.ox = cxp - (cxp - S.view.ox) * ns / S.view.scale; S.view.oy = cyp - (cyp - S.view.oy) * ns / S.view.scale; S.view.scale = ns; redraw(); }
 
 /* ---------- Wiring ---------- */
