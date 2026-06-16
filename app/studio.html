@@ -54,6 +54,7 @@
   .lrow.sel { border-color: var(--accent); background: var(--hover); }
   .lrow .ln { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lrow .ic { width: 22px; height: 24px; padding: 0; font-size: 13px; line-height: 1; border-radius: 5px; }
+  .lrow .sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--border); flex: none; }
   .lrow.primary { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .aligngrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px; }
   .aligngrid.dist { grid-template-columns: repeat(2, 1fr); }
@@ -145,6 +146,20 @@
             <div><label>Skalierung</label><input type="number" id="inLs" step="0.05" min="0.05"></div>
             <div><label>Drehung (°)</label><input type="number" id="inLr" step="1"></div>
           </div>
+          <div class="row" style="align-items:center;margin-top:8px">
+            <label style="margin:0;flex:0 0 auto;display:flex;align-items:center;gap:6px"><input type="checkbox" id="inLcolorOn" style="width:auto">Farbe</label>
+            <input type="color" id="inLcolor" value="#000000" style="flex:0 0 auto;width:42px;height:28px;padding:0;border-radius:6px">
+            <span class="hint" id="colorHint" style="margin:0;flex:1">Multicolor-Ebenen behalten ihre Farben, solange „Farbe“ aus ist.</span>
+          </div>
+          <div id="modelRotBox" style="display:none">
+            <label>3D-Drehung Modell (°) — X / Y / Z</label>
+            <div class="row">
+              <div><input type="number" id="inLrx" step="1" title="X"></div>
+              <div><input type="number" id="inLry" step="1" title="Y"></div>
+              <div><input type="number" id="inLrz" step="1" title="Z"></div>
+            </div>
+            <div class="hint">Alt/Strg + Ziehen auf der Fläche dreht das Modell als Trackball; hier exakte Winkel eingeben.</div>
+          </div>
         </div>
         <div class="btnrow" id="selActions" style="display:none"><button id="btnDup">Duplizieren</button><button id="btnDel">Löschen</button></div>
         <div class="hint" id="selHint" style="display:none">Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°). Mehrfachauswahl: Cmd/Strg- oder Shift-Klick in der Ebenenliste, Shift-Klick auf der Fläche; Pfeiltasten verschieben (Shift = 10 mm).</div>
@@ -185,8 +200,11 @@ let snapGuides = null;
 function makeLayer(type, tool) {
   return { id: LID++, type, tool: tool || null, label: tool ? toolLabel(tool) : (type === "text" ? "Text" : "Bild"),
     visible: true, transform: { x: 40, y: 40, scale: 1, rot: 0 }, params: null,
-    strokesCache: [], groups: null, cw: 0, ch: 0, _frame: null };
+    strokesCache: [], groups: null, cw: 0, ch: 0, color: null, modelEuler: null, _frame: null };
 }
+function isModelLayer(L) { return !!L && L.type === "misc" && L.tool === "model"; }
+function hexToRgbStr(hex) { const n = parseInt(hex.slice(1), 16); return (n >> 16 & 255) + " " + (n >> 8 & 255) + " " + (n & 255) + " 255"; }
+function rgbStrToHex(c) { const p = (c || "").split(" "); const h = v => (+v || 0).toString(16).padStart(2, "0"); return "#" + h(p[0]) + h(p[1]) + h(p[2]); }
 function embedUrl(L) {
   const base = L.type === "text" ? "index.html?embed=1" : L.type === "image" ? "bild.html?embed=1" : "misc.html?embed=1&tool=" + L.tool;
   return base + "&v=2";   // Cache-Bust für die eingebettete Tool-HTML
@@ -240,7 +258,7 @@ function redraw() {
     const f = layerMap(L);
     const groups = (L.groups && L.groups.length) ? L.groups : [{ color: null, polylines: L.strokesCache }];
     for (const g of groups) {
-      ctx.strokeStyle = groupColor(g.color, P.ink);
+      ctx.strokeStyle = groupColor(L.color || g.color, P.ink);
       ctx.beginPath();
       for (const st of g.polylines) { if (st.length < 2) continue; const p0 = f(st[0]); ctx.moveTo(p0[0], p0[1]); for (let i = 1; i < st.length; i++) { const p = f(st[i]); ctx.lineTo(p[0], p[1]); } }
       ctx.stroke();
@@ -307,8 +325,21 @@ let rafP = 0; function scheduleRedraw() { if (rafP) return; rafP = requestAnimat
 function sel() { return S.layers.find(L => L.id === S.selId) || null; }
 function selLayers() { return S.selIds.map(id => S.layers.find(L => L.id === id)).filter(Boolean); }
 let drag = null;
+cv.addEventListener("contextmenu", e => e.preventDefault());   // Strg-Klick-Menü stört den Trackball nicht
 cv.addEventListener("mousedown", e => {
   const [mx, my] = px2mm(e.offsetX, e.offsetY);
+  // Alt/Strg gedrückt + 3D-Modell-Ebene unter dem Cursor → Trackball (3D-Drehung) statt Verschieben
+  if (e.altKey || e.ctrlKey) {
+    for (let i = S.layers.length - 1; i >= 0; i--) {
+      const Li = S.layers[i];
+      if (Li.visible && isModelLayer(Li) && pointInLayer(Li, mx, my)) {
+        if (!(S.selIds.length === 1 && S.selId === Li.id)) selectLayer(Li.id);
+        ensureFrame(Li);
+        if (Li._frame && Li._frame.contentWindow) Li._frame.contentWindow.postMessage({ source: "ttl-studio", type: "modelOrbitStart" }, "*");
+        drag = { mode: "modelrot", L: Li, sx: e.clientX, sy: e.clientY }; e.preventDefault(); return;
+      }
+    }
+  }
   // Griffe (Skalieren/Drehen) nur bei genau einer Auswahl
   if (S.selIds.length === 1) {
     const L = sel();
@@ -342,6 +373,10 @@ function center(L) { const t = L.transform; return [t.x + (L.cw / 2) * t.scale, 
 window.addEventListener("mousemove", e => {
   if (!drag) return;
   if (drag.mode === "pan") { S.view.ox = drag.ox + (e.clientX - drag.sx); S.view.oy = drag.oy + (e.clientY - drag.sy); redraw(); return; }
+  if (drag.mode === "modelrot") {                                  // 3D-Trackball → Delta an das eingebettete Tool senden
+    if (drag.L._frame && drag.L._frame.contentWindow) drag.L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "modelOrbit", dx: e.clientX - drag.sx, dy: e.clientY - drag.sy }, "*");
+    return;
+  }
   const r = cv.getBoundingClientRect();
   const [mx, my] = px2mm(e.clientX - r.left, e.clientY - r.top);
   if (drag.mode === "move") {
@@ -368,7 +403,13 @@ window.addEventListener("mousemove", e => {
   }
   syncSelInputs(); redraw();
 });
-window.addEventListener("mouseup", () => { if (drag) { snapGuides = null; redraw(); } drag = null; });
+window.addEventListener("mouseup", () => {
+  if (drag) {
+    if (drag.mode === "modelrot" && drag.L._frame && drag.L._frame.contentWindow) drag.L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "modelOrbitEnd" }, "*");
+    snapGuides = null; redraw();
+  }
+  drag = null;
+});
 cv.addEventListener("wheel", e => { e.preventDefault();
   const f = e.deltaY < 0 ? 1.12 : 1 / 1.12, ns = Math.min(40, Math.max(0.4, S.view.scale * f));
   S.view.ox = e.offsetX - (e.offsetX - S.view.ox) * ns / S.view.scale; S.view.oy = e.offsetY - (e.offsetY - S.view.oy) * ns / S.view.scale;
@@ -405,6 +446,7 @@ function addLayer(type, tool) {
 function afterSelChange() {
   const L = sel(); if (L) ensureFrame(L);
   document.querySelectorAll(".toolframe").forEach(fr => fr.classList.toggle("active", L && L._frame && fr === L._frame));
+  if (L && isModelLayer(L) && L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "requestModelState" }, "*");
   updatePropsUI(); renderList(); redraw();
 }
 function selectLayer(id) {
@@ -446,7 +488,8 @@ function updatePropsUI() {
   document.querySelectorAll("#alignRow .abtn").forEach(b => b.disabled = !nUsable);
   document.querySelectorAll(".distbtn").forEach(b => b.disabled = nUsable < 3);
   $("obSelInfo").textContent = n ? (n + " " + UI.t("ausgewählt", "selected")) : "";
-  if (one) syncSelInputs();
+  $("modelRotBox").style.display = (one && isModelLayer(sel())) ? "" : "none";
+  if (one) { syncSelInputs(); syncModelEuler(); }
 }
 function deleteSelected() {
   if (!S.selIds.length) return;
@@ -462,6 +505,7 @@ function duplicateSelected() {
     const N = makeLayer(L.type, L.tool); N.label = L.label;
     N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
     N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
+    N.color = L.color; N.modelEuler = L.modelEuler ? { x: L.modelEuler.x, y: L.modelEuler.y, z: L.modelEuler.z } : null;
     S.layers.push(N); ensureFrame(N); newIds.push(N.id);
   }
   S.selIds = newIds; S.selId = newIds[newIds.length - 1]; afterSelChange();
@@ -476,12 +520,14 @@ function renderList() {
     const row = document.createElement("div"); row.className = "lrow" + (S.selIds.includes(L.id) ? " sel" : "") + (L.id === S.selId ? " primary" : "");
     const eye = document.createElement("button"); eye.className = "ic"; eye.textContent = L.visible ? "👁" : "🚫"; eye.title = "Sichtbar";
     eye.onclick = (ev) => { ev.stopPropagation(); L.visible = !L.visible; renderList(); redraw(); };
+    const sw = document.createElement("span"); sw.className = "sw"; sw.style.background = L.color ? groupColor(L.color, "#000") : "transparent";
+    sw.style.borderColor = L.color ? "transparent" : "var(--border)";
     const nm = document.createElement("span"); nm.className = "ln"; nm.textContent = L.label + (L.strokesCache.length ? "" : " (leer)");
     const up = document.createElement("button"); up.className = "ic"; up.textContent = "↑"; up.title = "nach oben";
     up.onclick = (ev) => { ev.stopPropagation(); if (i < S.layers.length - 1) { S.layers.splice(i, 1); S.layers.splice(i + 1, 0, L); renderList(); redraw(); } };
     const dn = document.createElement("button"); dn.className = "ic"; dn.textContent = "↓"; dn.title = "nach unten";
     dn.onclick = (ev) => { ev.stopPropagation(); if (i > 0) { S.layers.splice(i, 1); S.layers.splice(i - 1, 0, L); renderList(); redraw(); } };
-    row.append(eye, nm, up, dn);
+    row.append(eye, sw, nm, up, dn);
     row.onclick = (ev) => {
       if (ev.metaKey || ev.ctrlKey) toggleSelect(L.id);
       else if (ev.shiftKey) rangeSelect(L.id);
@@ -495,7 +541,7 @@ function renderList() {
 function saveLayout() {
   const data = { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper,
     layers: S.layers.map(L => ({ type: L.type, tool: L.tool, label: L.label, visible: L.visible,
-      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch,
+      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, modelEuler: L.modelEuler,
       groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
@@ -511,6 +557,7 @@ function loadLayout(obj) {
     L.label = d.label || L.label; L.visible = d.visible !== false;
     if (d.transform) L.transform = d.transform;
     L.params = d.params || null; L.cw = +d.cw || 0; L.ch = +d.ch || 0;
+    L.color = d.color || null; L.modelEuler = d.modelEuler || null;
     L.groups = d.groups || null;
     L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
     S.layers.push(L);   // iframe wird erst beim Bearbeiten erzeugt (lazy)
@@ -518,7 +565,18 @@ function loadLayout(obj) {
   updatePropsUI(); renderList(); fitView(); redraw();
   setStatus(S.layers.length + " " + UI.t("Layer geladen", "layers loaded"));
 }
-function syncSelInputs() { if (S.selIds.length !== 1) return; const L = sel(); if (!L) return; $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y); $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI); }
+function syncSelInputs() {
+  if (S.selIds.length !== 1) return; const L = sel(); if (!L) return;
+  $("inLx").value = Math.round(L.transform.x); $("inLy").value = Math.round(L.transform.y);
+  $("inLs").value = +L.transform.scale.toFixed(3); $("inLr").value = Math.round(L.transform.rot * 180 / Math.PI);
+  $("inLcolorOn").checked = !!L.color; $("inLcolor").value = L.color ? rgbStrToHex(L.color) : "#000000";
+}
+function syncModelEuler() {
+  const L = sel(); if (!L || !L.modelEuler) return;
+  const a = document.activeElement && document.activeElement.id;
+  if (a === "inLrx" || a === "inLry" || a === "inLrz") return;   // Eingabe nicht überschreiben
+  $("inLrx").value = Math.round(L.modelEuler.x); $("inLry").value = Math.round(L.modelEuler.y); $("inLrz").value = Math.round(L.modelEuler.z);
+}
 
 /* ---------- Ausrichten & Verteilen (Photoshop-Stil) ---------- */
 function alignTargetBounds() {
@@ -572,12 +630,15 @@ window.addEventListener("message", e => {
     // Theme + Sprache syncen
     L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setTheme", theme: UI.theme() }, "*");
     L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*");
+    if (isModelLayer(L)) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "requestModelState" }, "*");   // 3D-Drehung holen, sobald das iframe bereit ist
   } else if (m.type === "strokes") {
     L.groups = m.groups || null;
     L.strokesCache = (m.groups && m.groups.length) ? m.groups.flatMap(g => g.polylines) : [];
     L.cw = m.cw || 0; L.ch = m.ch || 0; L.params = m.params;
     if (m.subtool && L.type !== "text") L.label = (L.type === "image" ? "Bild" : toolLabel(L.tool));
     scheduleRedraw(); renderList(); setStatus(S.layers.length + " Layer · ausgewählt: " + (sel() ? sel().label : "–"));
+  } else if (m.type === "modelState") {                 // aktuelle 3D-Drehung des Modells → Zahlenfelder
+    L.modelEuler = m.euler; if (sel() === L) syncModelEuler();
   }
 });
 function setStatus(t) { $("stInfo").textContent = t; }
@@ -590,7 +651,7 @@ function buildGroups() {
     const f = layerMap(L);
     const groups = (L.groups && L.groups.length) ? L.groups : [{ name: L.label, color: null, polylines: L.strokesCache }];
     groups.forEach(g => { const polys = g.polylines.map(st => st.map(f)).filter(st => st.length >= 2);
-      if (polys.length) out.push({ name: L.label + (groups.length > 1 ? " — " + g.name : ""), color: g.color || undefined, strokes: polys }); });
+      if (polys.length) out.push({ name: L.label + (groups.length > 1 ? " — " + g.name : ""), color: L.color || g.color || undefined, strokes: polys }); });
   }
   return out;
 }
@@ -613,8 +674,9 @@ async function exportLac() {
 }
 function exportSvg() {
   const groups = buildGroups(); if (!groups.length) { alert(UI.t("Keine sichtbaren Layer mit Inhalt.", "No visible layers with content.")); return; }
-  let d = ""; for (const grp of groups) for (const st of grp.strokes) d += "M " + st.map(p => p[0].toFixed(2) + " " + p[1].toFixed(2)).join(" L ") + " ";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S.matW}mm" height="${S.matH}mm" viewBox="0 0 ${S.matW} ${S.matH}"><g fill="none" stroke="#000" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></g></svg>`;
+  let paths = "";   // ein Pfad pro Gruppe mit eigener Farbe (wie .lac), statt alles schwarz
+  for (const grp of groups) { let d = ""; for (const st of grp.strokes) d += "M " + st.map(p => p[0].toFixed(2) + " " + p[1].toFixed(2)).join(" L ") + " "; if (d) paths += `<path stroke="${groupColor(grp.color, "#000")}" d="${d.trim()}"/>`; }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S.matW}mm" height="${S.matH}mm" viewBox="0 0 ${S.matW} ${S.matH}"><g fill="none" stroke-width="0.45" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })); a.download = ($("inFname").value || "komposition") + ".svg"; a.click(); URL.revokeObjectURL(a.href);
 }
 function newDoc() {
@@ -666,6 +728,19 @@ $("btnDel").onclick = deleteSelected;
 $("btnDup").onclick = duplicateSelected;
 for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLs", "scale"], ["inLr", "rot"]])
   $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; if (key === "scale") v = Math.max(0.05, v || 1); L.transform[key] = v; redraw(); });
+// Farbe pro Ebene (überschreibt Tool-/Multicolor-Farben, solange aktiv)
+function applyLayerColor() { const L = sel(); if (!L) return; L.color = $("inLcolorOn").checked ? hexToRgbStr($("inLcolor").value) : null; renderList(); redraw(); }
+$("inLcolorOn").addEventListener("change", applyLayerColor);
+$("inLcolor").addEventListener("input", () => { if (!$("inLcolorOn").checked) $("inLcolorOn").checked = true; applyLayerColor(); });
+// 3D-Drehung (Modell) exakt eingeben → an das eingebettete Tool senden
+for (const id of ["inLrx", "inLry", "inLrz"])
+  $(id).addEventListener("input", () => {
+    const L = sel(); if (!L || !isModelLayer(L)) return; ensureFrame(L);
+    const cur = L.modelEuler || { x: 0, y: 0, z: 0 }, num = (v, c) => { const n = parseFloat(v); return Number.isFinite(n) ? n : c; };   // leeres Feld → aktueller Wert
+    const x = num($("inLrx").value, cur.x), y = num($("inLry").value, cur.y), z = num($("inLrz").value, cur.z);
+    L.modelEuler = { x, y, z };   // getippte Werte sind maßgeblich; das Tool unterdrückt den Echo (kein Gimbal-Rückschreiben)
+    if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setModelEuler", x, y, z }, "*");
+  });
 
 // Ausrichten-/Verteilen-Buttons (Photoshop-Icons)
 const ALIGN_BTNS = [
@@ -791,7 +866,10 @@ const I18N_EN = {
     "Saves the layout as a <code>.handschrift</code> file (layers, position, parameters and strokes). To continue later or share.",
   "Keine gültige .handschrift-Datei.": "Not a valid .handschrift file.",
   "Datei konnte nicht gelesen werden.": "Could not read file.", "Layer geladen": "layers loaded",
-  "Ausrichten an": "Align to", "Auswahl": "Selection", "Blatt": "Sheet", "ausgewählt": "selected",
+  "Ausrichten an": "Align to", "Auswahl": "Selection", "Blatt": "Sheet", "ausgewählt": "selected", "Farbe": "Color",
+  "Multicolor-Ebenen behalten ihre Farben, solange „Farbe“ aus ist.": "Multicolor layers keep their colors while “Color” is off.",
+  "3D-Drehung Modell (°) — X / Y / Z": "3D model rotation (°) — X / Y / Z",
+  "Alt/Strg + Ziehen auf der Fläche dreht das Modell als Trackball; hier exakte Winkel eingeben.": "Alt/Ctrl + drag on the canvas rotates the model as a trackball; enter exact angles here.",
   "Verteilen braucht mindestens 3 Ebenen.": "Distribute needs at least 3 layers.",
   "Eckgriffe = skalieren (Gegenecke fix; Alt/Cmd = Mitte). Kreis = drehen (Shift = 15°). Mehrfachauswahl: Cmd/Strg- oder Shift-Klick in der Ebenenliste, Shift-Klick auf der Fläche; Pfeiltasten verschieben (Shift = 10 mm).":
     "Corner handles = scale (opposite corner fixed; Alt/Cmd = center). Circle = rotate (Shift = 15°). Multi-select: Cmd/Ctrl- or Shift-click in the layer list, Shift-click on the canvas; arrow keys nudge (Shift = 10 mm).",

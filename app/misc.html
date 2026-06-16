@@ -62,10 +62,6 @@
                border-top: 1px solid var(--border); display: flex; gap: 18px; }
   .toolopts { display: none; }
   .toolopts.active { display: block; }
-  /* Im Studio-Embed: 3D-Vorschau einblenden, damit man das Modell frei drehen kann */
-  html.embed.embed-model body { flex-direction: column; }
-  html.embed.embed-model #main { display: flex !important; height: 320px; flex: none; border-top: 1px solid var(--border); }
-  html.embed.embed-model #main canvas { cursor: grab; }
   .qrsub { display: none; }
   .qrsub.active { display: block; }
   .filepick { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
@@ -308,7 +304,7 @@
         <label>Ansicht</label>
         <div class="btnrow"><button type="button" id="btnModelFront">Vorne</button><button type="button" id="btnModelIso">Iso</button><button type="button" id="btnModelTop">Oben</button></div>
         <button type="button" id="btnModelReset" style="width:100%;margin-top:8px">Ansicht zurücksetzen</button>
-        <div class="hint">STL laden, dann in der 3D-Vorschau ziehen zum freien Drehen in alle Richtungen (Shift+Ziehen = verschieben, Mausrad = Zoom). Im Studio erscheint die Vorschau unter den Einstellungen. Erzeugt eine Blaupausen-Zeichnung aus Knickkanten + Außenkontur. „Nur sichtbare“ blendet verdeckte Kanten aus, „Verdeckte gestrichelt“ zeichnet sie gestrichelt. Die längste Seite wird auf die eingestellte Größe skaliert.</div>
+        <div class="hint">STL laden, dann in der Vorschau ziehen zum freien Drehen in alle Richtungen (Shift+Ziehen = verschieben, Mausrad = Zoom). Im Studio: Alt/Strg gedrückt halten und auf der Fläche ziehen dreht das Modell; exakte Winkel über die Drehfelder. Erzeugt eine Blaupausen-Zeichnung aus Knickkanten + Außenkontur. „Nur sichtbare“ blendet verdeckte Kanten aus, „Verdeckte gestrichelt“ zeichnet sie gestrichelt. Das Modell wird in einen festen Rahmen skaliert, damit Drehen Größe/Position nicht verändert.</div>
       </div>
     </div>
   </details>
@@ -2026,6 +2022,7 @@ let __modelRaw = null;     // { positions: Float32Array (roh), name, faceCount }
 let __modelData = null;    // { geo, positions, maxDim, name, faceCount, zUp, creaseDeg, creaseSegs, creaseKeys, adj, mesh }
 let __modelRot = null;     // 3x3 row-major Rotationsmatrix (Modell→Ansicht) — erlaubt freies Drehen in 3D
 let __modelOrbiting = false;
+let __skipState = false;   // einmalig den modelState-Echo unterdrücken (verhindert Gimbal-Lock-Rückschreiben bei Euler-Eingabe)
 let __threePromise = null;
 // --- kleine 3x3-Matrix-Helfer fürs freie Drehen ---
 function m3mul(A, B) { const C = new Array(9); for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { let s = 0; for (let k = 0; k < 3; k++) s += A[r * 3 + k] * B[k * 3 + c]; C[r * 3 + c] = s; } return C; }
@@ -2095,11 +2092,13 @@ function buildModelGeo() {
     if (p[i + 2] < mnz) mnz = p[i + 2]; if (p[i + 2] > mxz) mxz = p[i + 2];
   }
   const cx = (mnx + mxx) / 2, cy = (mny + mxy) / 2, cz = (mnz + mxz) / 2;
-  for (let i = 0; i < p.length; i += 3) { p[i] -= cx; p[i + 1] -= cy; p[i + 2] -= cz; }
+  let maxR2 = 0;
+  for (let i = 0; i < p.length; i += 3) { p[i] -= cx; p[i + 1] -= cy; p[i + 2] -= cz; const r2 = p[i] * p[i] + p[i + 1] * p[i + 1] + p[i + 2] * p[i + 2]; if (r2 > maxR2) maxR2 = r2; }
   const maxDim = Math.max(mxx - mnx, mxy - mny, mxz - mnz) || 1;
+  const radius = Math.sqrt(maxR2) || (maxDim / 2);   // rotationsinvariante Umkugel → stabile Skalierung/Position beim Drehen
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(p, 3));
-  __modelData = { geo, positions: p, maxDim, name: __modelRaw.name, faceCount: __modelRaw.faceCount,
+  __modelData = { geo, positions: p, maxDim, radius, name: __modelRaw.name, faceCount: __modelRaw.faceCount,
                   zUp, creaseDeg: null, creaseSegs: null, creaseKeys: null, adj: null };
   buildModelAdjacency();
 }
@@ -2253,23 +2252,20 @@ function reprojectModel(fit) {
   const segs3 = sil.segs.slice();
   const cs = __modelData.creaseSegs, ck = __modelData.creaseKeys;
   for (let i = 0; i < cs.length; i++) if (!seen.has(ck[i])) { segs3.push(cs[i]); seen.add(ck[i]); }
-  if (!segs3.length) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Keine Kanten — Winkel/Silhouette anpassen.", "No edges — adjust angle/silhouette.")); draw(); return; }
+  if (!segs3.length) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("Keine Kanten — Winkel/Silhouette anpassen.", "No edges — adjust angle/silhouette.")); draw(); if (window.HS_EMBED) postModelState(); return; }
   const pr = (x, y, z) => [R[0] * x + R[1] * y + R[2] * z, R[3] * x + R[4] * y + R[5] * z];
-  let minX = 1e30, minY = 1e30, maxX = -1e30, maxY = -1e30;
-  for (const s of segs3) {
-    const p0 = pr(s[0], s[1], s[2]), p1 = pr(s[3], s[4], s[5]);
-    if (p0[0] < minX) minX = p0[0]; if (p0[0] > maxX) maxX = p0[0]; if (p1[0] < minX) minX = p1[0]; if (p1[0] > maxX) maxX = p1[0];
-    if (p0[1] < minY) minY = p0[1]; if (p0[1] > maxY) maxY = p0[1]; if (p1[1] < minY) minY = p1[1]; if (p1[1] > maxY) maxY = p1[1];
-  }
-  const longest = Math.max(maxX - minX, maxY - minY) || 1;
-  const scale = (+$("inpSize").value) / longest;
-  const TX = p => [(p[0] - minX) * scale, (maxY - p[1]) * scale];
+  // Konstante Skalierung über die rotationsinvariante Umkugel + feste Zentrierung → beim Drehen ändern sich
+  // weder Skalierung noch Position (das Modell taumelt in einem festen Rahmen). cw/ch bleiben konstant.
+  const size = +$("inpSize").value, rad = __modelData.radius || (__modelData.maxDim / 2) || 1, scale = size / (2 * rad), half = size / 2;
+  const TX = p => [half + p[0] * scale, half - p[1] * scale];
+  const bounds = { minX: -rad, minY: -rad, maxX: rad, maxY: rad };
   const modeSel = $("inpModelHidden") ? $("inpModelHidden").value : "all";
   const liveOrbit = __modelOrbiting && __modelData.faceCount > 20000;    // nur sehr große Modelle beim Drehen ohne HLR
-  S.strokes = projectEdges(segs3, pr, TX, liveOrbit ? "all" : modeSel, { minX, minY, maxX, maxY });
-  S.cw = (maxX - minX) * scale; S.ch = (maxY - minY) * scale;
+  S.strokes = projectEdges(segs3, pr, TX, liveOrbit ? "all" : modeSel, bounds);
+  S.cw = size; S.ch = size;
   if (fit) finishCompute(__modelData.faceCount + " " + UI.t("Dreiecke", "faces") + " · " + S.strokes.length + " " + UI.t("Kanten", "edges") + (__modelData.name ? " · " + __modelData.name : ""));
   else draw();
+  if (window.HS_EMBED) postModelState();
 }
 function buildModel() {
   if (!window.THREE || !__modelRaw) { S.strokes = []; S.cw = S.ch = 0; setStatus(UI.t("STL-Datei laden.", "Load an STL file.")); draw(); return; }
@@ -2364,7 +2360,7 @@ function fitView() {
 function resize() {
   const r = cv.parentElement.getBoundingClientRect();
   cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio;
-  if ($("inpTool").value === "model" && __modelData) fitView(); else draw();   // 3D-Vorschau bei Größenänderung neu einpassen
+  draw();
 }
 window.addEventListener("resize", resize);
 // Pan & Zoom
@@ -2448,10 +2444,6 @@ function showToolOpts() {
   const tool = $("inpTool").value;
   document.querySelectorAll(".toolopts").forEach(el => el.classList.toggle("active", el.dataset.tool === tool));
   if (tool !== "model") { modelOrbit = null; __modelOrbiting = false; }   // laufenden Orbit beim Tool-Wechsel verwerfen
-  if (window.HS_EMBED) {                                  // im Studio die 3D-Vorschau nur fürs Modell-Tool zeigen
-    document.documentElement.classList.toggle("embed-model", tool === "model");
-    if (tool === "model") requestAnimationFrame(() => { try { resize(); fitView(); } catch (e) {} });
-  }
 }
 // Native File-Inputs durch gestylten Button + Dateiname ersetzen
 function prettifyFileInputs() {
@@ -2565,7 +2557,7 @@ Object.assign(I18N_EN, {
   "Nur sichtbare": "Visible only",
   "Verdeckte gestrichelt": "Hidden dashed",
   "STL laden, dann im Vorschaufenster ziehen zum freien Drehen in 3D (Shift+Ziehen = verschieben, Mausrad = Zoom). Erzeugt eine Blaupausen-Zeichnung aus Knickkanten + Außenkontur. „Nur sichtbare“ blendet verdeckte Kanten per Verdeckungsrechnung aus, „Verdeckte gestrichelt“ zeichnet sie gestrichelt. Die längste Seite wird auf die eingestellte Größe skaliert.":
-    "Load an STL, then drag in the 3D preview to rotate freely in all directions (Shift+drag = pan, wheel = zoom). In the studio the preview appears below the settings. Produces a blueprint-style drawing from crease edges + outline. “Visible only” hides occluded edges, “Hidden dashed” draws them dashed. The longest side is scaled to the chosen size.",
+    "Load an STL, then drag in the preview to rotate freely in all directions (Shift+drag = pan, wheel = zoom). In the studio: hold Alt/Ctrl and drag on the canvas to rotate the model; type exact angles in the rotation fields. Produces a blueprint-style drawing from crease edges + outline. “Visible only” hides occluded edges, “Hidden dashed” draws them dashed. The model is scaled into a fixed frame so rotating doesn't change its size/position.",
   "STL-Datei laden.": "Load an STL file.", "Lade 3D …": "Loading 3D …",
   "Keine Dreiecke in der STL.": "No triangles in the STL.",
   "Zu viele Dreiecke (": "Too many triangles (",
@@ -2601,6 +2593,40 @@ if (window.HS_EMBED && window.HSEmbed) HSEmbed.register({
   selectTool: (t) => { const el = $("inpTool"); if (el) { el.value = t; el.dispatchEvent(new Event("input", { bubbles: true })); } },
   toolList: () => [...document.querySelectorAll('#inpTool option')].map(o => ({ value: o.value, label: o.textContent.trim() })),
 });
+
+// 3D-Modell vom Studio aus steuern: Trackball-Drehung (Bildschirmachsen) + exakte Euler-Werte
+function modelEulerDeg() {
+  if (!window.THREE || !__modelRot) return { x: 0, y: 0, z: 0 };
+  const R = __modelRot, m = new THREE.Matrix4();
+  m.set(R[0], R[1], R[2], 0, R[3], R[4], R[5], 0, R[6], R[7], R[8], 0, 0, 0, 0, 1);
+  const e = new THREE.Euler().setFromRotationMatrix(m, "XYZ"), k = 180 / Math.PI;
+  return { x: e.x * k, y: e.y * k, z: e.z * k };
+}
+function setModelRotFromEuler(xd, yd, zd) {
+  const k = Math.PI / 180, el = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(xd * k, yd * k, zd * k, "XYZ")).elements;
+  __modelRot = [el[0], el[4], el[8], el[1], el[5], el[9], el[2], el[6], el[10]];   // Spalten- → Zeilen-Major
+}
+function postModelState() {
+  if (__skipState) { __skipState = false; return; }          // Euler-Eingabe: Studio kennt die Werte schon, kein Echo
+  if (!window.HS_EMBED || !window.parent || window.parent === window || !__modelData) return;
+  window.parent.postMessage({ source: "ttl-tool", type: "modelState", euler: modelEulerDeg() }, "*");
+}
+if (window.HS_EMBED) {
+  let studioR0 = null;
+  window.addEventListener("message", e => {
+    const m = e.data; if (!m || m.source !== "ttl-studio") return;
+    if ($("inpTool").value !== "model" || !__modelData) return;
+    if (m.type === "modelOrbitStart") { studioR0 = __modelRot.slice(); __modelOrbiting = true; }
+    else if (m.type === "modelOrbit") {
+      if (!studioR0) studioR0 = __modelRot.slice();
+      const ay = m.dx * 0.01, ax = m.dy * 0.01;                                  // Bildschirmachsen → freies Taumeln
+      __modelRot = m3ortho(m3mul(m3mul(m3rotY(ay), m3rotX(ax)), studioR0));
+      if (!modelRaf) modelRaf = requestAnimationFrame(() => { modelRaf = 0; reprojectModel(false); });   // coalescen wie der Standalone-Pfad
+    } else if (m.type === "modelOrbitEnd") { studioR0 = null; __modelOrbiting = false; reprojectModel(false); }
+    else if (m.type === "setModelEuler") { setModelRotFromEuler(+m.x || 0, +m.y || 0, +m.z || 0); __skipState = true; reprojectModel(true); }
+    else if (m.type === "requestModelState") postModelState();
+  });
+}
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
