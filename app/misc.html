@@ -216,12 +216,36 @@
 <label>SVG-Datei</label>
 <input type="file" id="inpSvgFile" accept=".svg,image/svg+xml">
 <div class="hint" id="svgFileInfo">Noch keine Datei geladen.</div>
+<label>Modus</label>
+<select id="inpSvgMode">
+  <option value="outline">Umrisse / Linien (Vektor)</option>
+  <option value="centerline">Mittellinie (für gefüllte SVGs / Signaturen)</option>
+  <option value="fill">Flächen füllen</option>
+</select>
+<div class="svgmode" data-svgmode="outline">
 <label>Kurven-Auflösung (Genauigkeit)</label>
 <div class="slider"><input type="range" id="inpSvgRes" min="0.1" max="1.5" step="0.05" value="0.3"><span class="val" id="valSvgRes"></span></div>
 <label>Vereinfachung (Punkte reduzieren)</label>
 <div class="slider"><input type="range" id="inpSvgSimplify" min="0" max="0.5" step="0.01" value="0.05"><span class="val" id="valSvgSimplify"></span></div>
 <div class="checkrow"><input type="checkbox" id="inpSvgClose"><span>Offene Formen schließen</span></div>
-<div class="hint">Nur Umrisse / Linien werden gezeichnet — Füllungen und Farben werden ignoriert. <code>&lt;path&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polyline&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code> sowie <code>&lt;g&gt;</code>-Transformationen werden unterstützt. Die längste Seite wird auf die eingestellte Größe skaliert.</div>
+<div class="hint">Folgt den Vektorpfaden direkt (ideal für Linien-/Strich-SVGs). Bei <b>gefüllten</b> SVGs (z. B. Signaturen) werden nur die Umrisse der Flächen nachgefahren — dann „Mittellinie" wählen.</div>
+</div>
+<div class="svgmode" data-svgmode="centerline" style="display:none">
+<div class="checkrow"><input type="checkbox" id="inpSvgAuto" checked><span>Schwelle automatisch (Otsu)</span></div>
+<label>Schwelle (manuell)</label>
+<div class="slider"><input type="range" id="inpSvgThresh" min="20" max="240" step="1" value="128"><span class="val" id="valSvgThresh"></span></div>
+<label>Mindest-Strichlänge (Entstörung)</label>
+<div class="slider"><input type="range" id="inpSvgMin" min="0" max="10" step="0.2" value="1.5"><span class="val" id="valSvgMin"></span></div>
+<div class="hint">Rastert die <b>gefüllte</b> SVG und zieht die Mittellinie jedes Strichs (Skelett) — eine durchgehende Linie pro Strich. Ideal für Unterschriften und gefüllte Logos.</div>
+</div>
+<div class="svgmode" data-svgmode="fill" style="display:none">
+<label>Füll-Abstand (= Stiftbreite)</label>
+<div class="slider"><input type="range" id="inpSvgFillSpace" min="0.3" max="3" step="0.1" value="0.8"><span class="val" id="valSvgFillSpace"></span></div>
+<label>Füll-Winkel</label>
+<div class="slider"><input type="range" id="inpSvgFillAngle" min="0" max="180" step="5" value="45"><span class="val" id="valSvgFillAngle"></span></div>
+<div class="checkrow"><input type="checkbox" id="inpSvgFillOutline" checked><span>Außenkontur nachfahren</span></div>
+<div class="hint">Füllt die gefüllten Flächen mit dichter Schraffur (Abstand ≈ Stiftbreite = deckend). Gibt die Strichstärke wieder.</div>
+</div>
       </div>
       <div class="toolopts" data-tool="paper">
 <div class="row"><div><label>Höhe (mm)</label><input type="number" id="inpPaperH" min="10" max="2000" step="1" value="200"></div><div><label>Art</label><select id="inpPaperType"><option value="dots">Punktraster</option><option value="lines">Linien</option><option value="karo" selected>Karo</option><option value="iso">Isometrisch</option><option value="noten">Notenlinien</option><option value="mm">Millimeterpapier</option></select></div></div><label>Abstand (mm)</label><div class="slider"><input type="range" id="inpPaperSpace" min="2" max="20" step="0.5" value="5"><span class="val" id="valPaperSpace"></span></div><div class="hint">Breite = Größe oben. Gerade Linien werden für einen Stift gezeichnet.</div>
@@ -988,6 +1012,115 @@ function svgElementPolys(el, res) {
   }
   return polys;
 }
+function otsu(buf) {                                  // Otsu-Schwelle über 0..255-Histogramm
+  const hist = new Float64Array(256);
+  for (let i = 0; i < buf.length; i++) hist[Math.max(0, Math.min(255, Math.round(buf[i])))]++;
+  const total = buf.length;
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, maxVar = -1, thr = 128;
+  for (let i = 0; i < 256; i++) {
+    wB += hist[i]; if (!wB) continue;
+    const wF = total - wB; if (!wF) break;
+    sumB += i * hist[i];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > maxVar) { maxVar = v; thr = i; }
+  }
+  return thr;
+}
+function svgContentBBox() {                           // Bounding-Box aller zeichenbaren Elemente (in SVG-Einheiten)
+  if (!__svgData) return null;
+  const els = __svgData.doc.querySelectorAll("path,line,polyline,polygon,rect,circle,ellipse");
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, any = false;
+  for (const el of els) { const m = svgCumulativeMatrix(el); for (const poly of svgElementPolys(el, 0.4)) for (const [x, y] of poly) { const [tx, ty] = svgApply(m, x, y); any = true; if (tx < minX) minX = tx; if (tx > maxX) maxX = tx; if (ty < minY) minY = ty; if (ty > maxY) maxY = ty; } }
+  return any ? { x: minX, y: minY, w: maxX - minX, h: maxY - minY } : null;
+}
+function svgRasterize(maxPx) {                        // gefüllte SVG → Graustufen-Raster (auf Weiß komponiert)
+  return new Promise((resolve, reject) => {
+    if (!__svgData) { reject(new Error("keine SVG")); return; }
+    let nw, nh, vbStr = null;
+    if (__svgData.vb) { nw = __svgData.vb.w; nh = __svgData.vb.h; }                 // viewBox des Originals beibehalten
+    else if (__svgData.w > 0 && __svgData.h > 0) { nw = __svgData.w; nh = __svgData.h; vbStr = `0 0 ${nw} ${nh}`; }
+    else { const bb = svgContentBBox(); if (!bb || bb.w <= 0 || bb.h <= 0) { reject(new Error("keine Geometrie")); return; } nw = bb.w; nh = bb.h; vbStr = `${bb.x} ${bb.y} ${bb.w} ${bb.h}`; }
+    const s = maxPx / Math.max(nw, nh), w = Math.max(8, Math.round(nw * s)), h = Math.max(8, Math.round(nh * s));
+    const clone = __svgData.root.cloneNode(true);
+    clone.setAttribute("width", w); clone.setAttribute("height", h);
+    if (vbStr && !clone.getAttribute("viewBox")) clone.setAttribute("viewBox", vbStr);
+    if (!clone.getAttribute("xmlns")) clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const xml = new XMLSerializer().serializeToString(clone);
+    const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+        const data = g.getImageData(0, 0, w, h).data, gray = new Float32Array(w * h);
+        for (let i = 0; i < gray.length; i++) { const a = data[i * 4 + 3] / 255; gray[i] = (0.2126 * data[i * 4] + 0.7152 * data[i * 4 + 1] + 0.0722 * data[i * 4 + 2]) * a + 255 * (1 - a); }
+        resolve({ gray, w, h });
+      } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error("Bild-Dekodierung fehlgeschlagen"));
+    img.src = url;
+  });
+}
+function maskHatch(mask, w, h, ix0, iy0, scale, spaceMm, angleDeg) {   // gefüllte Maske → Schraffur-Linien (mm), beliebiger Winkel
+  const out = [], spacePx = Math.max(1, spaceMm / scale);
+  const th = angleDeg * Math.PI / 180, dx = Math.cos(th), dy = Math.sin(th), nx = -dy, ny = dx;   // Laufrichtung d, Normale n
+  const corners = [[0, 0], [w, 0], [0, h], [w, h]];
+  let nmin = Infinity, nmax = -Infinity;
+  for (const [cx, cy] of corners) { const p = cx * nx + cy * ny; if (p < nmin) nmin = p; if (p > nmax) nmax = p; }
+  const diag = Math.hypot(w, h), get = (x, y) => { const xi = x | 0, yi = y | 0; return (xi >= 0 && xi < w && yi >= 0 && yi < h) ? mask[yi * w + xi] : 0; };
+  for (let off = nmin + spacePx / 2; off < nmax; off += spacePx) {
+    const bx = off * nx, by = off * ny;                 // Aufpunkt auf der Normalen
+    let run = null;
+    for (let t = -diag; t <= diag; t += 0.7) {
+      const x = bx + dx * t, y = by + dy * t, ink = get(x, y);
+      if (ink && !run) run = [x, y];
+      else if (!ink && run) { out.push([[(run[0] - ix0) * scale, (run[1] - iy0) * scale], [(x - dx * 0.7 - ix0) * scale, (y - dy * 0.7 - iy0) * scale]]); run = null; }
+    }
+  }
+  return out;
+}
+function maskOutline(mask, w, h, ix0, iy0, scale) {   // Randpixel der Maske → 1px-Kontur → Pfade (mm)
+  const edge = new Uint8Array(w * h);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; if (mask[i] && (!mask[i - 1] || !mask[i + 1] || !mask[i - w] || !mask[i + w])) edge[i] = 1; }
+  thin(edge, w, h);
+  return traceBinary(edge, w, h).map(p => p.map(([x, y]) => [(x - ix0) * scale, (y - iy0) * scale])).map(p => rdp(p, 0.25)).filter(p => p.length >= 2 && segLen(p) > 1.0);
+}
+function buildSvgRaster(mode) {
+  if (!__svgData.gray) {
+    if (__svgData.rasterFailed) { S.strokes = []; S.cw = 0; S.ch = 0; setStatus(UI.t("SVG-Rasterung nicht möglich (externe Inhalte?) — Modus 'Umrisse' nutzen.", "SVG rasterization failed (external content?) — use 'Outline' mode.")); draw(); return; }
+    setStatus(UI.t("SVG wird gerastert …", "Rasterizing SVG …")); return;   // Raster läuft noch (async) → folgender Recompute zeichnet
+  }
+  const d = __svgData, gray = d.gray, w = d.gw, h = d.gh;
+  const thr = $("inpSvgAuto").checked ? otsu(gray) : +$("inpSvgThresh").value;
+  // Maske + Ink-Bbox nach Schwelle cachen → Füll-/Größen-/Längen-Regler bauen sie nicht neu (teure 2×w·h-Schleifen nur bei Schwellenänderung)
+  if (d._mThr !== thr) {
+    const mask = new Uint8Array(w * h);
+    for (let i = 0; i < mask.length; i++) mask[i] = gray[i] < thr ? 1 : 0;
+    let ix0 = w, iy0 = h, ix1 = -1, iy1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (mask[y * w + x]) { if (x < ix0) ix0 = x; if (x > ix1) ix1 = x; if (y < iy0) iy0 = y; if (y > iy1) iy1 = y; }
+    d._mThr = thr; d._mask = (ix1 >= ix0) ? mask : null; d._ix0 = ix0; d._iy0 = iy0; d._inkW = ix1 - ix0 + 1; d._inkH = iy1 - iy0 + 1; d._clThr = null;   // Skelett-Cache verwerfen
+  }
+  if (!d._mask) { S.strokes = []; S.cw = 0; S.ch = 0; setStatus(UI.t("Keine Tinte in der SVG gefunden.", "No ink found in the SVG.")); draw(); return; }
+  const mask = d._mask, ix0 = d._ix0, iy0 = d._iy0, inkW = d._inkW, inkH = d._inkH;
+  const target = +$("inpSize").value, scale = target / Math.max(inkW, inkH);   // mm pro px
+  let strokes;
+  if (mode === "centerline") {
+    if (d._clThr !== thr || !d._clPx) {   // Zhang-Suen + Trace nur bei Schwellenänderung (Skelett in px cachen; Größe/Mindestlänge danach billig)
+      const mk = mask.slice(); thin(mk, w, h);   // Kopie thinnen → Roh-Maske bleibt fürs Füllen erhalten
+      d._clPx = traceBinary(mk, w, h); d._clThr = thr;
+    }
+    const minLen = +$("inpSvgMin").value;
+    strokes = d._clPx.map(p => p.map(([x, y]) => [(x - ix0) * scale, (y - iy0) * scale])).map(p => rdp(p, 0.2)).filter(p => p.length >= 2 && segLen(p) >= minLen);
+  } else {   // fill
+    strokes = maskHatch(mask, w, h, ix0, iy0, scale, +$("inpSvgFillSpace").value, +$("inpSvgFillAngle").value);
+    if ($("inpSvgFillOutline").checked) strokes.push(...maskOutline(mask, w, h, ix0, iy0, scale));
+  }
+  S.strokes = strokes; S.cw = inkW * scale; S.ch = inkH * scale;
+  if (!strokes.length) { setStatus(UI.t("Keine Linien erzeugt.", "No lines produced.")); draw(); return; }
+  draw(); finishCompute();
+}
 function svgReadFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
@@ -1008,8 +1141,10 @@ function svgReadFile(file) {
         if (a.length === 4 && a[2] > 0 && a[3] > 0) vb = { x: a[0], y: a[1], w: a[2], h: a[3] };
       }
       const wAttr = parseFloat(root.getAttribute("width")), hAttr = parseFloat(root.getAttribute("height"));
-      __svgData = { doc: doc, root: root, vb: vb, w: isNaN(wAttr) ? 0 : wAttr, h: isNaN(hAttr) ? 0 : hAttr, name: file.name };
-      window.__miscRecompute();
+      __svgData = { doc: doc, root: root, vb: vb, w: isNaN(wAttr) ? 0 : wAttr, h: isNaN(hAttr) ? 0 : hAttr, name: file.name, gray: null };
+      window.__miscRecompute();   // Umriss-Modus sofort
+      svgRasterize(1000).then(r => { if (__svgData && __svgData.root === root) { __svgData.gray = r.gray; __svgData.gw = r.w; __svgData.gh = r.h; window.__miscRecompute(); } })
+        .catch(e => { console.warn("SVG-Rasterung:", e && e.message); if (__svgData && __svgData.root === root) { __svgData.rasterFailed = true; window.__miscRecompute(); } });   // Mittellinie/Füllen brauchen das Raster
     } catch (e) {
       __svgData = null;
       setStatus(UI.t("Fehler beim Parsen: ", "Parse error: ") + e.message);
@@ -1041,6 +1176,8 @@ function buildSvg() {
     draw();
     return;
   }
+  const mode = ($("inpSvgMode") && $("inpSvgMode").value) || "outline";
+  if (mode === "centerline" || mode === "fill") { buildSvgRaster(mode); return; }   // gerasterte Modi für gefüllte SVGs
   const res = +$("inpSvgRes").value;
   const closeOpen = $("inpSvgClose").checked;
   const all = [];
@@ -2583,13 +2720,18 @@ for (const id of ["inpSpLogo", "inpSpMode", "inpSpOutline", "inpQrText", "inpQrE
   $(id).addEventListener("input", recompute);
 $("inpQrType").addEventListener("input", () => { showQrSub(); recompute(); });
 showQrSub();
-const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"], ["inpSvgRes", "valSvgRes", " u"], ["inpSvgSimplify", "valSvgSimplify", " mm"], ["inpPaperSpace", "valPaperSpace", " mm"], ["ptSqSize", "valPtSqSize", "mm"], ["ptScaleLen", "valPtScaleLen", "mm"], ["ptRings", "valPtRings", ""], ["ptGap", "valPtGap", "mm"], ["inpSfOrder", "valInpSfOrder", ""], ["inpSpA", "valSpA", ""], ["inpSpB", "valSpB", ""], ["inpSpC", "valSpC", ""], ["inpSpTurns", "valSpTurns", ""], ["inpSpDetail", "valSpDetail", " pts"], ["inpMazeCols", "valMazeCols", ""], ["inpTspPoints", "valTspPoints", " Punkte"], ["inpWaveBars", "valWaveBars", ""], ["inpModelCrease", "valModelCrease", "°"], ["inpPenSmooth", "valPenSmooth", ""], ["inpShapeR", "valShapeR", " mm"], ["inpShapeRot", "valShapeRot", "°"], ["inpShapeFillAng", "valShapeFillAng", "°"]];
+const SLIDERS = [["inpSize", "valSize", " mm"], ["inpPenW", "valPenW", " mm"], ["inpSvgRes", "valSvgRes", " u"], ["inpSvgSimplify", "valSvgSimplify", " mm"], ["inpSvgThresh", "valSvgThresh", ""], ["inpSvgMin", "valSvgMin", " mm"], ["inpSvgFillSpace", "valSvgFillSpace", " mm"], ["inpSvgFillAngle", "valSvgFillAngle", "°"], ["inpPaperSpace", "valPaperSpace", " mm"], ["ptSqSize", "valPtSqSize", "mm"], ["ptScaleLen", "valPtScaleLen", "mm"], ["ptRings", "valPtRings", ""], ["ptGap", "valPtGap", "mm"], ["inpSfOrder", "valInpSfOrder", ""], ["inpSpA", "valSpA", ""], ["inpSpB", "valSpB", ""], ["inpSpC", "valSpC", ""], ["inpSpTurns", "valSpTurns", ""], ["inpSpDetail", "valSpDetail", " pts"], ["inpMazeCols", "valMazeCols", ""], ["inpTspPoints", "valTspPoints", " Punkte"], ["inpWaveBars", "valWaveBars", ""], ["inpModelCrease", "valModelCrease", "°"], ["inpPenSmooth", "valPenSmooth", ""], ["inpShapeR", "valShapeR", " mm"], ["inpShapeRot", "valShapeRot", "°"], ["inpShapeFillAng", "valShapeFillAng", "°"]];
+let _recRaf = 0;
+function recomputeSoon() { if (_recRaf) return; _recRaf = requestAnimationFrame(() => { _recRaf = 0; recompute(); }); }   // Regler-Ziehen auf max. 1 Neuberechnung/Frame bündeln (sonst ruckelt z. B. das SVG-Schwellen-Ziehen)
 for (const [id, vid, unit] of SLIDERS) {
   const upd = () => { $(vid).textContent = $(id).value + unit; };
-  $(id).addEventListener("input", () => { upd(); recompute(); });
+  $(id).addEventListener("input", () => { upd(); recomputeSoon(); });
   upd();
 }
-for (const id of ["inpSvgClose","inpPaperH","inpPaperType","ptRegistration","ptSerpentine","inpSfType","inpSpType","inpMazeH","inpMazeSeed","inpFxExpr","inpFxXmin","inpFxXmax","inpFxAxes","inpTspInvert","inpWaveStyle","inpWaveHeight","inpModelSilhouette","inpModelZup","inpModelHidden","inpShape","inpShapeW","inpShapeH","inpShapeN","inpShapeInner","inpShapeFill"]) { const el = $(id); if (el) el.addEventListener("input", recompute); }
+for (const id of ["inpSvgClose","inpSvgAuto","inpSvgFillOutline","inpPaperH","inpPaperType","ptRegistration","ptSerpentine","inpSfType","inpSpType","inpMazeH","inpMazeSeed","inpFxExpr","inpFxXmin","inpFxXmax","inpFxAxes","inpTspInvert","inpWaveStyle","inpWaveHeight","inpModelSilhouette","inpModelZup","inpModelHidden","inpShape","inpShapeW","inpShapeH","inpShapeN","inpShapeInner","inpShapeFill"]) { const el = $(id); if (el) el.addEventListener("input", recompute); }
+function showSvgMode() { const m = ($("inpSvgMode") && $("inpSvgMode").value) || "outline"; document.querySelectorAll(".svgmode").forEach(el => { el.style.display = el.dataset.svgmode === m ? "" : "none"; }); }
+if ($("inpSvgMode")) $("inpSvgMode").addEventListener("input", () => { showSvgMode(); recompute(); });
+showSvgMode();
 $("btnPenUndo").onclick = () => { __penStrokes.pop(); buildPen(); };
 $("btnPenClear").onclick = () => { __penStrokes = []; buildPen(); };
 try { initSvg(); } catch (e) { console.error("initSvg", e); }

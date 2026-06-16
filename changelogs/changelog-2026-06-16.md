@@ -2,6 +2,10 @@
 
 ## Neue Features
 
+- **SVG-Import: Modi „Mittellinie" und „Flächen füllen" für gefüllte SVGs** — gefüllte SVGs (z. B. Unterschriften, gefüllte Logos) wurden bisher nur als Umrisse ihrer Flächen nachgefahren — das ergab zerstückelte Doppellinien statt der eigentlichen Form. Neuer **Modus-Umschalter** im SVG-Tool:
+  - **Umrisse / Linien (Vektor)** — wie bisher, folgt den Vektorpfaden direkt (ideal für Strich-/Linien-SVGs).
+  - **Mittellinie** — rastert die gefüllte SVG und zieht die Mittellinie (Skelett) jedes Strichs: eine durchgehende Linie pro Strich. Ideal für Signaturen — die Form wird sauber als einzelne Stiftlinien geplottet statt als Umriss-Fragmente (mit Schwelle automatisch/manuell und Mindest-Strichlänge zur Entstörung).
+  - **Flächen füllen** — füllt die Flächen mit dichter Schraffur (Abstand ≈ Stiftbreite, Winkel einstellbar) und fährt optional die Außenkontur nach; gibt die Strichstärke wieder.
 - **Layer-Studio: Werkzeug „Knoten bearbeiten"** — neben den beiden Stift-Varianten (Freihand, Bézier-Pfad) gibt es jetzt ein eigenes Werkzeug zum Bearbeiten von Pfaden. Mit aktivem Werkzeug einen Bézier-Pfad anklicken und Anker bzw. Kurvengriffe direkt auf der Fläche ziehen; war der Anker glatt, wird der Gegengriff gespiegelt, an Ecken (Cusps) bleiben die Griffe unabhängig. Bearbeitung per Enter/Esc beenden. Der gewählte Pfad lässt sich weiterhin auch per Doppelklick (Auswahl-Werkzeug) bearbeiten.
 
 ## UI-Änderungen
