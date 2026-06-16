@@ -32,9 +32,15 @@
   .menu .chk { width: 14px; color: var(--accent); flex: none; }
   .menu .sep { height: 1px; background: var(--border); margin: 5px 4px; }
   /* Arbeitsbereich */
-  #workspace { flex: 1; display: flex; min-height: 0; }
+  #workspace { flex: 1; display: flex; min-height: 0; position: relative; }
   #toolbar { width: 54px; flex: none; background: var(--panel); border-right: 1px solid var(--border);
-             padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; overflow-y: auto; }
+             padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; overflow-y: auto; scrollbar-width: thin; scroll-behavior: smooth; }
+  #toolbar::-webkit-scrollbar { width: 6px; }
+  #toolbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  #toolbar:hover::-webkit-scrollbar-thumb { background: var(--muted); }
+  #tbScroll { position: absolute; left: 0; bottom: 0; width: 54px; height: 22px; pointer-events: none; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; font-size: 11px; color: var(--muted);
+              background: linear-gradient(to bottom, transparent, var(--panel)); opacity: 0; transition: opacity .15s; }
+  #tbScroll.show { opacity: 1; }
   .toolbtn { width: 40px; height: 40px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text);
              cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .toolbtn:hover { background: var(--hover); border-color: var(--border); }
@@ -56,6 +62,8 @@
   .lrow .ln { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lrow .ic { width: 24px; height: 24px; padding: 0; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
   .lrow .ic:hover { color: var(--text); }
+  .lrow .lti { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; }
+  .lrow .lnedit { flex: 1; min-width: 0; padding: 2px 5px; font-size: 12.5px; }
   .lrow .sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--border); flex: none; }
   .lrow.primary { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .aligngrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px; }
@@ -137,6 +145,7 @@
 
 <div id="workspace">
   <div id="toolbar"></div>
+  <div id="tbScroll">▾</div>
   <div id="main"><canvas id="cv"></canvas></div>
   <div id="rightpanel">
     <div id="layersPanel">
@@ -208,17 +217,18 @@ const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
 
 const PAPERS = { none: null, A4P: [210, 297], A4L: [297, 210], A5P: [148, 210], A3P: [297, 420], Letter: [215.9, 279.4] };
-const MISC_TOOLS = [["pen","Stift (Freihand)"],["shapes","Grundformen"],["qr","QR-Code"],["spotify","Spotify-Code"],["svg","SVG-Import"],["paper","Papier / Raster"],
-  ["pentest","Stift-Test"],["spacefill","Space-Filling-Kurven"],["spiro","Spirograph / Lissajous"],
-  ["maze","Labyrinth"],["fxplot","Funktionsplotter"],["tsp","TSP- / Stipple-Art"],["wave","Audio-Waveform"]];
-function toolLabel(t){ const m=MISC_TOOLS.find(x=>x[0]===t); return t==="model"?"3D-Modell":(m?m[1]:t); }
+const MISC_TOOLS = [["pen","Stift (Freihand)","Pen (freehand)"],["shapes","Grundformen","Basic shapes"],["qr","QR-Code","QR code"],["spotify","Spotify-Code","Spotify code"],["svg","SVG-Import","SVG import"],["paper","Papier / Raster","Paper / grid"],
+  ["pentest","Stift-Test","Pen test"],["spacefill","Space-Filling-Kurven","Space-filling curves"],["spiro","Spirograph / Lissajous","Spirograph / Lissajous"],
+  ["maze","Labyrinth","Maze"],["fxplot","Funktionsplotter","Function plotter"],["tsp","TSP- / Stipple-Art","TSP / stipple art"],["wave","Audio-Waveform","Audio waveform"]];
+function toolLabel(t){ if(t==="model") return UI.t("3D-Modell","3D model"); const m=MISC_TOOLS.find(x=>x[0]===t); return m?UI.t(m[1],m[2]):t; }
+function layerLabel(L){ return L.type==="text"?UI.t("Text","Text"):L.type==="image"?UI.t("Bild","Image"):toolLabel(L.tool); }
 
 const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, selIds: [], paper: "A4P", snap: true, bg: "#ffffff" };
-let LID = 1;
+let LID = 1, LSEQ = 0;
 let snapGuides = null;
 
 function makeLayer(type, tool) {
-  return { id: LID++, type, tool: tool || null, label: tool ? toolLabel(tool) : (type === "text" ? "Text" : "Bild"),
+  return { id: LID++, type, tool: tool || null, name: "Layer " + (LSEQ++),
     visible: true, transform: { x: 40, y: 40, scale: 1, rot: 0 }, params: null,
     strokesCache: [], groups: null, cw: 0, ch: 0, color: null, mode: "KCPenDraw", modelEuler: null, _frame: null };
 }
@@ -507,7 +517,7 @@ function updatePropsUI() {
   $("multiNote").style.display = multi ? "" : "none";
   $("selActions").style.display = n >= 1 ? "" : "none";
   $("noSel").style.display = n >= 1 ? "none" : "";
-  $("propLabel").textContent = multi ? (n + " " + UI.t("Ebenen", "layers")) : (one ? sel().label : "");
+  $("propLabel").textContent = multi ? (n + " " + UI.t("Ebenen", "layers")) : (one ? sel().name : "");
   if (multi) $("multiNote").textContent = n + " " + UI.t("Ebenen ausgewählt — relativ zueinander ausrichten/verteilen.", "layers selected — align/distribute relative to each other.");
   // obere Ausricht-Leiste aktivieren/deaktivieren
   const refSel = $("alignRef"), selOpt = refSel.querySelector('option[value=selection]');
@@ -534,7 +544,7 @@ function duplicateSelected() {
   if (!S.selIds.length) return;
   const src = selLayers(), newIds = [];
   for (const L of src) {
-    const N = makeLayer(L.type, L.tool); N.label = L.label;
+    const N = makeLayer(L.type, L.tool); N.name = L.name + UI.t(" Kopie", " copy");
     N.transform = { x: L.transform.x + 6, y: L.transform.y + 6, scale: L.transform.scale, rot: L.transform.rot };
     N.strokesCache = L.strokesCache; N.groups = L.groups; N.cw = L.cw; N.ch = L.ch; N.params = L.params;
     N.color = L.color; N.mode = L.mode; N.modelEuler = L.modelEuler ? { x: L.modelEuler.x, y: L.modelEuler.y, z: L.modelEuler.z } : null;
@@ -544,12 +554,24 @@ function duplicateSelected() {
 }
 function deleteLayer(id) { selectLayer(id); deleteSelected(); }
 function duplicateLayer(id) { selectLayer(id); duplicateSelected(); }
+async function renameLayer() { const L = sel(); if (!L) return; const n = await modalPrompt(UI.t("Ebenenname", "Layer name"), L.name, UI.t("Umbenennen", "Rename")); if (n != null) { const v = n.trim(); if (v) { L.name = v; renderList(); updatePropsUI(); } } }
 const LIICONS = {
   eye: '<path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="1.9"/>',
   eyeoff: '<path d="M2 2l12 12"/><path d="M6.6 6.7a2 2 0 0 0 2.7 2.8"/><path d="M3.2 9.7C2 8.8 1 8 1 8s2.6-4.5 7-4.5c.9 0 1.7.2 2.5.5M13.2 6.6C14.2 7.4 15 8 15 8s-2.6 4.5-7 4.5"/>',
   up: '<path d="M4 10l4-4 4 4"/>', down: '<path d="M4 6l4 4 4-4"/>',
 };
 function liIcon(name) { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + LIICONS[name] + '</svg>'; }
+function layerTypeIcon(L) {   // Werkzeug-Icon (zeigt den Ebenen-Typ), in der Ebenenfarbe getönt
+  const ic = L.type === "text" ? TICONS.text : L.type === "image" ? TICONS.image : (TICONS[L.tool] || TICONS.paper);
+  return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ic + '</svg>';
+}
+function startRename(L, nm) {
+  const inp = document.createElement("input"); inp.type = "text"; inp.value = L.name; inp.className = "lnedit";
+  nm.replaceWith(inp); inp.focus(); inp.select();
+  const commit = () => { const v = inp.value.trim(); if (v) L.name = v; renderList(); };
+  inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") { e.preventDefault(); commit(); } else if (e.key === "Escape") { e.preventDefault(); renderList(); } };
+  inp.onblur = commit; inp.onclick = (e) => e.stopPropagation(); inp.ondblclick = (e) => e.stopPropagation();
+}
 function renderList() {
   const box = $("layerList"); box.innerHTML = "";
   $("layerHint").style.display = S.layers.length ? "none" : "";
@@ -558,14 +580,16 @@ function renderList() {
     const row = document.createElement("div"); row.className = "lrow" + (S.selIds.includes(L.id) ? " sel" : "") + (L.id === S.selId ? " primary" : "");
     const eye = document.createElement("button"); eye.className = "ic"; eye.innerHTML = liIcon(L.visible ? "eye" : "eyeoff"); eye.title = UI.t("Sichtbar", "Visible");
     eye.onclick = (ev) => { ev.stopPropagation(); L.visible = !L.visible; renderList(); redraw(); };
-    const sw = document.createElement("span"); sw.className = "sw"; sw.style.background = L.color ? groupColor(L.color, "#000") : "transparent";
-    sw.style.borderColor = L.color ? "transparent" : "var(--border)";
-    const nm = document.createElement("span"); nm.className = "ln"; nm.textContent = L.label + (L.strokesCache.length ? "" : " (leer)");
+    const ti = document.createElement("span"); ti.className = "lti"; ti.innerHTML = layerTypeIcon(L); ti.title = layerLabel(L);
+    ti.style.color = L.color ? groupColor(L.color, "var(--muted)") : "var(--muted)";   // Icon in Ebenenfarbe
+    const nm = document.createElement("span"); nm.className = "ln"; nm.textContent = L.name + (L.strokesCache.length ? "" : " (leer)");
+    nm.title = UI.t("Doppelklick zum Umbenennen", "Double-click to rename");
+    nm.ondblclick = (ev) => { ev.stopPropagation(); startRename(L, nm); };
     const up = document.createElement("button"); up.className = "ic"; up.innerHTML = liIcon("up"); up.title = UI.t("nach oben", "move up");
     up.onclick = (ev) => { ev.stopPropagation(); if (i < S.layers.length - 1) { S.layers.splice(i, 1); S.layers.splice(i + 1, 0, L); renderList(); redraw(); } };
     const dn = document.createElement("button"); dn.className = "ic"; dn.innerHTML = liIcon("down"); dn.title = UI.t("nach unten", "move down");
     dn.onclick = (ev) => { ev.stopPropagation(); if (i > 0) { S.layers.splice(i, 1); S.layers.splice(i - 1, 0, L); renderList(); redraw(); } };
-    row.append(eye, sw, nm, up, dn);
+    row.append(eye, ti, nm, up, dn);
     row.onclick = (ev) => {
       if (ev.metaKey || ev.ctrlKey) toggleSelect(L.id);
       else if (ev.shiftKey) rangeSelect(L.id);
@@ -578,7 +602,7 @@ function renderList() {
 /* ---------- Speichern / Laden (.handschrift) ---------- */
 function saveLayout() {
   const data = { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper,
-    layers: S.layers.map(L => ({ type: L.type, tool: L.tool, label: L.label, visible: L.visible,
+    layers: S.layers.map(L => ({ type: L.type, tool: L.tool, name: L.name, visible: L.visible,
       transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler,
       groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
   const a = document.createElement("a");
@@ -592,7 +616,7 @@ function loadLayout(obj) {
   $("inMatW").value = S.matW; $("inMatH").value = S.matH; $("inPaper").value = S.paper;
   for (const d of (obj.layers || [])) {
     const L = makeLayer(d.type, d.tool);
-    L.label = d.label || L.label; L.visible = d.visible !== false;
+    L.name = d.name || d.label || L.name; L.visible = d.visible !== false;   // d.label: ältere Dateien
     if (d.transform) L.transform = d.transform;
     L.params = d.params || null; L.cw = +d.cw || 0; L.ch = +d.ch || 0;
     L.color = d.color || null; L.mode = d.mode || "KCPenDraw"; L.modelEuler = d.modelEuler || null;
@@ -674,7 +698,6 @@ window.addEventListener("message", e => {
     L.groups = m.groups || null;
     L.strokesCache = (m.groups && m.groups.length) ? m.groups.flatMap(g => g.polylines) : [];
     L.cw = m.cw || 0; L.ch = m.ch || 0; L.params = m.params;
-    if (m.subtool && L.type !== "text") L.label = (L.type === "image" ? "Bild" : toolLabel(L.tool));
     if (sel() === L) updatePropsUI();   // Striche jetzt da → Ausricht-/Verteil-Buttons sofort aktivieren (nicht erst nach Re-Select)
     scheduleRedraw(); renderList(); setStatus(S.layers.length + " Layer · ausgewählt: " + (sel() ? sel().label : "–"));
   } else if (m.type === "modelState") {                 // aktuelle 3D-Drehung des Modells → Zahlenfelder
@@ -714,7 +737,7 @@ function buildGroups() {
     const f = layerMap(L);
     const groups = (L.groups && L.groups.length) ? L.groups : [{ name: L.label, color: null, polylines: L.strokesCache }];
     groups.forEach(g => { const polys = g.polylines.map(st => st.map(f)).filter(st => st.length >= 2);
-      if (polys.length) out.push({ name: L.label + (groups.length > 1 ? " — " + g.name : ""), color: L.color || g.color || undefined, processType: L.mode || "KCPenDraw", strokes: polys }); });
+      if (polys.length) out.push({ name: L.name + (groups.length > 1 ? " — " + g.name : ""), color: L.color || g.color || undefined, processType: L.mode || "KCPenDraw", strokes: polys }); });
   }
   return out;
 }
@@ -776,17 +799,22 @@ const TICONS = {
   pen: '<path d="M4 20l4-1L19 8a2 2 0 0 0-3-3L5 16z"/><path d="M14 7l3 3"/>',
   shapes: '<rect x="3" y="13" width="8" height="8" rx="1"/><circle cx="16" cy="8" r="5"/>',
 };
-const TOOLBAR = [{ type: "text", label: "Text" }, { type: "image", label: "Bild" }, { type: "misc", tool: "model", label: "3D-Modell" }, { sep: 1 },
-  ...MISC_TOOLS.map(([v, l]) => ({ type: "misc", tool: v, label: l }))];
+const TOOLBAR = [{ type: "text" }, { type: "image" }, { type: "misc", tool: "model" }, { sep: 1 },
+  ...MISC_TOOLS.map(([v]) => ({ type: "misc", tool: v }))];
 const tb = $("toolbar");
 for (const t of TOOLBAR) {
   if (t.sep) { const s = document.createElement("div"); s.className = "tbsep"; tb.appendChild(s); continue; }
   const ic = t.type === "text" ? TICONS.text : t.type === "image" ? TICONS.image : (TICONS[t.tool] || TICONS.paper);
-  const b = document.createElement("button"); b.className = "toolbtn"; b.title = t.label;
+  const b = document.createElement("button"); b.className = "toolbtn";
+  b.title = t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool);
   b.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`;
   b.onclick = () => t.type === "misc" ? addLayer("misc", t.tool) : addLayer(t.type);
   tb.appendChild(b);
 }
+function updateTbScroll() { const t = $("toolbar"); $("tbScroll").classList.toggle("show", t.scrollHeight - t.scrollTop - t.clientHeight > 4); }
+$("toolbar").addEventListener("scroll", updateTbScroll);
+window.addEventListener("resize", updateTbScroll);
+$("tbScroll").style.pointerEvents = "none";   // Fade nur Hinweis; Klicks gehen an die Buttons
 
 // Auswahl-Transform + Buttons
 $("btnDel").onclick = deleteSelected;
@@ -851,6 +879,7 @@ const MENUS = {
     { l: UI.t("Exportieren als SVG", "Export as SVG"), a: exportSvg },
   ],
   edit: () => [
+    { l: UI.t("Ebene umbenennen …", "Rename layer …"), a: renameLayer },
     { l: UI.t("Ebene(n) duplizieren", "Duplicate layer(s)"), a: duplicateSelected },
     { l: UI.t("Ebene(n) löschen", "Delete layer(s)"), a: deleteSelected },
     { sep: 1 },
@@ -944,7 +973,7 @@ const I18N_EN = {
 };
 function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
 UI.initLang(I18N_EN); applyLangDefaults(); UI.onLangChange(() => { applyLangDefaults(); updatePropsUI(); renderList(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*"); }); });
-resize(); fitView(); renderList(); updatePropsUI();
+resize(); fitView(); renderList(); updatePropsUI(); updateTbScroll();
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>

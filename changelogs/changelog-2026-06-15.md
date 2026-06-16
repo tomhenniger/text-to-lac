@@ -42,6 +42,8 @@
 
 ## UI-Änderungen
 
+- **Layer-Studio: generische, umbenennbare Ebenennamen** — Ebenen heißen jetzt neutral „Layer 0/1/2 …" (statt des Tool-Namens, der im englischen UI deutsch blieb). Umbenennen per Doppelklick auf den Namen, über Bearbeiten → „Ebene umbenennen …" oder beim Export als Objektname. In der Ebenenliste steht ein in der Ebenenfarbe getöntes Werkzeug-Icon, das den Typ zeigt; Werkzeug-Tooltips sind übersetzt.
+- **Layer-Studio: Werkzeugleiste zeigt Scrollbarkeit** — bei vielen Werkzeugen blendet sich am unteren Rand ein Verlauf mit Pfeil ein, und die Scrollleiste ist dünn sichtbar.
 - **Layer-Studio: Build-Plate standardmäßig weiß** (wie die Light-Version) — die Arbeitsfläche folgt nicht mehr dem Dark-Theme, sondern ist als Papier weiß (dunkle Tinte), unabhängig vom UI-Theme.
 - **Layer-Studio: eigene Modals** statt der Browser-Standarddialoge (Arbeitsfläche, Dateiname, „Neu", Fehlermeldungen) — gestyltes Overlay mit Abbrechen/OK, Enter/Esc.
 - **Layer-Studio: Ebenenlisten-Icons als SVG** (Sichtbarkeit/Reihenfolge) statt Emojis.
