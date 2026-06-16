@@ -44,6 +44,7 @@
   .toolbtn { width: 40px; height: 40px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text);
              cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .toolbtn:hover { background: var(--hover); border-color: var(--border); }
+  .toolbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   .tbsep { width: 28px; height: 1px; background: var(--border); margin: 3px 0; }
   #main { flex: 1; position: relative; min-width: 0; background: #e9ece9; }   /* heller Arbeitsbereich (Papier-Desk), unabhängig vom Theme */
   html[data-theme="dark"] #main { background: #e9ece9; }
@@ -217,13 +218,13 @@ const cv = $("cv"), ctx = cv.getContext("2d");
 
 const PAPERS = { none: null, A4P: [210, 297], A4L: [297, 210], A5P: [148, 210], A3P: [297, 420], Letter: [215.9, 279.4] };
 const MACHINE = { draw: [300, 255], cut: [300, 285] };   // A2L: Zeichen- bzw. Schneidebereich (mm), ab Ursprung oben links
-const MISC_TOOLS = [["pen","Stift (Freihand)","Pen (freehand)"],["shapes","Grundformen","Basic shapes"],["qr","QR-Code","QR code"],["spotify","Spotify-Code","Spotify code"],["svg","SVG-Import","SVG import"],["paper","Papier / Raster","Paper / grid"],
+const MISC_TOOLS = [["shapes","Grundformen","Basic shapes"],["qr","QR-Code","QR code"],["spotify","Spotify-Code","Spotify code"],["svg","SVG-Import","SVG import"],["paper","Papier / Raster","Paper / grid"],
   ["pentest","Stift-Test","Pen test"],["spacefill","Space-Filling-Kurven","Space-filling curves"],["spiro","Spirograph / Lissajous","Spirograph / Lissajous"],
   ["maze","Labyrinth","Maze"],["fxplot","Funktionsplotter","Function plotter"],["tsp","TSP- / Stipple-Art","TSP / stipple art"],["wave","Audio-Waveform","Audio waveform"]];
 function toolLabel(t){ if(t==="model") return UI.t("3D-Modell","3D model"); const m=MISC_TOOLS.find(x=>x[0]===t); return m?UI.t(m[1],m[2]):t; }
-function layerLabel(L){ return L.type==="text"?UI.t("Text","Text"):L.type==="image"?UI.t("Bild","Image"):toolLabel(L.tool); }
+function layerLabel(L){ return L.type==="text"?UI.t("Text","Text"):L.type==="image"?UI.t("Bild","Image"):L.type==="pen"?UI.t("Pfad/Freihand","Path/Freehand"):toolLabel(L.tool); }
 
-const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, selIds: [], paper: "A4P", snap: true, bg: "#ffffff", guides: true };
+const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, selIds: [], paper: "A4P", snap: true, bg: "#ffffff", guides: true, tool: "select" };
 let LID = 1, LSEQ = 0;
 let snapGuides = null;
 
@@ -233,6 +234,45 @@ function makeLayer(type, tool) {
     strokesCache: [], groups: null, cw: 0, ch: 0, color: null, mode: "KCPenDraw", modelEuler: null, _frame: null };
 }
 function isModelLayer(L) { return !!L && L.type === "misc" && L.tool === "model"; }
+function isPenLayer(L) { return !!L && L.type === "pen"; }
+/* ---------- Pfad-/Stift-Geometrie (nativ auf dem Canvas) ---------- */
+function cubic(p0, p1, p2, p3, t) { const u = 1 - t, w0 = u * u * u, w1 = 3 * u * u * t, w2 = 3 * u * t * t, w3 = t * t * t; return [w0 * p0[0] + w1 * p1[0] + w2 * p2[0] + w3 * p3[0], w0 * p0[1] + w1 * p1[1] + w2 * p2[1] + w3 * p3[1]]; }
+function penFlatten(pen) {                              // → eine Polylinie (Content-Koordinaten)
+  if (!pen) return [];
+  if (pen.kind === "free") return pen.poly && pen.poly.length >= 2 ? [pen.poly.map(p => p.slice())] : [];
+  const A = pen.anchors; if (!A || A.length < 2) return [];
+  const n = A.length, segs = pen.closed ? n : n - 1, pts = [[A[0].x, A[0].y]];
+  for (let i = 0; i < segs; i++) {
+    const a = A[i], b = A[(i + 1) % n];
+    const c1 = a.hOut ? [a.x + a.hOut[0], a.y + a.hOut[1]] : [a.x, a.y];
+    const c2 = b.hIn ? [b.x + b.hIn[0], b.y + b.hIn[1]] : [b.x, b.y];
+    const straight = !a.hOut && !b.hIn;
+    if (straight) { pts.push([b.x, b.y]); continue; }
+    for (let s = 1; s <= 16; s++) pts.push(cubic([a.x, a.y], c1, c2, [b.x, b.y], s / 16));
+  }
+  return [pts];
+}
+function penBBox(pen) {   // Bounding-Box der gerenderten Polylinie
+  const poly = penFlatten(pen)[0] || []; let mnx = 1e9, mny = 1e9, mxx = -1e9, mxy = -1e9;
+  for (const [x, y] of poly) { if (x < mnx) mnx = x; if (y < mny) mny = y; if (x > mxx) mxx = x; if (y > mxy) mxy = y; }
+  return poly.length ? { minX: mnx, minY: mny, maxX: mxx, maxY: mxy } : { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+}
+function penRecompute(L) {   // Striche + Maße aus L.pen neu berechnen (Anker in Content-Koordinaten)
+  L.strokesCache = penFlatten(L.pen);
+  const b = penBBox(L.pen);
+  L.cw = Math.max(b.maxX, 0.5); L.ch = Math.max(b.maxY, 0.5);   // Anker liegen ab Ursprung; Maße = max-Ausdehnung
+}
+function makePenLayer(pen, name) {
+  const L = makeLayer("pen", null); L.pen = pen; if (name) L.name = name;
+  L.transform = { x: 0, y: 0, scale: 1, rot: 0 };
+  penRecompute(L); return L;
+}
+function mat2content(L, mx, my) {   // Mausposition (mm auf Matte) → Content-Koordinaten der Ebene (inverse Transform)
+  const t = L.transform, sc = t.scale, cx = t.x + (L.cw / 2) * sc, cy = t.y + (L.ch / 2) * sc;
+  const cos = Math.cos(-t.rot), sin = Math.sin(-t.rot), dx = mx - cx, dy = my - cy;
+  const Xr = cx + dx * cos - dy * sin, Yr = cy + dx * sin + dy * cos;
+  return [(Xr - t.x) / sc, (Yr - t.y) / sc];
+}
 function hexToRgbStr(hex) { const n = parseInt(hex.slice(1), 16); return (n >> 16 & 255) + " " + (n >> 8 & 255) + " " + (n & 255) + " 255"; }
 function rgbStrToHex(c) { const p = (c || "").split(" "); const h = v => (+v || 0).toString(16).padStart(2, "0"); return "#" + h(p[0]) + h(p[1]) + h(p[2]); }
 function embedUrl(L) {
@@ -324,8 +364,9 @@ function redraw() {
   else updateWarn([]);
   // Auswahl-Box + Griffe (Screen-px)
   const selLs = selLayers().filter(L => L.visible && L.cw && L.ch);
-  if (selLs.length === 1) drawSelection(selLs[0], P, true);
+  if (selLs.length === 1) drawSelection(selLs[0], P, !penEdit);   // beim Pfad-Bearbeiten keine Skalier-/Dreh-Griffe
   else if (selLs.length > 1) { selLs.forEach(L => drawSelection(L, P, false)); drawGroupBounds(selLs, P); }
+  if (penDraft || freeDraft || penEdit) drawPenOverlay();
 }
 function areaViolations() {   // Ebenen, deren AABB den Bereich ihres Modus (Schneiden=cut, sonst draw) verlässt
   const out = [];
@@ -409,9 +450,106 @@ let rafP = 0; function scheduleRedraw() { if (rafP) return; rafP = requestAnimat
 function sel() { return S.layers.find(L => L.id === S.selId) || null; }
 function selLayers() { return S.selIds.map(id => S.layers.find(L => L.id === id)).filter(Boolean); }
 let drag = null;
+
+/* ---------- Natives Zeichnen: Werkzeug-Modus, Freihand & Bézier-Pfad ---------- */
+let penDraft = null, freeDraft = null, penEdit = null, penDrag = null;
+const scrPt = (mx, my) => { const q = mm2px(mx, my); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; };
+function rdpStudio(pts, eps) {
+  if (pts.length < 3) return pts.map(p => p.slice());
+  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1], dx = bx - ax, dy = by - ay, n = Math.hypot(dx, dy);
+  let mi = 0, md = -1;
+  for (let i = 1; i < pts.length - 1; i++) { const d = n ? Math.abs(dx * (ay - pts[i][1]) - dy * (ax - pts[i][0])) / n : Math.hypot(pts[i][0] - ax, pts[i][1] - ay); if (d > md) { md = d; mi = i; } }
+  if (md > eps) return rdpStudio(pts.slice(0, mi + 1), eps).slice(0, -1).concat(rdpStudio(pts.slice(mi), eps));
+  return [pts[0].slice(), pts[pts.length - 1].slice()];
+}
+function setTool(mode) {
+  if (penDraft) finishPen(); if (penEdit) finishPenEdit();
+  S.tool = mode; cv.style.cursor = mode === "select" ? "default" : "crosshair";
+  document.querySelectorAll(".toolbtn[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  setStatus(mode === "pen" ? UI.t("Pfad: klicken = Ankerpunkt, ziehen = Kurve, ersten Punkt/Enter = schließen, Esc = abbrechen.", "Path: click = anchor, drag = curve, first point/Enter = finish, Esc = cancel.")
+    : mode === "free" ? UI.t("Freihand: auf der Fläche ziehen.", "Freehand: drag on the canvas.") : UI.t("Bereit", "Ready"));
+}
+function penDown(mx, my) {
+  if (!penDraft) penDraft = { kind: "bezier", closed: false, anchors: [] };
+  const A = penDraft.anchors;
+  if (A.length >= 2) { const f = scrPt(A[0].x, A[0].y), c = scrPt(mx, my); if (Math.hypot(f[0] - c[0], f[1] - c[1]) < 9) { penDraft.closed = true; finishPen(); return; } }
+  const a = { x: mx, y: my, hIn: null, hOut: null }; A.push(a); penDrag = { mode: "new", a }; redraw();
+}
+function finishPen() {
+  const d = penDraft; penDraft = null; penDrag = null;
+  if (!d || d.anchors.length < 2) { redraw(); return; }
+  const b = penBBox(d); for (const a of d.anchors) { a.x -= b.minX; a.y -= b.minY; }
+  const L = makePenLayer(d, UI.t("Pfad", "Path") + " " + (LSEQ)); L.transform.x = b.minX; L.transform.y = b.minY;
+  S.layers.push(L); selectLayer(L.id); markDirty();
+}
+function finishFree() {
+  const pts = freeDraft; freeDraft = null;
+  if (!pts || pts.length < 2) { redraw(); return; }
+  const s = rdpStudio(pts, 0.4); let mnx = 1e9, mny = 1e9; for (const [x, y] of s) { if (x < mnx) mnx = x; if (y < mny) mny = y; }
+  const L = makePenLayer({ kind: "free", poly: s.map(([x, y]) => [x - mnx, y - mny]) }); L.transform.x = mnx; L.transform.y = mny;
+  S.layers.push(L); selectLayer(L.id); markDirty();
+}
+function penEditHit(L, mx, my) {   // Anker/Handle unter dem Cursor (Screen-px)
+  if (!isPenLayer(L) || L.pen.kind !== "bezier") return null;
+  const sc = scrPt(mx, my), lm = layerMap(L);
+  const test = (cx, cy) => { const p = lm([cx, cy]); return Math.hypot(p[0] / devicePixelRatio - sc[0], p[1] / devicePixelRatio - sc[1]) < 8; };
+  for (const a of L.pen.anchors) { if (a.hOut && test(a.x + a.hOut[0], a.y + a.hOut[1])) return { mode: "hOut", a }; if (a.hIn && test(a.x + a.hIn[0], a.y + a.hIn[1])) return { mode: "hIn", a }; }
+  for (const a of L.pen.anchors) if (test(a.x, a.y)) return { mode: "anchor", a };
+  return null;
+}
+function penEditDown(mx, my) { const h = penEditHit(penEdit.L, mx, my); if (h) { penDrag = h; } else finishPenEdit(); }
+function finishPenEdit() {
+  const L = penEdit ? penEdit.L : null; penEdit = null; penDrag = null;
+  if (L) {
+    const b = penBBox(L.pen);
+    if (L.pen.kind === "bezier") L.pen.anchors.forEach(a => { a.x -= b.minX; a.y -= b.minY; });
+    else if (L.pen.poly) L.pen.poly.forEach(p => { p[0] -= b.minX; p[1] -= b.minY; });
+    const t = L.transform, cos = Math.cos(t.rot), sin = Math.sin(t.rot);   // Verschiebung im Layer-Raum kompensieren → Pfad bleibt sichtbar an Ort
+    t.x += (b.minX * t.scale) * cos - (b.minY * t.scale) * sin; t.y += (b.minX * t.scale) * sin + (b.minY * t.scale) * cos;
+    penRecompute(L);
+  }
+  redraw(); markDirty();
+}
+function startPenEdit(L) { if (isPenLayer(L) && L.pen.kind === "bezier") { selectLayer(L.id); penEdit = { L }; cv.style.cursor = "crosshair"; setStatus(UI.t("Pfad bearbeiten: Anker/Griffe ziehen, Enter/Esc fertig.", "Edit path: drag anchors/handles, Enter/Esc to finish.")); redraw(); } }
+function drawPenOverlay() {
+  ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
+  const dot = (s, fill) => { ctx.beginPath(); ctx.arc(s[0], s[1], 3.5, 0, 7); ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke(); };
+  if (freeDraft && freeDraft.length) { ctx.strokeStyle = UI.palette().marker; ctx.lineWidth = 1.4; ctx.beginPath(); const p0 = scrPt(freeDraft[0][0], freeDraft[0][1]); ctx.moveTo(p0[0], p0[1]); for (let i = 1; i < freeDraft.length; i++) { const p = scrPt(freeDraft[i][0], freeDraft[i][1]); ctx.lineTo(p[0], p[1]); } ctx.stroke(); }
+  if (penDraft && penDraft.anchors.length) {
+    const poly = penFlatten(penDraft)[0] || [];
+    if (poly.length > 1) { ctx.strokeStyle = UI.palette().marker; ctx.lineWidth = 1.4; ctx.beginPath(); const p0 = scrPt(poly[0][0], poly[0][1]); ctx.moveTo(p0[0], p0[1]); for (let i = 1; i < poly.length; i++) { const p = scrPt(poly[i][0], poly[i][1]); ctx.lineTo(p[0], p[1]); } ctx.stroke(); }
+    for (const a of penDraft.anchors) { const s = scrPt(a.x, a.y); if (a.hOut) { const h = scrPt(a.x + a.hOut[0], a.y + a.hOut[1]); ctx.strokeStyle = "rgba(120,120,120,.8)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(h[0], h[1]); ctx.stroke(); dot(h, "#fff"); } if (a.hIn) { const h = scrPt(a.x + a.hIn[0], a.y + a.hIn[1]); ctx.strokeStyle = "rgba(120,120,120,.8)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(h[0], h[1]); ctx.stroke(); dot(h, "#fff"); } dot(s, UI.palette().marker); }
+  }
+  if (penEdit) { const L = penEdit.L, lm = layerMap(L), S2 = (cx, cy) => { const p = lm([cx, cy]); return [p[0] / devicePixelRatio, p[1] / devicePixelRatio]; };
+    for (const a of L.pen.anchors) { const s = S2(a.x, a.y); if (a.hOut) { const h = S2(a.x + a.hOut[0], a.y + a.hOut[1]); ctx.strokeStyle = "rgba(120,120,120,.8)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(h[0], h[1]); ctx.stroke(); dot(h, "#fff"); } if (a.hIn) { const h = S2(a.x + a.hIn[0], a.y + a.hIn[1]); ctx.strokeStyle = "rgba(120,120,120,.8)"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(h[0], h[1]); ctx.stroke(); dot(h, "#fff"); } dot(s, UI.palette().marker); } }
+  ctx.restore();
+}
 cv.addEventListener("contextmenu", e => e.preventDefault());   // Strg-Klick-Menü stört den Trackball nicht
+// Doppelklick auf eine Bézier-Pfad-Ebene → Pfad bearbeiten
+cv.addEventListener("dblclick", e => {
+  if (S.tool !== "select" || penEdit) return;
+  const [mx, my] = px2mm(e.offsetX, e.offsetY);
+  for (let i = S.layers.length - 1; i >= 0; i--) { const Li = S.layers[i]; if (Li.visible && isPenLayer(Li) && Li.pen.kind === "bezier" && pointInLayer(Li, mx, my)) { startPenEdit(Li); return; } }
+});
+// Pen-/Freihand-Mausbewegung & -loslassen (eigene Listener; Select-Logik bleibt unberührt)
+window.addEventListener("mousemove", e => {
+  if (!(penDrag || freeDraft)) return;
+  const r = cv.getBoundingClientRect(), [mx, my] = px2mm(e.clientX - r.left, e.clientY - r.top);
+  if (penEdit && penDrag) { const [cx, cy] = mat2content(penEdit.L, mx, my), a = penDrag.a;
+    if (penDrag.mode === "anchor") { a.x = cx; a.y = cy; }
+    else if (penDrag.mode === "hOut") { a.hOut = [cx - a.x, cy - a.y]; a.hIn = [-a.hOut[0], -a.hOut[1]]; }
+    else if (penDrag.mode === "hIn") { a.hIn = [cx - a.x, cy - a.y]; a.hOut = [-a.hIn[0], -a.hIn[1]]; }
+    penRecompute(penEdit.L); redraw(); return; }
+  if (penDrag && penDrag.mode === "new") { const a = penDrag.a; a.hOut = [mx - a.x, my - a.y]; a.hIn = [-a.hOut[0], -a.hOut[1]]; redraw(); return; }
+  if (freeDraft) { const last = freeDraft[freeDraft.length - 1]; if (Math.hypot(mx - last[0], my - last[1]) > 0.5) { freeDraft.push([mx, my]); redraw(); } }
+});
+window.addEventListener("mouseup", () => { if (freeDraft) { finishFree(); return; } if (penDrag) penDrag = null; });
 cv.addEventListener("mousedown", e => {
   const [mx, my] = px2mm(e.offsetX, e.offsetY);
+  if (e.button !== 0) return;
+  if (penEdit) { penEditDown(mx, my); return; }                 // Pfad-Bearbeitungsmodus
+  if (S.tool === "free") { freeDraft = [[mx, my]]; redraw(); return; }
+  if (S.tool === "pen") { penDown(mx, my); return; }
   // Alt/Strg gedrückt + 3D-Modell-Ebene unter dem Cursor → Trackball (3D-Drehung) statt Verschieben
   if (e.altKey || e.ctrlKey) {
     for (let i = S.layers.length - 1; i >= 0; i--) {
@@ -518,6 +656,7 @@ function snapMove(layers, drag) {
 
 /* ---------- Layer-Verwaltung ---------- */
 function ensureFrame(L) {            // iframe erst bei Bedarf erzeugen (lazy)
+  if (!L || L.type === "pen") return null;   // native Pfad-/Freihand-Ebenen haben kein eingebettetes Tool
   if (L._frame) return L._frame;
   const f = document.createElement("iframe"); f.className = "toolframe"; f.dataset.lid = L.id; f.src = embedUrl(L);
   if (L.params) L._pendingParams = L.params;
@@ -602,7 +741,7 @@ const LIICONS = {
 };
 function liIcon(name) { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + LIICONS[name] + '</svg>'; }
 function layerTypeIcon(L) {   // Werkzeug-Icon (zeigt den Ebenen-Typ), in der Ebenenfarbe getönt
-  const ic = L.type === "text" ? TICONS.text : L.type === "image" ? TICONS.image : (TICONS[L.tool] || TICONS.paper);
+  const ic = L.type === "text" ? TICONS.text : L.type === "image" ? TICONS.image : L.type === "pen" ? (L.pen && L.pen.kind === "free" ? TICONS.pen : TICONS.pennib) : (TICONS[L.tool] || TICONS.paper);
   return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ic + '</svg>';
 }
 function startRename(L, nm) {
@@ -645,7 +784,7 @@ function renderList() {
 function serializeLayout() {
   return { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper, bg: S.bg, fname: $("inFname").value,
     layers: S.layers.map(L => ({ type: L.type, tool: L.tool, name: L.name, visible: L.visible,
-      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler,
+      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler, pen: L.pen || null,
       groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
 }
 function saveLayout() {
@@ -684,6 +823,7 @@ function loadLayout(obj) {
     L.color = d.color || null; L.mode = d.mode || "KCPenDraw"; L.modelEuler = d.modelEuler || null;
     L.groups = d.groups || null;
     L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
+    if (L.type === "pen" && d.pen) { L.pen = d.pen; penRecompute(L); }   // Pfad-Ebene wieder editierbar machen
     S.layers.push(L);   // iframe wird erst beim Bearbeiten erzeugt (lazy)
   }
   LSEQ = S.layers.reduce((mx, L) => { const m = /^Layer (\d+)$/.exec(L.name); return m ? Math.max(mx, +m[1] + 1) : mx; }, LSEQ);   // Zähler hinter geladene Namen setzen
@@ -863,18 +1003,21 @@ const TICONS = {
   wave: '<path d="M4 12v2M7 9v6M10 5v14M13 9v6M16 7v10M19 11v2"/>',
   pen: '<path d="M4 20l4-1L19 8a2 2 0 0 0-3-3L5 16z"/><path d="M14 7l3 3"/>',
   shapes: '<rect x="3" y="13" width="8" height="8" rx="1"/><circle cx="16" cy="8" r="5"/>',
+  select: '<path d="M5 3l6 16 2.5-6.5L20 10z"/>',
+  pennib: '<path d="M12 3l5 5-7 13-3-3z"/><path d="M12 3l-5 5 3 3"/><circle cx="11" cy="12" r="1.2"/>',
 };
-const TOOLBAR = [{ type: "text" }, { type: "image" }, { type: "misc", tool: "model" }, { sep: 1 },
+const MODE_TOOLS = [{ mode: "select", icon: "select", t: ["Auswählen / Bewegen", "Select / Move"] }, { mode: "free", icon: "pen", t: ["Freihand zeichnen", "Freehand draw"] }, { mode: "pen", icon: "pennib", t: ["Pfad (Bézier)", "Path (Bézier)"] }];
+const TOOLBAR = [...MODE_TOOLS, { sep: 1 }, { type: "text" }, { type: "image" }, { type: "misc", tool: "model" }, { sep: 1 },
   ...MISC_TOOLS.map(([v]) => ({ type: "misc", tool: v }))];
 const tb = $("toolbar");
 for (const t of TOOLBAR) {
   if (t.sep) { const s = document.createElement("div"); s.className = "tbsep"; tb.appendChild(s); continue; }
-  const ic = t.type === "text" ? TICONS.text : t.type === "image" ? TICONS.image : (TICONS[t.tool] || TICONS.paper);
-  const b = document.createElement("button"); b.className = "toolbtn";
-  b.title = t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool);
+  const ic = t.mode ? TICONS[t.icon] : t.type === "text" ? TICONS.text : t.type === "image" ? TICONS.image : (TICONS[t.tool] || TICONS.paper);
+  const b = document.createElement("button"); b.className = "toolbtn"; b._t = t;
   b.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`;
-  b.onclick = () => t.type === "misc" ? addLayer("misc", t.tool) : addLayer(t.type);
-  b._t = t; tb.appendChild(b);
+  if (t.mode) { b.dataset.mode = t.mode; b.title = UI.t(t.t[0], t.t[1]); b.onclick = () => setTool(t.mode); }
+  else { b.title = t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); b.onclick = () => { setTool("select"); t.type === "misc" ? addLayer("misc", t.tool) : addLayer(t.type); }; }
+  tb.appendChild(b);
 }
 function updateTbScroll() { const t = $("toolbar"); $("tbScroll").classList.toggle("show", t.scrollHeight - t.scrollTop - t.clientHeight > 4); }
 $("toolbar").addEventListener("scroll", updateTbScroll);
@@ -922,7 +1065,7 @@ function abtn(spec, cls, fn) {
 for (const s of ALIGN_BTNS) $("alignRow").appendChild(abtn(s, "", () => alignLayers(s.k)));
 for (const s of DIST_BTNS) $("distRow").appendChild(abtn(s, "distbtn", () => distribute(s.k)));
 function applyLangExtras() {   // Tooltips (title-Attribute werden nicht vom TreeWalker übersetzt) bei Sprachwechsel auffrischen
-  document.querySelectorAll("#toolbar .toolbtn").forEach(b => { const t = b._t; if (!t) return; b.title = t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); });
+  document.querySelectorAll("#toolbar .toolbtn").forEach(b => { const t = b._t; if (!t) return; b.title = t.mode ? UI.t(t.t[0], t.t[1]) : t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); });
   document.querySelectorAll(".abtn").forEach(b => { if (b._spec) b.title = UI.t(b._spec.t[0], b._spec.t[1]); });
   const sf = $("inLs").closest(".obf"); if (sf) sf.title = UI.t("Skalierung", "Scale");
   const rf = $("inLr").closest(".obf"); if (rf) rf.title = UI.t("Drehung (°)", "Rotation (°)");
@@ -992,11 +1135,16 @@ document.addEventListener("click", closeMenu);
 const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 window.addEventListener("keydown", e => {
   if ($("modalBack").classList.contains("open")) return;   // Modal offen → globale Shortcuts pausieren
+  if (penDraft || penEdit || freeDraft) {                   // aktives Zeichnen: Enter/Esc/Backspace zuerst
+    if (e.key === "Enter") { e.preventDefault(); if (penDraft) finishPen(); else if (penEdit) finishPenEdit(); return; }
+    if (e.key === "Escape") { e.preventDefault(); if (penDraft) { penDraft = null; penDrag = null; redraw(); } else if (penEdit) finishPenEdit(); else { freeDraft = null; redraw(); } return; }
+    if ((e.key === "Backspace" || e.key === "Delete") && penDraft) { e.preventDefault(); penDraft.anchors.pop(); if (!penDraft.anchors.length) penDraft = null; redraw(); return; }
+  }
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveLayout(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") { e.preventDefault(); selectAll(); }
   else if ((e.key === "Delete" || e.key === "Backspace") && S.selIds.length) { e.preventDefault(); deleteSelected(); }
-  else if (e.key === "Escape" && S.selIds.length) { e.preventDefault(); selectLayer(null); }
+  else if (e.key === "Escape") { e.preventDefault(); if (S.tool !== "select") setTool("select"); else if (S.selIds.length) selectLayer(null); }
   else if (ARROWS[e.key] && S.selIds.length) {
     e.preventDefault(); const step = e.shiftKey ? 10 : 1, [dx, dy] = ARROWS[e.key];
     selLayers().forEach(L => { L.transform.x += dx * step; L.transform.y += dy * step; });
@@ -1047,7 +1195,7 @@ const I18N_EN = {
 };
 function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
 UI.initLang(I18N_EN); applyLangDefaults(); applyLangExtras(); UI.onLangChange(() => { applyLangDefaults(); applyLangExtras(); updatePropsUI(); renderList(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*"); }); });
-resize(); fitView(); renderList(); updatePropsUI(); updateTbScroll(); restoreAutosave();   // letztes Layout wiederherstellen
+resize(); fitView(); renderList(); updatePropsUI(); updateTbScroll(); setTool("select"); restoreAutosave();   // letztes Layout wiederherstellen
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
