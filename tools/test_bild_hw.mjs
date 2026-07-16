@@ -6,11 +6,18 @@ const appDir = 'file://' + path.join(here, '..', 'app');
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
 page.on('pageerror', e => console.log('EXC:', e.message));
-await page.goto(appDir + '/handschrift.html');
+await page.addInitScript(() => { for (const k of ["studio","handschrift"]) localStorage.setItem("tour_"+k, "1"); });
+// Handschrift ins Capture-Modal importieren (landet in hw_fonts), Modal schließen
+await page.goto(appDir + '/index.html?panel=capture');
 await page.evaluate(() => localStorage.clear());
-await page.setInputFiles('#fileImport', '/Users/tomhenniger/Downloads/toms_handschrift.handschrift.json');
+await page.reload();
+await page.waitForFunction(() => !document.getElementById('captureModal').hidden && window.Capture);
+await page.setInputFiles('#fileHwImport', '/Users/tomhenniger/Downloads/toms_handschrift.handschrift.json');
 await page.waitForTimeout(300);
-await page.goto(appDir + '/bild.html');
+await page.click('#btnHwClose');
+await page.waitForFunction(() => document.getElementById('captureModal').hidden);
+// Bild-Ebene anlegen und ASCII-Stil mit der Handschrift rendern
+await page.click('#btnAddImage');
 await page.setInputFiles('#fileImg', '/tmp/lac_test/testbild.png');
 await page.waitForTimeout(600);
 await page.selectOption('#inpStyle', 'ascii');

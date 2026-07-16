@@ -394,7 +394,7 @@ window.ScanImport = (function () {
     return [pts[0], pts[pts.length - 1]];
   }
 
-  function cellToStrokes(patchRaw, cell, unitsPerMm) {
+  function cellToStrokes(patchRaw, cell, unitsPerMm, k = 1, it = 2) {
     const patch = gaussBlur(patchRaw);
     const { data, w, h } = patch;
     const white = percentile(data, 85, 3);
@@ -430,7 +430,9 @@ window.ScanImport = (function () {
       joined = joinPaths(joined, 3.5, -1.0, false);
       paths.push(...joined.filter(p => pathLen(p) >= 5));
     }
-    paths = paths.map(p => rdp(chaikin(rdp(smoothPath(p), 0.8)), 0.3)).filter(p => p.length >= 2);
+    // Glättungskette an die Kurvenauflösung gekoppelt (Stage 4):
+    // k = Toleranz-Skalierung (grob = größere RDP-Toleranz), it = Chaikin-Iterationen.
+    paths = paths.map(p => rdp(chaikin(rdp(smoothPath(p), 0.8 * k), it), 0.3 * k)).filter(p => p.length >= 2);
     if (!paths.length) return null;
 
     let minX = 1e9, maxX = 0;
@@ -452,7 +454,12 @@ window.ScanImport = (function () {
   /* ---------------- Hauptablauf ---------------- */
   const tick = () => new Promise(r => setTimeout(r, 0));
 
-  async function processFiles(files, layout, onProgress) {
+  // quality (1..5, Default 3) steuert die Glättung neu gescannter Glyphen
+  // (Chaikin-Iterationen + RDP-Toleranz) über LacExport.quality().
+  async function processFiles(files, layout, onProgress, quality = 3) {
+    const q = (window.LacExport && window.LacExport.quality)
+      ? window.LacExport.quality(quality) : { step: 1, chaikin: 2 };
+    const k = q.step, it = q.chaikin;
     const glyphsVar = {};
     const log = [];
     const half = layout.marker.size / 2;
@@ -489,7 +496,7 @@ window.ScanImport = (function () {
           await tick();
         }
         const patch = sampleRegion(gray, w, h, H, cell.x, cell.y, cell.w, cell.h);
-        const res = cellToStrokes(patch, cell, layout.units_per_mm);
+        const res = cellToStrokes(patch, cell, layout.units_per_mm, k, it);
         if (res) {
           (glyphsVar[cell.char] = glyphsVar[cell.char] || []).push(res);
           filled++;

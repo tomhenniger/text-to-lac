@@ -160,5 +160,52 @@
     URL.revokeObjectURL(a.href);
   }
 
-  window.LacExport = { fmtN, buildPathData, makeZip, makeLac, download };
+  /* --------- Kurvenauflösung (Stage 4) --------- */
+  // Ramer–Douglas–Peucker: verwirft Punkte, die weniger als eps (mm) von der
+  // Verbindungslinie abweichen. Kanonische Kopie (identisch zu bild.html/scan.js).
+  function rdp(pts, eps) {
+    if (pts.length < 3) return pts;
+    const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
+    const dx = bx - ax, dy = by - ay, n = Math.hypot(dx, dy);
+    let mi = 0, md = -1;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const d = n ? Math.abs(dx * (ay - pts[i][1]) - dy * (ax - pts[i][0])) / n
+                  : Math.hypot(pts[i][0] - ax, pts[i][1] - ay);
+      if (d > md) { md = d; mi = i; }
+    }
+    if (md > eps) {
+      const l = rdp(pts.slice(0, mi + 1), eps), r = rdp(pts.slice(mi), eps);
+      return l.slice(0, -1).concat(r);
+    }
+    return [pts[0], pts[pts.length - 1]];
+  }
+
+  // Ein Regler (1..5) → alle quellenspezifischen Abtast-Konstanten.
+  //                Q1     Q2     Q3(heute) Q4     Q5
+  const QUALITY = {
+    tol:     [0.25,  0.10,  0.03,  0.012, 0.005],  // Funnel-RDP, mm max. Abweichung
+    ttfSeg:  [4,     8,     12,    18,    24   ],  // TTF-Bezier-Schritte
+    maxSeg:  [1.8,   1.3,   0.9,   0.6,   0.4  ],  // wobble()-Unterteilung mm
+    step:    [2.0,   1.4,   1.0,   0.7,   0.45 ],  // Skalierung der Abtast-Schrittweiten
+    chaikin: [1,     2,     2,     3,     3    ],  // Scan-Import Chaikin-Iterationen
+  };
+  function clampQ(q) { q = Math.round(+q) || 3; return Math.min(5, Math.max(1, q)); }
+  function quality(q) {
+    const i = clampQ(q) - 1;
+    return { tol: QUALITY.tol[i], ttfSeg: QUALITY.ttfSeg[i], maxSeg: QUALITY.maxSeg[i],
+             step: QUALITY.step[i], chaikin: QUALITY.chaikin[i] };
+  }
+  // Funnel: jede fertige Polylinie durch RDP schicken (einmal pro Cache-Füllung,
+  // sodass Vorschau, Statuszeile, SVG und .lac exakt dieselben Pfade sehen).
+  function resampleStrokes(strokes, q) {
+    const tol = QUALITY.tol[clampQ(q) - 1];
+    const out = [];
+    for (const st of strokes) {
+      const r = rdp(st, tol);
+      if (r.length >= 2) out.push(r);
+    }
+    return out;
+  }
+
+  window.LacExport = { fmtN, buildPathData, makeZip, makeLac, download, rdp, quality, resampleStrokes };
 })();

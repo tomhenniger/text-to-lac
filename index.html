@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Handschrift — Pen-Plotter-Tools für Bambu Lab</title>
 <style>
-  :root { --accent: #00ae42; --text: #1b201d; --muted: #68716c; --bg: #f4f6f5;
+  :root { --accent: #00ae42; --accent-dark: #008f36; --text: #1b201d; --muted: #68716c; --bg: #f4f6f5;
           --panel: #fcfdfc; --border: #d8ddda; }
   html[data-theme="dark"] { --text: #e6eae7; --muted: #98a29c; --bg: #141715;
           --panel: #1d2220; --border: #343b37; }
@@ -21,15 +21,18 @@
   @keyframes hsdraw { to { stroke-dashoffset: 0; } }
   p.brand { color: var(--muted); margin: 4px 0 0; font-size: 15px; }
   p.sub { color: var(--muted); margin: 0 0 30px; max-width: 56ch; line-height: 1.55; }
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
-  a.card { display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-           padding: 18px 16px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
-  a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .card .icon { color: var(--accent); }
-  .card h2 { font-size: 15.5px; margin: 10px 0 5px; }
-  .card p { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.5; }
-  footer { margin-top: 34px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  a.cta { display: inline-flex; align-items: center; gap: 9px; background: var(--accent); border: 1px solid var(--accent);
+          color: #fff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 12px 22px; border-radius: 8px;
+          transition: background-color .15s cubic-bezier(.25,.46,.45,.94); }
+  a.cta:hover { background: var(--accent-dark); }
+  a.cta .icon { color: #fff; display: inline-flex; }
+  ul.features { list-style: none; margin: 30px 0 0; padding: 0; display: flex; flex-direction: column; gap: 18px; max-width: 56ch; }
+  ul.features li { display: flex; gap: 13px; align-items: flex-start; }
+  ul.features .icon { color: var(--accent); flex: 0 0 auto; margin-top: 1px; display: inline-flex; }
+  ul.features .ftxt { font-size: 13.5px; line-height: 1.5; }
+  ul.features .ftxt b { font-weight: 600; }
+  ul.features .ftxt .d { color: var(--muted); }
+  footer { margin-top: 36px; font-size: 12px; color: var(--muted); line-height: 1.6; }
   footer a { color: var(--accent); }
 </style>
 </head>
@@ -37,30 +40,19 @@
 <main>
   <h1><svg class="wordmark" viewBox="0 -57 395 91" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Handschrift"><path d="M 23.6 -37.8 L 21.1 -40.3 L 21.1 -45.4 L 23.6 -50.4 L 31.2 -53 L 38.8 -53 L 31.2 -25.2 L 26.2 -10.1 L 23.6 -5 L 21.1 -2.5 L 16.1 0 L 11 0 L 8.5 -2.5 L 8.5 -7.6 L 11 -10.1 L 13.6 -7.6 L 11 -5 M 38.8 -53 L 31.2 -30.2 L 28.7 -22.7 L 23.6 -10.1 L 21.1 -5 L 16.1 0 M 18.6 -17.6 L 21.1 -20.2 L 26.2 -22.7 L 48.9 -30.2 L 53.8 -32.8 L 61.4 -37.8 L 66.5 -42.9 L 69 -47.8 L 69 -50.4 L 66.5 -53 L 63.9 -53 L 59 -50.4 L 53.8 -42.9 L 51.4 -37.8 L 46.3 -22.7 L 43.8 -12.6 L 43.8 -5 L 48.9 0 L 51.4 0 L 56.4 -2.5 L 61.4 -7.6 M 63.9 -53 L 59 -47.8 L 53.8 -37.8 L 48.9 -22.7 L 46.3 -12.6 L 46.3 -5 L 48.9 0 M 94.2 -15.1 L 91.7 -20.2 L 86.6 -22.7 L 81.6 -22.7 L 76.6 -20.2 L 74 -17.6 L 71.5 -12.6 L 71.5 -7.6 L 74 -2.5 L 79.1 0 L 84.1 0 L 89.2 -2.5 L 91.7 -7.6 M 81.6 -22.7 L 76.6 -17.6 L 74 -12.6 L 74 -5 L 79.1 0 M 96.7 -22.7 L 91.7 -7.6 L 91.7 -2.5 L 96.7 0 L 101.8 -2.5 L 104.2 -5 L 109.4 -12.6 M 99.3 -22.7 L 94.2 -7.6 L 94.2 -2.5 L 96.7 0 M 109.3 -12.6 L 114.4 -20.2 L 119.4 -22.7 L 124.4 -20.2 L 124.4 -15.1 L 119.4 0 M 119.4 -22.7 L 121.9 -20.2 L 121.9 -15.1 L 116.9 0 M 124.4 -15.1 L 129.5 -20.2 L 134.5 -22.7 L 137 -22.7 L 142.1 -20.2 L 142.1 -15.1 L 139.6 -7.6 L 139.6 -2.5 L 142.1 0 M 137 -22.7 L 139.6 -20.2 L 139.6 -15.1 L 137 -7.6 L 137 -2.5 L 142.1 0 L 147.1 -2.5 L 149.7 -5 L 154.6 -12.6 M 179.8 -15.1 L 177.4 -20.2 L 172.3 -22.7 L 167.3 -22.7 L 162.2 -20.2 L 159.7 -17.6 L 157.2 -12.6 L 157.2 -7.6 L 159.7 -2.5 L 164.8 0 L 169.8 0 L 174.9 -2.5 L 177.4 -7.6 M 167.3 -22.7 L 162.2 -17.6 L 159.7 -12.6 L 159.7 -5 L 164.8 0 M 192.5 -53 L 177.4 -7.6 L 177.4 -2.5 L 182.4 0 L 187.4 -2.5 L 189.9 -5 L 195 -12.6 M 195 -53 L 179.8 -7.6 L 179.8 -2.5 L 182.4 0 M 195 -12.6 L 200 -20.2 L 202.6 -25.2 L 202.6 -20.2 L 210.1 -15.1 L 212.6 -10.1 L 212.6 -5 L 210.1 -2.5 L 205.1 0 M 202.6 -20.2 L 207.6 -15.1 L 210.1 -10.1 L 210.1 -5 L 205.1 0 M 195 -2.5 L 200 0 L 212.6 0 L 220.2 -5 L 225.3 -12.6 M 245.4 -20.2 L 242.9 -17.6 L 245.4 -17.6 L 245.4 -20.2 L 242.9 -22.7 L 237.8 -22.7 L 232.8 -20.2 L 230.3 -17.6 L 227.8 -12.6 L 227.8 -7.6 L 230.3 -2.5 L 235.4 0 L 242.9 0 L 250.4 -5 L 255.5 -12.6 M 237.8 -22.7 L 232.8 -17.6 L 230.3 -12.6 L 230.3 -5 L 235.4 0 M 255.5 -12.6 L 260.5 -20.2 L 265.6 -30.2 M 273.1 -53 L 255.5 0 M 275.7 -53 L 258 0 M 263 -15.1 L 268.1 -20.2 L 273.1 -22.7 L 275.7 -22.7 L 280.6 -20.2 L 280.6 -15.1 L 278.2 -7.6 L 278.2 -2.5 L 280.6 0 M 275.7 -22.7 L 278.2 -20.2 L 278.2 -15.1 L 275.7 -7.6 L 275.7 -2.5 L 280.6 0 L 285.8 -2.5 L 288.2 -5 L 293.3 -12.6 M 293.2 -12.6 L 298.3 -20.2 L 303.4 -22.7 L 308.3 -20.2 L 308.3 -15.1 L 303.4 0 M 303.4 -22.7 L 305.8 -20.2 L 305.8 -15.1 L 300.8 0 M 308.3 -15.1 L 313.4 -20.2 L 318.4 -22.7 L 321 -22.7 L 318.4 -15.1 M 318.4 -22.7 L 318.4 -15.1 L 321 -10.1 L 323.5 -10.1 L 328.5 -12.6 M 341.1 -37.8 L 338.6 -35.3 L 341.1 -32.8 L 343.6 -35.3 L 341.1 -37.8 M 336.1 -22.7 L 331 -7.6 L 331 -2.5 L 336.1 0 L 341.1 -2.5 L 343.6 -5 L 348.7 -12.6 M 338.6 -22.7 L 333.6 -7.6 L 333.6 -2.5 L 336.1 0 M 356.2 -22.7 L 363.8 -30.2 L 368.9 -37.8 L 371.4 -45.4 L 371.4 -50.4 L 368.9 -53 L 363.8 -50.4 L 361.3 -45.4 L 338.6 22.7 L 338.6 27.7 L 341.1 30.2 L 346.2 27.7 L 348.7 20.2 L 351.2 -2.5 L 353.7 0 L 358.8 0 L 363.8 -2.5 L 366.3 -5 L 371.4 -12.6 M 361.3 -45.4 L 358.8 -32.8 L 356.2 -22.7 L 348.7 0 L 343.6 12.6 L 338.6 22.7 M 371.4 -12.6 L 376.4 -20.2 L 381.5 -30.2 M 389 -53 L 373.9 -7.6 L 373.9 -2.5 L 379 0 L 384 -2.5 L 386.5 -5 L 391.6 -12.6 M 391.6 -53 L 376.4 -7.6 L 376.4 -2.5 L 379 0 M 376.4 -32.8 L 391.6 -32.8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><p class="brand">Pen-Plotter-Tools für Bambu Lab</p></h1>
   <p class="sub">Text und Bilder mit dem Stift (Pen Holder) zeichnen — Export als .lac für die Bambu Suite. Läuft komplett im Browser.</p>
-  <div class="cards">
-    <a class="card" href="app/index.html">
-      <div class="icon" data-icon="text" data-icon-size="26"></div>
-      <h2>Text-Schreiber</h2>
-      <p>Text in Ein-Linien-Schriften oder der eigenen Handschrift, mit Variation pro Buchstabe — kein Zeichen gleicht dem anderen.</p>
-    </a>
-    <a class="card" href="app/handschrift.html">
-      <div class="icon" data-icon="pen" data-icon-size="26"></div>
-      <h2>Handschrift erfassen</h2>
-      <p>Eigene Buchstaben zeichnen oder per gedruckter Vorlage scannen — mit mehreren Varianten pro Zeichen.</p>
-    </a>
-    <a class="card" href="app/bild.html">
-      <div class="icon" data-icon="image" data-icon-size="26"></div>
-      <h2>Bild-Plotter</h2>
-      <p>Fotos als Schraffur, Wellenlinien, Spirale, Konturen oder ASCII-Art — auch in der eigenen Handschrift.</p>
-    </a>
-  </div>
+  <a class="cta" href="app/index.html"><span class="icon" data-icon="layers" data-icon-size="20"></span>Layer Studio öffnen</a>
+  <ul class="features">
+    <li><span class="icon" data-icon="text" data-icon-size="22"></span><span class="ftxt"><b>Text schreiben</b> <span class="d">— in Ein-Linien-Schriften oder deiner eigenen Handschrift, kein Buchstabe gleicht dem anderen.</span></span></li>
+    <li><span class="icon" data-icon="pen" data-icon-size="22"></span><span class="ftxt"><b>Eigene Handschrift erfassen</b> <span class="d">— zeichnen oder per Papier-Vorlage scannen, mehrere Varianten pro Zeichen.</span></span></li>
+    <li><span class="icon" data-icon="image" data-icon-size="22"></span><span class="ftxt"><b>Bilder plotten</b> <span class="d">— Schraffur, Wellenlinien, Spirale, Konturen oder ASCII-Art als eigene Ebenen.</span></span></li>
+  </ul>
   <footer>
     Quellcode &amp; Doku im <a href="https://github.com/tomhenniger/text-to-lac">Repository</a> ·
     Fonts: Hershey/EMS (SIL OFL)
   </footer>
 </main>
 <span style="position:fixed;top:14px;right:14px;display:flex;gap:8px"><button id="btnLang" style="padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer">EN</button><button id="btnTheme" style="position:static;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer"></button></span>
-<script src="app/ui.js?v=5"></script>
+<script src="app/ui.js?v=6"></script>
 <script>
 UI.initTheme();
 function applyLangDefaults() {
@@ -70,15 +62,16 @@ UI.initLang({
   'Pen-Plotter-Tools für Bambu Lab': 'Pen plotter tools for Bambu Lab',
   'Text und Bilder mit dem Stift (Pen Holder) zeichnen — Export als .lac für die Bambu Suite. Läuft komplett im Browser.':
     'Draw text and images with the pen holder — exported as .lac for Bambu Suite. Runs entirely in your browser.',
-  'Text-Schreiber': 'Text writer',
-  'Text in Ein-Linien-Schriften oder der eigenen Handschrift, mit Variation pro Buchstabe — kein Zeichen gleicht dem anderen.':
-    'Text in single-line fonts or your own handwriting, with per-letter variation — no two characters look alike.',
-  'Handschrift erfassen': 'Capture handwriting',
-  'Eigene Buchstaben zeichnen oder per gedruckter Vorlage scannen — mit mehreren Varianten pro Zeichen.':
-    'Draw your own letters or scan them via a printed template — with multiple variants per character.',
-  'Bild-Plotter': 'Image plotter',
-  'Fotos als Schraffur, Wellenlinien, Spirale, Konturen oder ASCII-Art — auch in der eigenen Handschrift.':
-    'Photos as hatching, squiggle lines, spiral, contours or ASCII art — even in your own handwriting.',
+  'Layer Studio öffnen': 'Open the Layer Studio',
+  'Text schreiben': 'Write text',
+  '— in Ein-Linien-Schriften oder deiner eigenen Handschrift, kein Buchstabe gleicht dem anderen.':
+    '— in single-line fonts or your own handwriting, no two letters look alike.',
+  'Eigene Handschrift erfassen': 'Capture your own handwriting',
+  '— zeichnen oder per Papier-Vorlage scannen, mehrere Varianten pro Zeichen.':
+    '— draw or scan via a printed template, multiple variants per character.',
+  'Bilder plotten': 'Plot images',
+  '— Schraffur, Wellenlinien, Spirale, Konturen oder ASCII-Art als eigene Ebenen.':
+    '— hatching, squiggle lines, spiral, contours or ASCII art as their own layers.',
   'Quellcode & Doku im': 'Source code & docs in the',
   'Repository': 'repository',
   '· Fonts: Hershey/EMS (SIL OFL)': '· Fonts: Hershey/EMS (SIL OFL)',

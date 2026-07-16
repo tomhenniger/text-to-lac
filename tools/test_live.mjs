@@ -9,7 +9,7 @@ await page.waitForTimeout(500);
 const info = await page.evaluate(() => ({
   fonts: Object.keys(window.SL_FONTS).length,
   configs: !!window.LAC_CONFIGS,
-  glyphs: cachedLayout.glyphs.length,
+  glyphs: window.__studio.activeLayout().glyphs.length,
 }));
 console.log('Fonts geladen:', info.fonts, '| Configs:', info.configs, '| Glyphen gerendert:', info.glyphs);
 await page.screenshot({ path: '/tmp/lac_test/live.png', clip: { x: 340, y: 0, width: 1160, height: 450 } });

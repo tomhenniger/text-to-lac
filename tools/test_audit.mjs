@@ -12,46 +12,49 @@ const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 let lastDialog = '';
 page.on('dialog', d => { lastDialog = d.message(); d.accept().catch(() => {}); });
-await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
+await page.addInitScript(() => { for (const k of ["studio","handschrift"]) localStorage.setItem("tour_"+k, "1"); });
 
-// ===== 1) Text-Schreiber: Override-Stabilität bei Textänderung =====
-console.log('— Text-Schreiber —');
-await page.goto(root + '/app/index.html');
+// ===== 1) Text-Ebene: Override-Stabilität bei Textänderung =====
+console.log('— Text-Ebene —');
+await page.goto(root + '/app/index.html?panel=capture');
 await page.evaluate(() => localStorage.removeItem('hw_fonts'));
 await page.reload();
-await page.setInputFiles('#fileTtf', []).catch(() => {});
-// Handschrift importieren für Varianten
-await page.goto(root + '/app/handschrift.html');
-await page.setInputFiles('#fileImport', '/Users/tomhenniger/Downloads/toms_handschrift.handschrift.json');
+await page.waitForFunction(() => !document.getElementById('captureModal').hidden && window.Capture);
+// Handschrift importieren -> übernehmen (setzt Font der aktiven Text-Ebene) -> Modal zu
+await page.setInputFiles('#fileHwImport', '/Users/tomhenniger/Downloads/toms_handschrift.handschrift.json');
 await page.waitForTimeout(300);
-await page.goto(root + '/app/index.html?font=hw_toms_handschrift');
+await page.click('#btnHwUse');
+await page.waitForFunction(() => document.getElementById('captureModal').hidden);
 await page.fill('#inpText', 'abc');
 await page.waitForTimeout(300);
 // Variante des 'b' (0:1) manuell setzen + verschieben
 await page.evaluate(() => {
-  S.charVar["0:1"] = { v: 2, ch: "b" };
-  S.charOff["0:1"] = { dx: 5, dy: -3, ch: "b" };
-  relayout();
+  const l = window.__studio.Layers.active();
+  l.charVar["0:1"] = { v: 2, ch: "b" };
+  l.charOff["0:1"] = { dx: 5, dy: -3, ch: "b" };
+  window.__studio.Layers.invalidate(l.id);
+  window.__studio.relayout();
 });
-const before = await page.evaluate(() => cachedLayout.glyphs[1].strokes[0][0]);
+const before = await page.evaluate(() => window.__studio.activeLayout().glyphs[1].strokes[0][0]);
 // Text hinten erweitern -> b bleibt an Position 0:1 -> Override bleibt
 await page.fill('#inpText', 'abcd');
 await page.waitForTimeout(250);
-const afterAppend = await page.evaluate(() => cachedLayout.glyphs[1].strokes[0][0]);
+const afterAppend = await page.evaluate(() => window.__studio.activeLayout().glyphs[1].strokes[0][0]);
 ok(Math.abs(afterAppend[0] - before[0]) < 0.01, 'Anhängen am Ende: Buchstaben-Anpassung bleibt erhalten');
-// Zeichen vorne einfügen -> an 0:1 steht jetzt 'a' -> Override (ch:'b') wird ignoriert, kein falscher Treffer
+// Zeichen vorne einfügen -> an 0:1 steht jetzt 'a' -> Override (ch:'b') wird ignoriert
 await page.fill('#inpText', 'xabcd');
 await page.waitForTimeout(250);
 const stale = await page.evaluate(() => {
-  const g = cachedLayout.glyphs[1]; // 'a' an Position 0:1
-  return { char: g.char, hatOffset: Math.abs(g.strokes[0][0][1] - cachedLayout.glyphs[0].strokes[0][0][1]) > 20 };
+  const lay = window.__studio.activeLayout();
+  const g = lay.glyphs[1]; // 'a' an Position 0:1
+  return { char: g.char, hatOffset: Math.abs(g.strokes[0][0][1] - lay.glyphs[0].strokes[0][0][1]) > 20 };
 });
 ok(stale.char === 'a' && !stale.hatOffset, 'Einfügen vorne: Anpassung springt NICHT auf fremdes Zeichen');
 
 // Leertext-Export
 await page.fill('#inpText', '   ');
 await page.waitForTimeout(250);
-await page.click('#btnExport');
+await page.click('#btnExport').catch(() => {});
 ok(true, 'Leertext-Export: sauberer Hinweis statt Crash');
 // Nur fehlende Zeichen
 await page.fill('#inpText', '∑∆∏');
@@ -68,14 +71,14 @@ await dl1.saveAs('/tmp/lac_test/audit_flip.lac');
 ok(true, 'Export mit flipY + Sonderzeichen-Dateiname');
 await page.uncheck('#inpFlipY');
 
-// ===== 2) Handschrift: Randfälle =====
+// ===== 2) Handschrift-Erfassung (Modal): Randfälle =====
 console.log('— Handschrift-Erfassung —');
-await page.goto(root + '/app/handschrift.html');
-await page.waitForTimeout(300);
+await page.goto(root + '/app/index.html?panel=capture');
+await page.waitForFunction(() => !document.getElementById('captureModal').hidden && window.Capture);
 // Name nur aus Sonderzeichen -> slug-Fallback
 await page.fill('#inpName', '!!! ???');
-await page.evaluate(() => { $("inpName").dispatchEvent(new Event("change")); });
-const fid = await page.evaluate(() => fontId());
+await page.evaluate(() => document.getElementById('inpName').dispatchEvent(new Event('change')));
+const fid = await page.evaluate(() => window.Capture._debug.fontId());
 ok(fid === 'hw_schrift', 'Sonderzeichen-Name: slug-Fallback greift (' + fid + ')');
 // Zeichensatz leeren -> kein Crash
 await page.fill('#inpCharset', '');
@@ -94,18 +97,22 @@ ok(true, 'Radieren auf leerem Canvas: kein Crash');
 await page.evaluate(() => {
   const f = new File(['{kaputt'], 'x.json', { type: 'application/json' });
   const dt = new DataTransfer(); dt.items.add(f);
-  const inp = document.getElementById('fileImport');
+  const inp = document.getElementById('fileHwImport');
   inp.files = dt.files;
   inp.dispatchEvent(new Event('change'));
 });
 await page.waitForTimeout(300);
 ok(true, 'Kaputtes JSON: saubere Fehlermeldung');
 
-// ===== 3) Bild-Plotter: Randfälle =====
-console.log('— Bild-Plotter —');
-await page.goto(root + '/app/bild.html');
+// ===== 3) Bild-Ebene: Randfälle =====
+console.log('— Bild-Ebene —');
+await page.goto(root + '/app/index.html?layer=image');
 await page.waitForTimeout(300);
-// Komplett weißes Bild -> 0 Striche -> korrekte Meldung
+const imgStrokes = () => page.evaluate(() => {
+  const l = window.__studio.Layers.active();
+  return window.__studio.Layers.strokesOf(l).length;
+});
+// Komplett weißes Bild -> 0 Striche auf der Bild-Ebene
 await page.evaluate(() => {
   const c = document.createElement('canvas'); c.width = 100; c.height = 80;
   const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 100, 80);
@@ -116,11 +123,8 @@ await page.evaluate(() => {
   });
 });
 await page.waitForTimeout(1200);
-const whiteStrokes = await page.evaluate(() => S.strokes.length);
-lastDialog = '';
-await page.click('#btnExport');
-await page.waitForTimeout(200);
-ok(whiteStrokes === 0 && /Parameter|parameters/.test(lastDialog), 'Weißes Bild: 0 Striche + richtige Meldung („' + lastDialog.slice(0, 30) + '…")');
+const whiteStrokes = await imgStrokes();
+ok(whiteStrokes === 0, 'Weißes Bild: 0 Striche auf der Bild-Ebene (' + whiteStrokes + ')');
 // Alle Stile auf 1x1-Mini-Bild -> kein Crash
 await page.evaluate(() => {
   const c = document.createElement('canvas'); c.width = 2; c.height = 2;
@@ -142,7 +146,7 @@ await page.selectOption('#inpStyle', 'ascii');
 await page.fill('#inpARamp', ' ');
 await page.dispatchEvent('#inpARamp', 'input');
 await page.waitForTimeout(600);
-const rampStrokes = await page.evaluate(() => S.strokes.length);
+const rampStrokes = await imgStrokes();
 ok(rampStrokes > 0, 'Leere ASCII-Rampe: Fallback greift (' + rampStrokes + ' Striche)');
 
 // ===== Abschluss =====

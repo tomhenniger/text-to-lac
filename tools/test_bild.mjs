@@ -7,8 +7,8 @@ browser.contexts; // Tour-Autostart in Tests unterdrücken
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 }, acceptDownloads: true });
 page.on('pageerror', e => console.log('EXC:', e.message));
 page.on('console', m => { if (m.type() === 'error') console.log('CON:', m.text()); });
-await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
-await page.goto('file://' + path.join(here, '..', 'app', 'bild.html'));
+await page.addInitScript(() => { for (const k of ["studio","handschrift"]) localStorage.setItem("tour_"+k, "1"); });
+await page.goto('file://' + path.join(here, '..', 'app', 'index.html?layer=image'));
 await page.setInputFiles('#fileImg', '/tmp/lac_test/testbild.png');
 await page.waitForTimeout(800);
 for (const style of ['hatch', 'cross', 'squiggle', 'spiral', 'ascii', 'contour']) {

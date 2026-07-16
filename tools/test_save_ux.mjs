@@ -6,11 +6,11 @@ const browser = await chromium.launch();
 const ctxEn = await browser.newContext({ locale: 'en-US' });
 const page = await ctxEn.newPage({ viewport: { width: 1500, height: 950 } });
 page.on('pageerror', e => console.log('EXC:', e.message));
-await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
-await page.goto('file://' + path.join(here, '..', 'app', 'handschrift.html'));
+await page.addInitScript(() => { for (const k of ["studio","handschrift"]) localStorage.setItem("tour_"+k, "1"); });
+await page.goto('file://' + path.join(here, '..', 'app', 'index.html?panel=capture'));
 await page.evaluate(() => localStorage.removeItem('hw_fonts'));
 await page.reload();
-await page.waitForTimeout(300);
+await page.waitForFunction(() => !document.getElementById('captureModal').hidden && window.Capture);
 // Strich zeichnen + per Enter speichern
 const bb = await page.locator('#draw').boundingBox();
 await page.mouse.move(bb.x + 300, bb.y + bb.height * 0.4);

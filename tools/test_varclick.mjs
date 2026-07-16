@@ -8,20 +8,24 @@ browser.contexts; // Tour-Autostart in Tests unterdrücken
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
 page.on('pageerror', e => console.log('EXC:', e.message));
 
-// Handschrift laden (3 Varianten pro Buchstabe), dann in der Schreib-App testen
-await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
-await page.goto(appDir + '/handschrift.html');
+// Handschrift ins Capture-Modal importieren, übernehmen, dann auf dem Canvas Varianten klicken
+await page.addInitScript(() => { for (const k of ["studio","handschrift"]) localStorage.setItem("tour_"+k, "1"); });
+await page.goto(appDir + '/index.html?panel=capture');
 await page.evaluate(() => localStorage.clear());
-await page.setInputFiles('#fileImport', '/Users/tomhenniger/Downloads/toms_handschrift.handschrift.json');
+await page.reload();
+await page.waitForFunction(() => !document.getElementById('captureModal').hidden && window.Capture);
+await page.setInputFiles('#fileHwImport', '/Users/tomhenniger/Downloads/toms_handschrift.handschrift.json');
 await page.waitForTimeout(300);
-await Promise.all([page.waitForNavigation(), page.click('#btnUse')]);
+await page.click('#btnHwUse');
+await page.waitForFunction(() => document.getElementById('captureModal').hidden);
 await page.fill('#inpText', 'Tom');
 await page.click('#btnFit');
 await page.waitForTimeout(300);
 
 async function glyphInfo(i) {
   return page.evaluate(i => {
-    const g = cachedLayout.glyphs[i];
+    const g = window.__studio.activeLayout().glyphs[i];
+    const S = window.__studio.S;
     let nx = 1e9, ny = 1e9, xx = -1e9, xy = -1e9, pts = 0;
     for (const st of g.strokes) for (const [x, y] of st) {
       nx = Math.min(nx, x); ny = Math.min(ny, y); xx = Math.max(xx, x); xy = Math.max(xy, y); pts++;
@@ -35,10 +39,13 @@ const before = await glyphInfo(1);
 await page.mouse.click(cvBox.x + before.sx, cvBox.y + before.sy);
 await page.waitForTimeout(200);
 const after1 = await glyphInfo(1);
-const state1 = await page.evaluate(() => ({ charVar: JSON.stringify(S.charVar), charOff: JSON.stringify(S.charOff), status: document.getElementById('stVar').textContent }));
+const state1 = await page.evaluate(() => {
+  const l = window.__studio.Layers.active();
+  return { charVar: JSON.stringify(l.charVar), charOff: JSON.stringify(l.charOff), status: document.getElementById('stVar').textContent };
+});
 await page.mouse.click(cvBox.x + after1.sx, cvBox.y + after1.sy);
 await page.waitForTimeout(200);
-const state2 = await page.evaluate(() => JSON.stringify(S.charVar));
+const state2 = await page.evaluate(() => JSON.stringify(window.__studio.Layers.active().charVar));
 console.log('Vorher Punkte:', before.pts, '| nach Klick 1:', after1.pts);
 console.log('charVar nach Klick 1:', state1.charVar, '| Status:', state1.status);
 console.log('charVar nach Klick 2:', state2);

@@ -6,7 +6,7 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ locale: 'en-US' });
 const page = await ctx.newPage();
 page.on('pageerror', e => console.log('EXC:', e.message));
-await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
+await page.addInitScript(() => { for (const k of ["studio","handschrift"]) localStorage.setItem("tour_"+k, "1"); });
 await page.goto('file://' + path.join(here, '..', 'app', 'index.html'));
 await page.waitForTimeout(400);
 console.log('Tab-Titel (EN):', await page.title());

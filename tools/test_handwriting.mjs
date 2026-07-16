@@ -1,4 +1,4 @@
-// E2E-Test Handschrift: Varianten zeichnen -> in Schreib-App nutzen -> Export
+// E2E Handschrift: Varianten im Capture-Modal zeichnen -> übernehmen -> Export
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -12,10 +12,11 @@ browser.contexts; // Tour-Autostart in Tests unterdrücken
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 }, acceptDownloads: true });
 page.on('pageerror', e => console.log('EXC:', e.message));
 
-await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
-await page.goto(appDir + '/handschrift.html');
-await page.evaluate(() => localStorage.clear());
+await page.addInitScript(() => { for (const k of ["studio","handschrift"]) localStorage.setItem("tour_"+k, "1"); });
+await page.goto(appDir + '/index.html?panel=capture');
+await page.evaluate(() => localStorage.removeItem('hw_fonts'));
 await page.reload();
+await page.waitForFunction(() => !document.getElementById('captureModal').hidden && window.Capture && window.Capture._debug);
 
 const bb = await page.locator('#draw').boundingBox();
 async function stroke(pts) {
@@ -36,7 +37,7 @@ await stroke([[235, baseY], [330, baseY - 10]]);
 await stroke([[315, xh], [330, baseY + 25]]);
 await page.click('#btnSaveVar');
 // 'b': eine Variante
-await page.evaluate(() => selectChar('b'));
+await page.evaluate(() => window.Capture._debug.selectChar('b'));
 await stroke([[250, baseY - 290], [255, baseY]]);
 await stroke([[255, baseY - 130], [320, baseY - 150], [330, baseY - 50], [260, baseY]]);
 await page.click('#btnSaveVar');
@@ -48,16 +49,19 @@ const counts = await page.evaluate(() => {
 console.log('Erfasste Varianten:', counts);
 await page.screenshot({ path: outDir + '/hw_capture.png' });
 
-// In Schreib-App verwenden
-await Promise.all([page.waitForNavigation(), page.click('#btnUse')]);
-console.log('Navigiert zu:', page.url());
+// Übernehmen & schließen (kein Seitenwechsel mehr) -> Font ist in der aktiven Text-Ebene aktiv
+await page.click('#btnHwUse');
+await page.waitForFunction(() => document.getElementById('captureModal').hidden);
+console.log('Font übernommen:', await page.inputValue('#inpFont'));
 await page.fill('#inpText', 'ab ab ab ab');
 await page.click('#btnFit');
 await page.waitForTimeout(300);
 
 const check = await page.evaluate(() => {
-  const f = currentFont();
-  const as = cachedLayout.glyphs.filter(g => g.char === 'a');
+  const l = window.__studio.Layers.active();
+  const f = window.TextLayer.fontById(l.fontId);
+  const lay = window.__studio.activeLayout();
+  const as = lay.glyphs.filter(g => g.char === 'a');
   const key = g => JSON.stringify(g.strokes.map(s => s.length));
   return { font: f.name, hatVarianten: !!f.glyphsVar,
            aInstanzen: as.length, unterschiedlich: new Set(as.map(key)).size };

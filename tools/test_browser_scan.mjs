@@ -5,10 +5,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
 page.on('pageerror', e => console.log('EXC:', e.message));
-await page.addInitScript(() => { for (const k of ["text","handschrift","bild"]) localStorage.setItem("tour_"+k, "1"); });
-await page.goto('file://' + path.join(here, '..', 'app', 'handschrift.html'));
+await page.addInitScript(() => { for (const k of ["studio","handschrift"]) localStorage.setItem("tour_"+k, "1"); });
+await page.goto('file://' + path.join(here, '..', 'app', 'index.html?panel=capture'));
 await page.evaluate(() => { localStorage.removeItem('hw_fonts'); });
 await page.reload();
+await page.waitForFunction(() => !document.getElementById('captureModal').hidden && window.Capture);
 
 const t0 = Date.now();
 await page.setInputFiles('#fileScan', '/tmp/lac_test/scan_filled.png');
