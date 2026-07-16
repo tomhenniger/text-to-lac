@@ -213,8 +213,8 @@
 </div>
 
 <script src="configs.js"></script>
-<script src="lac.js?v=4"></script>
-<script src="ui.js?v=7"></script>
+<script src="lac.js?v=5"></script>
+<script src="ui.js?v=8"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -228,7 +228,7 @@ const MISC_TOOLS = [["shapes","Grundformen","Basic shapes"],["qr","QR-Code","QR 
 function toolLabel(t){ if(t==="model") return UI.t("3D-Modell","3D model"); const m=MISC_TOOLS.find(x=>x[0]===t); return m?UI.t(m[1],m[2]):t; }
 function layerLabel(L){ return L.type==="text"?UI.t("Text","Text"):L.type==="image"?UI.t("Bild","Image"):L.type==="pen"?UI.t("Pfad/Freihand","Path/Freehand"):toolLabel(L.tool); }
 
-const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, selIds: [], paper: "A4P", snap: true, bg: "#ffffff", guides: true, tool: "select" };
+const S = { matW: 300, matH: 300, view: { scale: 1, ox: 0, oy: 0 }, layers: [], selId: null, selIds: [], paper: "A4P", snap: true, bg: "#ffffff", guides: true, tool: "select", quality: 3 };
 let LID = 1, LSEQ = 0;
 let snapGuides = null;
 
@@ -281,7 +281,7 @@ function hexToRgbStr(hex) { const n = parseInt(hex.slice(1), 16); return (n >> 1
 function rgbStrToHex(c) { const p = (c || "").split(" "); const h = v => (+v || 0).toString(16).padStart(2, "0"); return "#" + h(p[0]) + h(p[1]) + h(p[2]); }
 function embedUrl(L) {
   const base = L.type === "text" ? "index.html?embed=1" : L.type === "image" ? "bild.html?embed=1" : "misc.html?embed=1&tool=" + L.tool;
-  return base + "&v=4";   // Cache-Bust für die eingebettete Tool-HTML (SVG-Modi: Mittellinie/Füllen)
+  return base + "&v=5";   // Cache-Bust für die eingebettete Tool-HTML (Handschrift-Erfassung: neuer Tab)
 }
 
 /* ---------- Transform-Math ---------- */
@@ -347,7 +347,7 @@ function redraw() {
   for (const L of S.layers) {
     if (!L.visible) continue;
     const f = layerMap(L);
-    const groups = (L.groups && L.groups.length) ? L.groups : [{ color: null, polylines: L.strokesCache }];
+    const groups = layerRenderGroups(L);
     const cut = L.mode === "KCBasicCut";
     ctx.setLineDash(cut ? [1.6, 1.2] : []);   // Schneiden gestrichelt darstellen
     for (const g of groups) {
@@ -461,14 +461,6 @@ let drag = null;
 /* ---------- Natives Zeichnen: Werkzeug-Modus, Freihand & Bézier-Pfad ---------- */
 let penDraft = null, freeDraft = null, penEdit = null, penDrag = null;
 const scrPt = (mx, my) => { const q = mm2px(mx, my); return [q[0] / devicePixelRatio, q[1] / devicePixelRatio]; };
-function rdpStudio(pts, eps) {
-  if (pts.length < 3) return pts.map(p => p.slice());
-  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1], dx = bx - ax, dy = by - ay, n = Math.hypot(dx, dy);
-  let mi = 0, md = -1;
-  for (let i = 1; i < pts.length - 1; i++) { const d = n ? Math.abs(dx * (ay - pts[i][1]) - dy * (ax - pts[i][0])) / n : Math.hypot(pts[i][0] - ax, pts[i][1] - ay); if (d > md) { md = d; mi = i; } }
-  if (md > eps) return rdpStudio(pts.slice(0, mi + 1), eps).slice(0, -1).concat(rdpStudio(pts.slice(mi), eps));
-  return [pts[0].slice(), pts[pts.length - 1].slice()];
-}
 function setTool(mode) {
   if (penDraft) finishPen(); if (penEdit) finishPenEdit();
   S.tool = mode; cv.style.cursor = mode === "select" ? "default" : "crosshair";
@@ -495,7 +487,7 @@ function finishPen() {
 function finishFree() {
   const pts = freeDraft; freeDraft = null;
   if (!pts || pts.length < 2) { redraw(); return; }
-  const s = rdpStudio(pts, 0.4); let mnx = 1e9, mny = 1e9; for (const [x, y] of s) { if (x < mnx) mnx = x; if (y < mny) mny = y; }
+  const s = window.LacExport.rdp(pts, 0.4); let mnx = 1e9, mny = 1e9; for (const [x, y] of s) { if (x < mnx) mnx = x; if (y < mny) mny = y; }
   const L = makePenLayer({ kind: "free", poly: s.map(([x, y]) => [x - mnx, y - mny]) }); L.transform.x = mnx; L.transform.y = mny;
   S.layers.push(L); selectLayer(L.id); markDirty();
 }
@@ -809,7 +801,7 @@ function renderList() {
 
 /* ---------- Speichern / Laden (.handschrift) ---------- */
 function serializeLayout() {
-  return { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper, bg: S.bg, fname: $("inFname").value,
+  return { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper, bg: S.bg, quality: S.quality, fname: $("inFname").value,
     layers: S.layers.map(L => ({ type: L.type, tool: L.tool, name: L.name, visible: L.visible,
       transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler, pen: L.pen || null,
       groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
@@ -841,6 +833,7 @@ function loadLayout(obj) {
   if (!obj || obj.format !== "handschrift-studio") { modalAlert(UI.t("Keine gültige .handschrift-Datei.", "Not a valid .handschrift file.")); return; }
   S.layers.forEach(L => { if (L._frame) L._frame.remove(); }); S.layers = []; S.selId = null; S.selIds = [];
   S.matW = +obj.matW || 300; S.matH = +obj.matH || 300; S.paper = obj.paper || "none"; S.bg = obj.bg || "#ffffff";
+  S.quality = Math.min(5, Math.max(1, Math.round(+obj.quality) || 3));
   $("inMatW").value = S.matW; $("inMatH").value = S.matH; $("inPaper").value = S.paper; if (obj.fname) $("inFname").value = obj.fname;
   for (const d of (obj.layers || [])) {
     const L = makeLayer(d.type, d.tool);
@@ -972,13 +965,31 @@ function modalAlert(message, title) { return showModal({ title, message, cancel:
 function modalConfirm(message, title) { return showModal({ title, message }); }
 function modalPrompt(message, value, title) { return showModal({ title, message, input: true, value }); }
 
+/* ---------- Kurvenauflösung: gemeinsamer Funnel für Vorschau + Export ---------- */
+// Liefert die (ggf. vereinfachten) Gruppen einer Ebene in Content-Koordinaten.
+// eps wird in Matten-mm angegeben und durch die Ebenen-Skalierung geteilt, damit
+// eine 10×-skalierte Ebene nicht 10× zu stark vereinfacht wird. Memoisiert per
+// Referenz-Identität (jeder Produzent weist frische Arrays zu). Roher strokesCache
+// bleibt unangetastet (Autosave/.handschrift-Dateien speichern volle Auflösung).
+function layerRenderGroups(L) {
+  const raw = (L.groups && L.groups.length) ? L.groups : [{ name: L.name, color: null, polylines: L.strokesCache }];
+  const eps = window.LacExport.resampleEps(S.quality);
+  if (!(eps > 0)) return raw;
+  const sc = Math.max(L.transform.scale, 1e-6);
+  const c = L._rq;
+  if (c && c.g === L.groups && c.s === L.strokesCache && c.q === S.quality && c.sc === sc) return c.out;
+  const out = raw.map(g => ({ name: g.name, color: g.color, polylines: window.LacExport.resampleStrokes(g.polylines, eps / sc) }));
+  L._rq = { g: L.groups, s: L.strokesCache, q: S.quality, sc, out };
+  return out;
+}
+
 /* ---------- Export ---------- */
 function buildGroups() {
   const out = [];
   for (const L of S.layers) {
     if (!L.visible || !L.strokesCache.length) continue;
     const f = layerMap(L);
-    const groups = (L.groups && L.groups.length) ? L.groups : [{ name: L.name, color: null, polylines: L.strokesCache }];
+    const groups = layerRenderGroups(L);
     groups.forEach(g => { const polys = g.polylines.map(st => st.map(f)).filter(st => st.length >= 2);
       if (polys.length) out.push({ name: L.name + (groups.length > 1 ? " — " + g.name : ""), color: L.color || g.color || undefined, processType: L.mode || "KCPenDraw", strokes: polys }); });
   }
@@ -1126,6 +1137,10 @@ $("fileLoad").addEventListener("change", () => {
   rd.readAsText(f);
 });
 
+// Kurvenauflösung (Export-Funnel, Stufe 1..5)
+const QLABELS = () => [UI.t("Niedrig", "Low"), UI.t("Mittel", "Medium"), UI.t("Standard", "Standard"), UI.t("Hoch", "High"), UI.t("Maximal (unverändert)", "Maximum (unchanged)")];
+function setQuality(q) { S.quality = Math.min(5, Math.max(1, Math.round(+q) || 3)); redraw(); markDirty(); setStatus(UI.t("Kurvenauflösung: ", "Curve resolution: ") + QLABELS()[S.quality - 1]); }
+
 // Menüs (Datei / Bearbeiten / Ansicht)
 const PAPER_LABELS = { none: "keins", A4P: "A4 hoch", A4L: "A4 quer", A5P: "A5 hoch", A3P: "A3 hoch", Letter: "Letter" };
 const MENUS = {
@@ -1134,6 +1149,8 @@ const MENUS = {
     { l: UI.t("Öffnen …", "Open …"), a: () => $("fileLoad").click() },
     { l: UI.t("Speichern (.handschrift)", "Save (.handschrift)"), a: saveLayout },
     { l: UI.t("Dateiname …", "File name …"), a: renameDoc },
+    { sep: 1 },
+    ...[1, 2, 3, 4, 5].map(q => ({ l: UI.t("Kurvenauflösung: ", "Curve resolution: ") + QLABELS()[q - 1], a: () => setQuality(q), chk: S.quality === q })),
     { sep: 1 },
     { l: UI.t("Exportieren als .lac", "Export as .lac"), a: exportLac },
     { l: UI.t("Exportieren als SVG", "Export as SVG"), a: exportSvg },

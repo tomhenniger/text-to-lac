@@ -10,16 +10,26 @@ const root = path.join(here, '..');
 const browser = await chromium.launch({ args: ['--allow-file-access-from-files'] });
 let ok = true;
 
-// --- 1) Advanced-Toggle auf der Landing blendet die Studio-Karte ein ---
+// --- 1) Landing führt ohne Umschalter direkt ins Layer-Studio ---
 {
   const page = await browser.newPage();
   await page.goto('file://' + path.join(root, 'index.html'));
   await page.waitForTimeout(300);
-  const before = await page.evaluate(() => getComputedStyle(document.getElementById('cardStudio')).display);
-  await page.click('#btnAdv');
-  const after = await page.evaluate(() => getComputedStyle(document.getElementById('cardStudio')).display);
-  console.log('landing: cardStudio display vorher=' + before + ' nachher=' + after);
-  if (before !== 'none' || after === 'none') { console.log('FAIL: Advanced-Toggle'); ok = false; }
+  const r = await page.evaluate(() => {
+    const c = document.getElementById('cardStudio');
+    const links = [...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href'));
+    return {
+      visible: c ? getComputedStyle(c).display !== 'none' : false,
+      href: c ? c.getAttribute('href') : null,
+      hasAdv: !!document.getElementById('btnAdv'),
+      toolLinks: links.filter(h => /app\/(index|bild|misc|handschrift)\.html/.test(h)),
+    };
+  });
+  console.log('landing: cardStudio visible=' + r.visible + ' href=' + r.href + ' btnAdv=' + r.hasAdv + ' toolLinks=' + JSON.stringify(r.toolLinks));
+  if (!r.visible) { console.log('FAIL: Studio-Karte nicht sofort sichtbar'); ok = false; }
+  if (!/app\/studio\.html$/.test(r.href || '')) { console.log('FAIL: Studio-Karte verlinkt nicht auf app/studio.html'); ok = false; }
+  if (r.hasAdv) { console.log('FAIL: #btnAdv (Erweitert) noch vorhanden'); ok = false; }
+  if (r.toolLinks.length) { console.log('FAIL: Landing verlinkt noch einzelne Tool-Seiten'); ok = false; }
   await page.close();
 }
 

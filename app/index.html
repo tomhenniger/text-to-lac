@@ -204,8 +204,8 @@ geschrieben mit dem Stift.</textarea>
 
 <script src="fonts.js"></script>
 <script src="configs.js"></script>
-<script src="lac.js?v=4"></script>
-<script src="ui.js?v=7"></script>
+<script src="lac.js?v=5"></script>
+<script src="ui.js?v=8"></script>
 <script src="embed.js?v=3"></script>
 <script>
 "use strict";
@@ -855,7 +855,13 @@ $("btnVarReset").onclick = () => {
 };
 $("btnFit").onclick = fitView;
 $("btnResetPos").onclick = () => { S.lineOff = []; S.charOff = {}; S.charVar = {}; relayout(); };
-$("btnHw").onclick = () => { location.href = "handschrift.html?font=" + encodeURIComponent($("inpFont").value); };
+$("btnHw").onclick = () => {
+  const url = "handschrift.html?font=" + encodeURIComponent($("inpFont").value);
+  if (window.HS_EMBED) window.open(url, "_blank", "noopener");   // im Studio-iframe: neuer Tab statt Navigation
+  else location.href = url;
+};
+function hwBtnTitle() { if (window.HS_EMBED) $("btnHw").title = UI.t("Öffnet in neuem Tab — erfasste Buchstaben erscheinen hier automatisch.", "Opens in a new tab — captured letters appear here automatically."); }
+hwBtnTitle();
 // Live-Aktualisierung, wenn in einem anderen Tab Handschrift erfasst wird
 window.addEventListener("storage", e => { if (e.key === "hw_fonts") { fillFontSelect(true); relayout(); } });
 
@@ -965,7 +971,7 @@ function applyLangDefaults() {
 }
 UI.initLang(I18N_EN);
 applyLangDefaults();
-UI.onLangChange(() => { applyLangDefaults(); fillFontSelect(true); relayout(); $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
+UI.onLangChange(() => { applyLangDefaults(); fillFontSelect(true); relayout(); hwBtnTitle(); $("stLen").textContent = $("inpText").value.length + UI.t(" Zeichen", " characters"); });
 if (!window.HS_EMBED) UI.initTour("text", () => UI.lang() === "en" ? TOUR_EN : TOUR);
 fillFontSelect(false);
 const fontParam = new URLSearchParams(location.search).get("font");

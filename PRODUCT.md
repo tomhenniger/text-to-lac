@@ -1,14 +1,21 @@
 # PRODUCT.md — Handschrift
 
 ## Register
-product (Tool-Seiten: app/*.html) · brand (Landing: index.html)
+product (Layer-Studio: app/studio.html, zentrale Oberfläche) · product (Tool-Seiten:
+app/*.html — eigenständig UND als eingebettete Ebenen-Engines im Studio) · brand
+(Landing: index.html, führt direkt ins Studio)
 
 ## Product Purpose
 "Handschrift" ist eine kostenlose Browser-Suite, die mit dem Stift-Halter von
-Bambu-Lab-Maschinen echte Handschrift plottet: eigene Handschrift erfassen
-(Browser-Zeichnung oder Papier-Vorlage + Scan), Texte damit schreiben (jeder
-Buchstabe variiert), Bilder in plottbare Linienkunst wandeln. Export als .lac
-für die Bambu Suite. Kein Server, kein Build — alles läuft im Browser.
+Bambu-Lab-Maschinen echte Handschrift plottet. Zentrale Oberfläche ist das
+**Layer-Studio** (app/studio.html): eine Photoshop-artige Ebenen-Werkstatt, in der
+sich alle Werkzeuge — Text (mit eigener erfasster Handschrift), Bild-Plotter, 3D,
+QR-Codes und mehr — als frei platzierbare Ebenen kombinieren, ausrichten und
+gemeinsam als eine .lac exportieren lassen. Die einzelnen Tool-Seiten (app/index.html,
+bild.html, misc.html, handschrift.html) laufen weiterhin eigenständig und dienen dem
+Studio zugleich als eingebettete Ebenen-Engines (`?embed=1`). Eigene Handschrift wird
+per Browser-Zeichnung oder Papier-Vorlage + Scan erfasst. Export als .lac für die
+Bambu Suite. Kein Server, kein Build — alles läuft im Browser.
 
 ## Users
 Maker mit Bambu-Lab-Geräten (A2L/H2D mit Pen Holder). Technikaffin, aber keine

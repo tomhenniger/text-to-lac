@@ -1,0 +1,18 @@
+# Changelog — 2026-07-16
+
+## Neue Features
+
+- **Kurvenauflösung — gemeinsame, exportweite Pfad-Vereinfachung** — das Layer-Studio hat im **Datei**-Menü jetzt eine einzige Einstellung „Kurvenauflösung" mit fünf Stufen (Niedrig / Mittel / Standard / Hoch / Maximal (unverändert), Voreinstellung **Standard** = 0,03 mm). Sie dünnt die Pfade **jeder** Ebene über eine gemeinsame Ramer-Douglas-Peucker-Vereinfachung am Export-Trichter (`buildGroups()`) aus — einheitlich über alle Ebenentypen (Text, Bild, 3D, QR, native Stift-Pfade …), ganz ohne Tool-spezifischen Code. Die Stufe wirkt **identisch** auf Live-Vorschau, Thumbnail, SVG und `.lac`, sodass die Vorschau immer dem Export entspricht. „Maximal (unverändert)" umgeht die Vereinfachung und liefert die Original-Striche exakt wie bisher. Niedrigere Stufen erzeugen kleinere `.lac`-Dateien und glattere/gröbere Kurven. Die Auflösung wird pro Ebene skalierungskorrigiert vereinfacht (eps ÷ Skalierung), damit stark skalierte Ebenen nicht überproportional ausgedünnt werden; der rohe Strich-Cache bleibt unangetastet (Autospeicher/`.handschrift` speichern weiterhin die volle Auflösung). Die gewählte Stufe wird in der `.handschrift`-Datei und im Autospeicher gesichert (alte Dateien laden mit Standard). Die RDP-Basis liegt nun geteilt in `app/lac.js` (`rdp`/`resampleEps`/`resampleStrokes`); das frühere `rdpStudio` in `studio.html` und die separate Vereinfachung in `finishFree` nutzen dieselbe kanonische Implementierung.
+- **Handschrift-Erfassung aus dem Layer-Studio heraus erreichbar** — der Button „Eigene Handschrift erfassen" im Text-Werkzeug öffnet die Erfassungsseite jetzt in einem **neuen Tab**, wenn er im Studio-iframe steckt (statt das iframe wegzunavigieren und damit die Text-Ebene zu zerstören). Erfasste Buchstaben erscheinen anschließend **automatisch** im Schrift-Auswähler des Studios — ohne Neuladen: das Speichern der Schrift löst ein `storage`-Event im eingebetteten Text-Werkzeug aus, das die Fontliste aktualisiert und die Vorschau (und damit die Studio-Ebene) neu berechnet. Standalone (ohne Studio) verhält sich der Button unverändert. Ein Tooltip weist im Studio auf das Öffnen im neuen Tab hin.
+
+## UI-Änderungen
+
+- **Landing führt direkt ins Layer-Studio** — die Startseite (`index.html`) zeigt nur noch **eine** primäre Karte „Layer-Studio öffnen" statt der vier einzelnen Tool-Karten. Der bisherige „Erweitert"-Modus, der die Studio-Karte versteckte, ist entfernt (`UI.advanced`/`UI.setAdvanced` und der `#btnAdv`-Button raus; der obsolete `ui_advanced`-localStorage-Schlüssel wird ignoriert). Die Tool-Seiten selbst bleiben vollständig funktionsfähig — eigenständig per Direkt-URL und als eingebettete Ebenen-Engines im Studio —, sind nur nicht mehr als eigene Landing-Ziele verlinkt.
+
+## Bugfixes
+
+
+## Sonstiges
+
+- **Dokumentation Studio-first** — `README.md`, `README.de.md` und `PRODUCT.md` beschreiben das Layer-Studio jetzt als zentrale Oberfläche (mit den Tool-Seiten als eigenständige Werkzeuge **und** eingebettete Engines); Projektstruktur um die Studio-Ära-Dateien (`studio.html`, `embed.js`, `misc.html`, `qrcode.js`, `vendor/three.min.js`) ergänzt; neuer Abschnitt „Layer-Studio" inkl. Kurvenauflösung.
+- **Tests** — `test_studio.mjs` (Landing-Abschnitt) auf die einzelne Studio-Karte ohne „Erweitert"-Umschalter umgeschrieben; neue Tests `test_studio_quality.mjs` (Punktzahl monoton fallend Q5≥Q3≥Q1, Q5 = roh, `.lac`-`path_data` an Q1 kleiner, Persistenz-Round-Trip, API-Oberfläche) und `test_hw_reach.mjs` (Button öffnet neuen Tab im Studio, iframe bleibt erhalten, Font-Übernahme via `storage`; Standalone unverändert). Regression: `test_studio_io/_restore/_pen/_svg_modes/_model`, `test_embed`, `test_export`, `test_lang`, `test_ui` — alle grün.

@@ -4,14 +4,22 @@
 
 **Handschrift** (German for "handwriting") is a web app suite that turns text
 and images into `.lac` project files for Bambu Suite — for writing with the
-pen holder of the A2L. Live preview, a library of single-line fonts, and
-per-letter handwriting variation (no two characters look alike). No server,
+pen holder of the A2L. Its main surface is the **Layer Studio**
+(`app/studio.html`): a Photoshop-style layer compositor where every tool — text
+(with your own captured handwriting), the image plotter, 3D, QR codes and more —
+combines as a freely placeable layer, aligned and exported together into one
+`.lac`. The landing page routes straight into it. The individual tool pages still
+work standalone and double as the Studio's embedded layer engines. No server,
 no build step: everything runs in your browser.
 
 ## Usage
 
-Open `app/index.html` in a browser (double-click works, no server needed) —
-or use the hosted version linked above.
+Open `index.html` in a browser (double-click works, no server needed) — it
+opens straight into the **Layer Studio** (`app/studio.html`; you can also open
+that file directly). Or use the hosted version linked above. The individual tool
+pages (`app/index.html`, `app/bild.html`, …) also still work standalone.
+
+The text writer, whether inside the Studio (as a Text layer) or standalone:
 
 1. Enter your **text** (multi-line; umlauts and ß work)
 2. Pick a **font** — 18 built-in single-line fonts (Hershey/EMS, ideal for
@@ -26,14 +34,37 @@ or use the hosted version linked above.
    (KCPenDraw) and the material "Generic 80g Printer Paper" are pre-assigned;
    the material is easy to change inside the Suite.
 
+## Layer Studio
+
+`app/studio.html` is the central surface. Add layers for text, your own
+handwriting (via the Text layer), images, 3D models, QR codes and the other
+tools; each layer is the corresponding tool page embedded via `?embed=1`,
+streaming its computed strokes into the Studio. Move, scale, rotate and align
+layers (with snapping and distribute helpers), set a per-layer plotter mode
+(pen draw / cut) and color, then export everything together as one `.lac` or an
+SVG. Layouts save to a `.handschrift` file and autosave to the browser.
+
+**Curve resolution (Kurvenauflösung).** The **Datei** menu carries a single
+export-wide setting (levels *Niedrig → Maximal*, default *Standard*) that
+simplifies every layer's paths with a shared Ramer–Douglas–Peucker pass at the
+export funnel — smaller `.lac` files and smoother/coarser curves, applied
+identically across all layer types. It affects the live preview, the thumbnail,
+the SVG and the `.lac` the same way; *Maximal (unverändert)* bypasses it for
+byte-for-byte the original strokes. The chosen level is stored in the
+`.handschrift` file and the autosave.
+
 ## Capture your own handwriting
 
-`app/handschrift.html` (or the "Capture your handwriting" button in the app):
-write each letter with mouse/trackpad/stylus onto the guide lines and save
-**multiple variants per character** — when writing, the app picks a random
+`app/handschrift.html` (or the "Capture your handwriting" button in the text
+tool): write each letter with mouse/trackpad/stylus onto the guide lines and
+save **multiple variants per character** — when writing, the app picks a random
 variant per occurrence (on top of the regular variation). The dashed green
 line sets the advance width. Everything autosaves in the browser
 (localStorage); "Save as file" exports a `.handschrift.json` backup.
+
+Opened from **within the Layer Studio**, the button opens the capture page in a
+**new tab** (so the Text layer keeps its identity); captured letters then appear
+in the Studio's font picker automatically, no reload needed.
 
 ## Capture handwriting via paper template (PDF → pen → scan)
 
@@ -69,11 +100,21 @@ like the text writer.
 
 ## Project structure
 
-- `app/index.html` — the text writer (preview, variation, .lac/SVG export)
+- `app/studio.html` — the Layer Studio (central surface: layers, transform,
+  align, `.handschrift` save/autosave, combined .lac/SVG export, Kurvenauflösung)
+- `app/index.html` — the text writer (preview, variation, .lac/SVG export;
+  also the Studio's Text-layer engine via `?embed=1`)
 - `app/handschrift.html` — handwriting capture (variants per character)
-- `app/bild.html` — image plotter (six drawing styles)
-- `app/lac.js` — shared .lac export (ZIP writer, PathObjects, processes)
+- `app/bild.html` — image plotter (drawing styles; Studio's Image-layer engine)
+- `app/misc.html` — misc tools (QR, SVG import, 3D/STL, spirograph, maze,
+  function plotter, TSP stipple, audio waveform, …; Studio's Misc-layer engine)
+- `app/embed.js` — embed contract (`?embed=1`): hides tool chrome and streams
+  strokes to the Studio via postMessage
+- `app/lac.js` — shared .lac export (ZIP writer, PathObjects, processes) plus the
+  shared curve-resolution funnel (`rdp`/`resampleEps`/`resampleStrokes`)
 - `app/scan.js` — in-browser scan import (port of handschrift_scan.py)
+- `app/qrcode.js` — QR code generation (used by misc.html)
+- `app/vendor/three.min.js` — Three.js (vendored, for the 3D/STL misc tool)
 - `app/ui.js` — dark mode, onboarding tours, language switching (DE/EN)
 - `app/fonts.js` — generated font data (do not edit by hand)
 - `app/configs.js` — generated machine/material/process configs (A2L)

@@ -111,9 +111,6 @@ window.UI = (function () {
 
   /* ============================== Sprache ============================== */
   const LANG_KEY = "ui_lang";
-  const ADV_KEY = "ui_advanced";
-  function advanced() { try { return localStorage.getItem(ADV_KEY) === "1"; } catch { return false; } }
-  function setAdvanced(v) { try { localStorage.setItem(ADV_KEY, v ? "1" : "0"); } catch {} }
   const langListeners = [];
   let dict = {};                      // Deutsch -> Englisch (Text-Knoten)
   const origText = new WeakMap();     // Knoten -> deutscher Originaltext (Weak: tote Knoten werden freigegeben)
@@ -298,5 +295,5 @@ window.UI = (function () {
   }
 
   return { initTheme, onThemeChange, palette, theme, initTour, startTour,
-           initLang, onLangChange, lang, t, icon, initIcons, advanced, setAdvanced };
+           initLang, onLangChange, lang, t, icon, initIcons };
 })();

@@ -160,5 +160,31 @@
     URL.revokeObjectURL(a.href);
   }
 
-  window.LacExport = { fmtN, buildPathData, makeZip, makeLac, download };
+  /* --------- Kurvenauflösung (gemeinsamer Export-Funnel) --------- */
+  // Ramer–Douglas–Peucker: verwirft Punkte, die weniger als eps (mm) von der
+  // Verbindungslinie abweichen. Kanonische Kopie (identisch zu bild.html/scan.js).
+  function rdp(pts, eps) {
+    if (pts.length < 3) return pts.map(p => p.slice());
+    const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1], dx = bx - ax, dy = by - ay, n = Math.hypot(dx, dy);
+    let mi = 0, md = -1;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const d = n ? Math.abs(dx * (ay - pts[i][1]) - dy * (ax - pts[i][0])) / n
+                  : Math.hypot(pts[i][0] - ax, pts[i][1] - ay);
+      if (d > md) { md = d; mi = i; }
+    }
+    if (md > eps) return rdp(pts.slice(0, mi + 1), eps).slice(0, -1).concat(rdp(pts.slice(mi), eps));
+    return [pts[0].slice(), pts[pts.length - 1].slice()];
+  }
+  // Stufe 1..5 → maximale Abweichung in mm; 0 = keine Vereinfachung (unverändert).
+  const RES_EPS = [0.3, 0.1, 0.03, 0.01, 0];
+  function resampleEps(q) { q = Math.round(+q) || 3; return RES_EPS[Math.min(5, Math.max(1, q)) - 1]; }
+  // Funnel: jede fertige Polylinie durch RDP schicken. eps in mm (Aufrufer skaliert bei Bedarf).
+  function resampleStrokes(strokes, eps) {
+    if (!(eps > 0)) return strokes;
+    const out = [];
+    for (const st of strokes) { const r = rdp(st, eps); if (r.length >= 2) out.push(r); }
+    return out;
+  }
+
+  window.LacExport = { fmtN, buildPathData, makeZip, makeLac, download, rdp, resampleEps, resampleStrokes };
 })();
