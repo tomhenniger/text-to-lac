@@ -15,7 +15,9 @@ gemeinsam als eine .lac exportieren lassen. Die einzelnen Tool-Seiten (app/index
 bild.html, misc.html, handschrift.html) laufen weiterhin eigenständig und dienen dem
 Studio zugleich als eingebettete Ebenen-Engines (`?embed=1`). Eigene Handschrift wird
 per Browser-Zeichnung oder Papier-Vorlage + Scan erfasst. Export als .lac für die
-Bambu Suite. Kein Server, kein Build — alles läuft im Browser.
+Bambu Suite. Kein Server, kein Build — alles läuft im Browser. Das Layer-Studio
+trägt dabei bewusst das Chrome eines professionellen Kreativ-Programms
+(beschriftete Werkzeuge, Artboard mit physischer Präsenz, Ebenen-Thumbnails).
 
 ## Users
 Maker mit Bambu-Lab-Geräten (A2L/H2D mit Pen Holder). Technikaffin, aber keine
@@ -45,3 +47,10 @@ Sidebar dient ihr. Humor sparsam und trocken (z.B. Hinweistexte), nie albern.
    String und jede neue Farbe geht durch dict bzw. Token.
 5. Onboarding erklärt, UI bleibt trotzdem selbsterklärend (Beschriftung vor
    Symbolik bei zentralen Aktionen).
+6. Das Studio sieht aus wie ein professionelles Kreativ-Programm: gruppierte,
+   beschriftete Werkzeuge, ein Artboard mit physischer Präsenz (Schatten,
+   abgedunkelter Arbeits-Desk), geschichtetes Chrome und Ebenen-Thumbnails.
+   „Fläche dominiert" heißt im Studio: Kontrast statt Unsichtbarkeit. Die
+   Anti-Referenzen (Punkt „Anti-References") gelten unverändert — „wie
+   Photoshop" meint Werkzeug-Gruppierung, Tiefe und Artboard-Präsenz, nicht
+   generischen SaaS-Look.

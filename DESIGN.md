@@ -24,6 +24,28 @@ Marke: Ein-Linien-SVG-Wortmarke (Hershey-Schreibschrift), stroke currentColor.
   marker je Theme).
 - Tour-Karte: Panel, Radius 12, Schatten; Highlight via Akzent-Ring + Dim.
 
+## Studio-Chrome (app/studio.html)
+Das Layer-Studio tritt bewusst als vollwertige Kreativ-Anwendung auf
+(Photoshop-Kaliber). Gilt nur hier; die Anti-Referenzen bleiben in Kraft.
+- Werkzeugleiste 64px mit beschrifteten Buttons (9px-Label unter 22px-Icon);
+  Ebenen-Katalog über den akzentgrünen „+ Hinzufügen"-Button → Palette mit
+  Kategorien (Inhalt · Codes · Vorlagen · Generativ · Audio), Icon + Klartext-
+  Label pro Werkzeug, Suchfeld. Jedes Werkzeug ist über Text auffindbar,
+  Tooltips sind nur Zusatz.
+- Artboard-Präsenz: Arbeits-Desk #c2c8c4 (Light) / #101312 (Dark) mit
+  Inset-Schatten (recessed well); die Platte bleibt themenunabhängig
+  papierweiß und bekommt einen Canvas-Schlagschatten (blur 22·dpr,
+  offsetY 5·dpr, rgba(0,0,0,.28) bzw. .60, im Geräteraum → zoomstabil) plus
+  eine ~1-CSS-px-Kante bei jedem Zoom.
+- Elevation-Tokens: --elev rgba(15,26,19,.10) / Dark rgba(0,0,0,.45),
+  --elev-strong .22 / .60. Menü-/Options-/Status-Leiste, Toolbar und
+  Rechts-Panel werfen Schatten auf den Canvas-Schacht; 1px-Borders bleiben als
+  scharfe Kante. Keine Gradients, kein Blur/Glassmorphism.
+- Ebenenliste mit 30px-Thumbnails (echte gerenderte Striche, memoisiert auf
+  L._th, ≤600 Punkte; Papier-Chip als Hintergrund, Typ-Icon nur als Fallback
+  für leere Ebenen). Zoom-Anzeige unten links (100 % = physische Größe,
+  96px/25.4mm, Klick = Einpassen).
+
 ## Interaction
 - Transitions 150ms ease-out auf background/border-color/color; transform nur
   für Hover-Lift der Landing-Karten. Keine Layout-Property-Animationen.

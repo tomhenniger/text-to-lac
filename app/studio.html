@@ -7,17 +7,19 @@
   :root {
     --bg: #f4f6f5; --panel: #fcfdfc; --border: #d8ddda; --text: #1b201d;
     --muted: #68716c; --accent: #00ae42; --accent-dark: #008f36; --hover: #eef1ef;
+    --elev: rgba(15,26,19,.10); --elev-strong: rgba(15,26,19,.22);
   }
   html[data-theme="dark"] {
     --bg: #141715; --panel: #1d2220; --border: #343b37; --text: #e6eae7;
     --muted: #98a29c; --hover: #272d2a;
+    --elev: rgba(0,0,0,.45); --elev-strong: rgba(0,0,0,.60);
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg);
          color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; font-size: 13px; }
   /* Menüleiste */
   #menubar { display: flex; align-items: center; gap: 2px; height: 34px; padding: 0 8px; background: var(--panel);
-             border-bottom: 1px solid var(--border); flex: none; position: relative; z-index: 100; }
+             border-bottom: 1px solid var(--border); flex: none; position: relative; z-index: 100; box-shadow: 0 1px 3px var(--elev); }
   .menubtn { padding: 5px 10px; border: 0; background: none; color: var(--text); font-size: 13px; border-radius: 5px; cursor: pointer; }
   .menubtn:hover, .menubtn.open { background: var(--hover); }
   #menubar .sp { flex: 1; }
@@ -25,7 +27,7 @@
               border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--muted); cursor: pointer; text-decoration: none; padding: 0; font-size: 12px; }
   #menubar .nav:hover, #menubar .tb:hover { border-color: var(--accent); color: var(--text); }
   .menu { position: absolute; top: 32px; min-width: 210px; background: var(--panel); border: 1px solid var(--border);
-          border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.22); padding: 5px; display: none; z-index: 101; }
+          border-radius: 8px; box-shadow: 0 10px 32px var(--elev-strong); padding: 5px; display: none; z-index: 101; }
   .menu.open { display: block; }
   .menu .mi { padding: 6px 10px; border-radius: 5px; cursor: pointer; display: flex; gap: 8px; align-items: center; white-space: nowrap; }
   .menu .mi:hover { background: var(--hover); }
@@ -33,26 +35,40 @@
   .menu .sep { height: 1px; background: var(--border); margin: 5px 4px; }
   /* Arbeitsbereich */
   #workspace { flex: 1; display: flex; min-height: 0; position: relative; }
-  #toolbar { width: 54px; flex: none; background: var(--panel); border-right: 1px solid var(--border);
-             padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; overflow-y: auto; scrollbar-width: thin; scroll-behavior: smooth; }
-  #toolbar::-webkit-scrollbar { width: 6px; }
-  #toolbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  #toolbar:hover::-webkit-scrollbar-thumb { background: var(--muted); }
-  #tbScroll { position: absolute; left: 0; bottom: 0; width: 54px; height: 22px; pointer-events: none; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; font-size: 11px; color: var(--muted);
-              background: linear-gradient(to bottom, transparent, var(--panel)); opacity: 0; transition: opacity .15s; }
-  #tbScroll.show { opacity: 1; }
-  .toolbtn { width: 40px; height: 40px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text);
-             cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  #toolbar { width: 64px; flex: none; background: var(--panel); border-right: 1px solid var(--border);
+             padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative; z-index: 10; box-shadow: 2px 0 8px var(--elev); }
+  .toolbtn { width: 56px; height: 48px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text);
+             cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; }
+  .toolbtn .tl { font-size: 9px; line-height: 1; color: var(--muted); max-width: 54px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .toolbtn:hover { background: var(--hover); border-color: var(--border); }
   .toolbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .tbsep { width: 28px; height: 1px; background: var(--border); margin: 3px 0; }
-  #main { flex: 1; position: relative; min-width: 0; background: #e9ece9; }   /* heller Arbeitsbereich (Papier-Desk), unabhängig vom Theme */
-  html[data-theme="dark"] #main { background: #e9ece9; }
-  canvas { display: block; width: 100%; height: 100%; cursor: default; }
+  .toolbtn.on .tl { color: #fff; }
+  .toolbtn.add { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .toolbtn.add .tl { color: #fff; }
+  .toolbtn.add:hover { background: var(--accent-dark); }
+  .tbsep { width: 40px; height: 1px; background: var(--border); margin: 4px 0; }
+  /* Werkzeug-Palette */
+  #toolPalette { position: absolute; left: 72px; top: 10px; width: 252px; max-height: calc(100% - 20px); overflow-y: auto;
+                 background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 32px var(--elev-strong);
+                 padding: 8px; display: none; z-index: 120; }
+  #toolPalette.open { display: block; }
+  #tpSearch { width: 100%; margin-bottom: 6px; }
+  .tph { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; padding: 8px 6px 3px; }
+  .tprow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 6px;
+           background: none; color: var(--text); font-size: 13px; text-align: left; cursor: pointer; }
+  .tprow:hover { background: var(--hover); }
+  .tprow svg { flex: none; color: var(--muted); }
+  .tprow:hover svg { color: var(--text); }
+  #btnHintAdd { margin-top: 8px; }
+  #main { flex: 1; position: relative; min-width: 0; background: #c2c8c4; }   /* abgedunkelter Arbeits-Desk, Platte bleibt papierweiß → Artboard-Kontrast */
+  html[data-theme="dark"] #main { background: #101312; }
+  #main::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1; box-shadow: inset 0 2px 6px rgba(0,0,0,.10); }
+  html[data-theme="dark"] #main::before { box-shadow: inset 0 2px 8px rgba(0,0,0,.45); }
+  canvas { display: block; width: 100%; height: 100%; cursor: default; position: relative; z-index: 0; }
   /* Rechtes Panel */
   #rightpanel { width: 360px; flex: none; background: var(--panel); border-left: 1px solid var(--border);
-                display: flex; flex-direction: column; min-height: 0; }
-  .panelhead { padding: 8px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
+                display: flex; flex-direction: column; min-height: 0; position: relative; z-index: 10; box-shadow: -2px 0 8px var(--elev); }
+  .panelhead { padding: 8px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--border); display: flex; align-items: center; background: var(--bg); }
   .panelhead .sp { flex: 1; }
   #layersPanel { display: flex; flex-direction: column; max-height: 42%; min-height: 120px; border-bottom: 1px solid var(--border); }
   #layersBody { overflow-y: auto; padding: 8px 10px; }
@@ -63,7 +79,9 @@
   .lrow .ln { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lrow .ic { width: 24px; height: 24px; padding: 0; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
   .lrow .ic:hover { color: var(--text); }
-  .lrow .lti { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; }
+  .lrow .lti { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+               border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; }
+  .lrow .lti canvas { width: 30px; height: 30px; display: block; }
   .lrow .lnedit { flex: 1; min-width: 0; padding: 2px 5px; font-size: 12.5px; }
   .lrow .sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--border); flex: none; }
   .lrow.primary { box-shadow: inset 0 0 0 1.5px var(--accent); }
@@ -87,10 +105,14 @@
   button:hover { background: var(--hover); }
   .hint { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
   .btnrow { display: flex; gap: 8px; margin-top: 8px; } .btnrow button { flex: 1; }
-  #statusbar { flex: none; padding: 4px 12px; font-size: 11px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--border); }
+  #statusbar { flex: none; padding: 4px 12px; font-size: 11px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--border);
+               position: relative; z-index: 20; box-shadow: 0 -1px 3px var(--elev); display: flex; align-items: center; }
+  #stZoom { border: 0; background: none; padding: 0 2px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 44px; text-align: left; cursor: pointer; }
+  #stZoom:hover { background: none; color: var(--text); }
+  .stsep { margin: 0 6px; color: var(--border); }
   /* Options-/Ausricht-Leiste oben (Photoshop-Stil) */
   #optionsbar { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 10px; background: var(--panel);
-                border-bottom: 1px solid var(--border); flex: none; overflow-x: auto; }
+                border-bottom: 1px solid var(--border); flex: none; overflow-x: auto; position: relative; z-index: 20; box-shadow: 0 1px 4px var(--elev); }
   #optionsbar .obLabel { color: var(--muted); font-size: 12px; white-space: nowrap; }
   #optionsbar select { width: auto; min-width: 118px; padding: 4px 8px; }
   #optionsbar select:disabled { opacity: .5; }
@@ -185,7 +207,10 @@
 
 <div id="workspace">
   <div id="toolbar"></div>
-  <div id="tbScroll">▾</div>
+  <div id="toolPalette" role="dialog" aria-label="Ebene hinzufügen">
+    <input id="tpSearch" type="text" placeholder="Werkzeug suchen …" autocomplete="off">
+    <div id="tpGroups"></div>
+  </div>
   <div id="main"><canvas id="cv"></canvas></div>
   <div id="rightpanel">
     <div id="layersPanel">
@@ -193,6 +218,7 @@
       <div id="layersBody">
         <div id="layerList"></div>
         <div class="hint" id="layerHint">Noch keine Ebenen. Werkzeug links anklicken, um eine Ebene anzulegen, dann auf der Fläche ziehen.</div>
+        <button id="btnHintAdd">+ Ebene hinzufügen …</button>
       </div>
     </div>
     <div id="propsPanel">
@@ -201,7 +227,7 @@
     </div>
   </div>
 </div>
-<div id="statusbar"><span id="stInfo">Bereit</span><span id="warnInfo" style="color:#e2603b;margin-left:14px;font-weight:600"></span></div>
+<div id="statusbar"><button id="stZoom" title="Klick: Einpassen">100 %</button><span class="stsep">·</span><span id="stInfo">Bereit</span><span id="warnInfo" style="color:#e2603b;margin-left:14px;font-weight:600"></span></div>
 <div id="modalBack"><div id="modalCard"></div></div>
 
 <div id="hidden">
@@ -304,6 +330,7 @@ function pointInLayer(L, mx, my) {
 }
 
 /* ---------- Vorschau ---------- */
+const PX_PER_MM = 96 / 25.4;   // 100 % ≡ physische Größe (1 mm = 3,7795 CSS-px)
 const mm2px = (x, y) => [(x * S.view.scale + S.view.ox) * devicePixelRatio, (y * S.view.scale + S.view.oy) * devicePixelRatio];
 const px2mm = (x, y) => [(x - S.view.ox) / S.view.scale, (y - S.view.oy) / S.view.scale];
 function groupColor(c, fallback) { if (!c) return fallback; const p = c.split(" "); return `rgb(${p[0]},${p[1]},${p[2]})`; }
@@ -311,7 +338,7 @@ function matPalette(hex) {                 // Papier-Palette (Standard Weiß, un
   const n = parseInt((hex || "#ffffff").slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
   const dark = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
   return { mat: hex || "#ffffff",
-    matBorder: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.22)",
+    matBorder: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.30)",
     grid: dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)",
     frame: dark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.15)",
     ink: dark ? "#f0f3f8" : "#16243d" };
@@ -322,9 +349,17 @@ function redraw() {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.translate(S.view.ox, S.view.oy); ctx.scale(S.view.scale, S.view.scale);
-  // Matte (Papier weiß per Default)
-  ctx.fillStyle = M.mat; ctx.strokeStyle = M.matBorder; ctx.lineWidth = 0.4;
-  ctx.beginPath(); ctx.roundRect(0, 0, S.matW, S.matH, 3); ctx.fill(); ctx.stroke();
+  // Matte (Papier weiß per Default) — Artboard mit Schlagschatten (Schatten in Geräteraum → zoomstabil)
+  const dkMat = UI.theme() === "dark";
+  ctx.save();
+  ctx.shadowColor = dkMat ? "rgba(0,0,0,0.60)" : "rgba(0,0,0,0.28)";
+  ctx.shadowBlur = 22 * devicePixelRatio;
+  ctx.shadowOffsetY = 5 * devicePixelRatio;
+  ctx.fillStyle = M.mat;
+  ctx.beginPath(); ctx.roundRect(0, 0, S.matW, S.matH, 3); ctx.fill();
+  ctx.restore();   // Schatten nur unter der Platte, nicht unter Raster/Blatt/Ebenen
+  ctx.strokeStyle = M.matBorder; ctx.lineWidth = Math.max(0.2, 1 / S.view.scale);   // ~1 CSS-px Kante bei jedem Zoom
+  ctx.beginPath(); ctx.roundRect(0, 0, S.matW, S.matH, 3); ctx.stroke();
   ctx.strokeStyle = M.grid; ctx.lineWidth = 0.15; ctx.beginPath();
   for (let x = 10; x < S.matW; x += 10) { ctx.moveTo(x, 0); ctx.lineTo(x, S.matH); }
   for (let y = 10; y < S.matH; y += 10) { ctx.moveTo(0, y); ctx.lineTo(S.matW, y); }
@@ -372,6 +407,8 @@ function redraw() {
   if (selLs.length === 1 && !penEdit) drawSelection(selLs[0], P, true);   // beim Pfad-Bearbeiten kein Auswahlrahmen (nur Anker/Griffe)
   else if (selLs.length > 1) { selLs.forEach(L => drawSelection(L, P, false)); drawGroupBounds(selLs, P); }
   if (penDraft || freeDraft || penEdit) drawPenOverlay();
+  const zp = Math.round(S.view.scale / PX_PER_MM * 100) + " %";
+  const ze = $("stZoom"); if (ze && ze.textContent !== zp) ze.textContent = zp;
 }
 function machRect(m) { const y0 = Math.max(0, S.matH - m[1]); return { x0: 0, y0, w: m[0], h: S.matH - y0, x1: m[0], y1: S.matH }; }   // unten verankert → Grenze oben
 function areaViolations() {   // Ebenen, deren AABB den Bereich ihres Modus (Schneiden=cut, sonst draw) verlässt
@@ -759,9 +796,38 @@ const LIICONS = {
   up: '<path d="M4 10l4-4 4 4"/>', down: '<path d="M4 6l4 4 4-4"/>',
 };
 function liIcon(name) { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + LIICONS[name] + '</svg>'; }
-function layerTypeIcon(L) {   // Werkzeug-Icon (zeigt den Ebenen-Typ), in der Ebenenfarbe getönt
+function layerTypeIcon(L) {   // Werkzeug-Icon (zeigt den Ebenen-Typ), in der Ebenenfarbe getönt — Fallback für leere Ebenen
   const ic = L.type === "text" ? TICONS.text : L.type === "image" ? TICONS.image : L.type === "pen" ? (L.pen && L.pen.kind === "free" ? TICONS.pen : TICONS.pennib) : (TICONS[L.tool] || TICONS.paper);
   return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ic + '</svg>';
+}
+// Echtes Ebenen-Thumbnail (gerenderte Striche, memoisiert auf L._th, ≤600 Punkte). 60×60-Backing → 30×30 CSS.
+function layerThumb(L) {
+  const bg = S.bg || "#ffffff", col = L.color || null, c = L._th;
+  if (c && c.s === L.strokesCache && c.g === L.groups && c.c === col && c.bg === bg) return c.cv;
+  const cv2 = (c && c.cv) || document.createElement("canvas");
+  cv2.width = 60; cv2.height = 60;
+  const g2 = cv2.getContext("2d");
+  g2.clearRect(0, 0, 60, 60); g2.fillStyle = bg; g2.fillRect(0, 0, 60, 60);
+  const raw = (L.groups && L.groups.length) ? L.groups : [{ color: null, polylines: L.strokesCache }];
+  if (L.cw && L.ch && L.strokesCache.length) {
+    const pad = 6, inner = 60 - 2 * pad, sc = Math.min(inner / L.cw, inner / L.ch);
+    const ox = (60 - L.cw * sc) / 2, oy = (60 - L.ch * sc) / 2;
+    let total = 0; for (const gr of raw) for (const pl of gr.polylines) total += pl.length;
+    const step = Math.max(1, Math.ceil(total / 600));
+    g2.lineCap = "round"; g2.lineJoin = "round"; g2.lineWidth = 1.6;
+    for (const gr of raw) {
+      g2.strokeStyle = groupColor(col || gr.color, "#16243d"); g2.beginPath();
+      for (const pl of gr.polylines) {
+        if (pl.length < 2) continue;
+        g2.moveTo(ox + pl[0][0] * sc, oy + pl[0][1] * sc);
+        for (let i = step; i < pl.length; i += step) g2.lineTo(ox + pl[i][0] * sc, oy + pl[i][1] * sc);
+        const last = pl[pl.length - 1]; g2.lineTo(ox + last[0] * sc, oy + last[1] * sc);
+      }
+      g2.stroke();
+    }
+  }
+  L._th = { s: L.strokesCache, g: L.groups, c: col, bg, cv: cv2 };
+  return cv2;
 }
 function startRename(L, nm) {
   const inp = document.createElement("input"); inp.type = "text"; inp.value = L.name; inp.className = "lnedit";
@@ -774,13 +840,16 @@ function startRename(L, nm) {
 function renderList() {
   const box = $("layerList"); box.innerHTML = "";
   $("layerHint").style.display = S.layers.length ? "none" : "";
+  $("btnHintAdd").style.display = S.layers.length ? "none" : "";
   for (let i = S.layers.length - 1; i >= 0; i--) {
     const L = S.layers[i];
     const row = document.createElement("div"); row.className = "lrow" + (S.selIds.includes(L.id) ? " sel" : "") + (L.id === S.selId ? " primary" : "");
     const eye = document.createElement("button"); eye.className = "ic"; eye.innerHTML = liIcon(L.visible ? "eye" : "eyeoff"); eye.title = UI.t("Sichtbar", "Visible");
     eye.onclick = (ev) => { ev.stopPropagation(); L.visible = !L.visible; renderList(); redraw(); };
-    const ti = document.createElement("span"); ti.className = "lti"; ti.innerHTML = layerTypeIcon(L); ti.title = layerLabel(L);
-    ti.style.color = L.color ? groupColor(L.color, "var(--muted)") : "var(--muted)";   // Icon in Ebenenfarbe
+    const ti = document.createElement("span"); ti.className = "lti"; ti.title = layerLabel(L);
+    if (L.cw && L.ch && L.strokesCache.length) { ti.appendChild(layerThumb(L)); }   // echtes Thumbnail der Striche
+    else { ti.innerHTML = layerTypeIcon(L); ti.style.color = L.color ? groupColor(L.color, "var(--muted)") : "var(--muted)"; }   // Fallback: Typ-Icon
+    ti.style.opacity = L.visible ? "" : ".4";
     const nm = document.createElement("span"); nm.className = "ln"; nm.textContent = L.name + (L.strokesCache.length ? "" : UI.t(" (leer)", " (empty)"));
     nm.title = UI.t("Doppelklick zum Umbenennen", "Double-click to rename");
     nm.ondblclick = (ev) => { ev.stopPropagation(); startRename(L, nm); };
@@ -1032,6 +1101,8 @@ async function editMat() {
 }
 async function renameDoc() { const n = await modalPrompt(UI.t("Dateiname", "File name"), $("inFname").value, UI.t("Dateiname", "File name")); if (n != null) { $("inFname").value = n.trim() || "Komposition"; markDirty(); } }
 function zoomBy(f) { const r = cv.getBoundingClientRect(), cxp = r.width / 2, cyp = r.height / 2, ns = Math.min(40, Math.max(0.4, S.view.scale * f)); S.view.ox = cxp - (cxp - S.view.ox) * ns / S.view.scale; S.view.oy = cyp - (cyp - S.view.oy) * ns / S.view.scale; S.view.scale = ns; redraw(); }
+function zoom100() { const r = cv.getBoundingClientRect(); S.view.scale = PX_PER_MM; S.view.ox = (r.width - S.matW * PX_PER_MM) / 2; S.view.oy = (r.height - S.matH * PX_PER_MM) / 2; redraw(); }
+$("stZoom").onclick = fitView;
 
 /* ---------- Wiring ---------- */
 // Werkzeug-Icons (24x24 Strichgrafik)
@@ -1056,23 +1127,80 @@ const TICONS = {
   pennib: '<path d="M12 3l5 5-7 13-3-3z"/><path d="M12 3l-5 5 3 3"/><circle cx="11" cy="12" r="1.2"/>',
   editnode: '<path d="M5 18C9 8 15 8 19 6"/><rect x="3" y="16" width="4" height="4"/><rect x="17" y="4" width="4" height="4"/><circle cx="12" cy="10.5" r="1.4"/>',
 };
-const MODE_TOOLS = [{ mode: "select", icon: "select", t: ["Auswählen / Bewegen", "Select / Move"] }, { mode: "free", icon: "pen", t: ["Freihand zeichnen", "Freehand draw"] }, { mode: "pen", icon: "pennib", t: ["Pfad (Bézier)", "Path (Bézier)"] }, { mode: "edit", icon: "editnode", t: ["Knoten bearbeiten", "Edit nodes"] }];
-const TOOLBAR = [...MODE_TOOLS, { sep: 1 }, { type: "text" }, { type: "image" }, { type: "misc", tool: "model" }, { sep: 1 },
-  ...MISC_TOOLS.map(([v]) => ({ type: "misc", tool: v }))];
+const MODE_TOOLS = [{ mode: "select", icon: "select", t: ["Auswählen / Bewegen (V)", "Select / Move (V)"], lab: ["Auswahl", "Select"] }, { mode: "free", icon: "pen", t: ["Freihand zeichnen (B)", "Freehand draw (B)"], lab: ["Freihand", "Freehand"] }, { mode: "pen", icon: "pennib", t: ["Pfad (Bézier) (P)", "Path (Bézier) (P)"], lab: ["Pfad", "Path"] }, { mode: "edit", icon: "editnode", t: ["Knoten bearbeiten (A)", "Edit nodes (A)"], lab: ["Knoten", "Nodes"] }];
+const TOOLBAR = [...MODE_TOOLS, { sep: 1 },
+  { type: "text", lab: ["Text", "Text"] }, { type: "image", lab: ["Bild", "Image"] }, { type: "misc", tool: "model", lab: ["3D", "3D"] },
+  { sep: 1 }, { add: 1, lab: ["Hinzufügen", "Add"] }];
+// Vollständiger, kategorisierter Katalog aller „Ebene hinzufügen“-Werkzeuge (Klartext-Labels + Suche)
+const PALETTE_GROUPS = () => [
+  { h: UI.t("Inhalt", "Content"),       items: [{ type: "text" }, { type: "image" }, { type: "misc", tool: "model" }] },
+  { h: UI.t("Codes", "Codes"),          items: [{ type: "misc", tool: "qr" }, { type: "misc", tool: "spotify" }] },
+  { h: UI.t("Vorlagen", "Templates"),   items: ["shapes", "svg", "paper", "pentest"].map(t => ({ type: "misc", tool: t })) },
+  { h: UI.t("Generativ", "Generative"), items: ["spacefill", "spiro", "maze", "fxplot", "tsp"].map(t => ({ type: "misc", tool: t })) },
+  { h: UI.t("Audio", "Audio"),          items: [{ type: "misc", tool: "wave" }] },
+];
+function itemLabel(t) { return t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); }
+function itemIcon(t) { return t.type === "text" ? TICONS.text : t.type === "image" ? TICONS.image : (TICONS[t.tool] || TICONS.paper); }
+function addFromItem(t) { setTool("select"); t.type === "misc" ? addLayer("misc", t.tool) : addLayer(t.type); }
 const tb = $("toolbar");
 for (const t of TOOLBAR) {
   if (t.sep) { const s = document.createElement("div"); s.className = "tbsep"; tb.appendChild(s); continue; }
-  const ic = t.mode ? TICONS[t.icon] : t.type === "text" ? TICONS.text : t.type === "image" ? TICONS.image : (TICONS[t.tool] || TICONS.paper);
-  const b = document.createElement("button"); b.className = "toolbtn"; b._t = t;
-  b.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`;
-  if (t.mode) { b.dataset.mode = t.mode; b.title = UI.t(t.t[0], t.t[1]); b.onclick = () => setTool(t.mode); }
-  else { b.title = t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); b.onclick = () => { setTool("select"); t.type === "misc" ? addLayer("misc", t.tool) : addLayer(t.type); }; }
+  const b = document.createElement("button"); b.className = "toolbtn" + (t.add ? " add" : ""); b._t = t;
+  const span = document.createElement("span"); span.className = "tl"; span.textContent = UI.t(t.lab[0], t.lab[1]); b._lab = span;
+  if (t.add) {
+    b.id = "btnAddTool"; b.setAttribute("aria-expanded", "false"); b.title = UI.t("Ebene hinzufügen", "Add layer");
+    b.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`;
+    b.appendChild(span); b.onclick = e => { e.stopPropagation(); togglePalette(); };
+  } else {
+    const ic = t.mode ? TICONS[t.icon] : t.type === "text" ? TICONS.text : t.type === "image" ? TICONS.image : (TICONS[t.tool] || TICONS.paper);
+    b.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`;
+    b.appendChild(span);
+    if (t.mode) { b.dataset.mode = t.mode; b.title = UI.t(t.t[0], t.t[1]); b.onclick = () => setTool(t.mode); }
+    else { b.title = itemLabel(t); const tt = t; b.onclick = () => addFromItem(tt); }
+  }
   tb.appendChild(b);
 }
-function updateTbScroll() { const t = $("toolbar"); $("tbScroll").classList.toggle("show", t.scrollHeight - t.scrollTop - t.clientHeight > 4); }
-$("toolbar").addEventListener("scroll", updateTbScroll);
-window.addEventListener("resize", updateTbScroll);
-$("tbScroll").style.pointerEvents = "none";   // Fade nur Hinweis; Klicks gehen an die Buttons
+// Werkzeug-Palette: alle 19 Add-Aktionen mit Icon + Klartext-Label + Suche
+function renderPalette() {
+  const q = ($("tpSearch").value || "").toLowerCase().trim();
+  const wrap = $("tpGroups"); wrap.innerHTML = "";
+  for (const g of PALETTE_GROUPS()) {
+    const rows = g.items.map(t => {
+      // Suche über DE- und EN-Label
+      const lde = (t.type === "text" ? "Text" : t.type === "image" ? "Bild" : t.tool === "model" ? "3D-Modell" : (MISC_TOOLS.find(x => x[0] === t.tool) || [,""])[1]).toLowerCase();
+      const len = (t.type === "text" ? "Text" : t.type === "image" ? "Image" : t.tool === "model" ? "3D model" : (MISC_TOOLS.find(x => x[0] === t.tool) || [,,""])[2]).toLowerCase();
+      const cur = itemLabel(t).toLowerCase();
+      if (q && !lde.includes(q) && !len.includes(q) && !cur.includes(q)) return null;
+      const r = document.createElement("button"); r.className = "tprow"; r._t = t;
+      r.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${itemIcon(t)}</svg><span>${itemLabel(t)}</span>`;
+      const tt = t; r.onclick = () => { addFromItem(tt); closePalette(); };
+      return r;
+    }).filter(Boolean);
+    if (!rows.length) continue;
+    const gd = document.createElement("div"); gd.className = "tpgroup";
+    const h = document.createElement("div"); h.className = "tph"; h.textContent = g.h; gd.appendChild(h);
+    rows.forEach(r => gd.appendChild(r));
+    wrap.appendChild(gd);
+  }
+}
+function openPalette() {
+  closeMenu(); renderPalette();
+  $("toolPalette").classList.add("open");
+  const b = $("btnAddTool"); if (b) { b.classList.add("on"); b.setAttribute("aria-expanded", "true"); }
+  const s = $("tpSearch"); s.value = ""; renderPalette(); setTimeout(() => s.focus(), 0);
+}
+function closePalette() {
+  $("toolPalette").classList.remove("open");
+  const b = $("btnAddTool"); if (b) { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }
+}
+function paletteOpen() { return $("toolPalette").classList.contains("open"); }
+function togglePalette() { paletteOpen() ? closePalette() : openPalette(); }
+$("toolPalette").addEventListener("click", e => e.stopPropagation());
+$("tpSearch").addEventListener("input", renderPalette);
+$("tpSearch").addEventListener("keydown", e => {
+  if (e.key === "Enter") { const r = $("tpGroups").querySelector(".tprow"); if (r) { e.preventDefault(); r.click(); } }
+});
+$("btnHintAdd").onclick = e => { e.stopPropagation(); openPalette(); };
 
 // Auswahl-Transform + Buttons
 $("btnDel").onclick = deleteSelected;
@@ -1119,13 +1247,20 @@ function abtn(spec, cls, fn) {
 for (const s of ALIGN_BTNS) $("alignRow").appendChild(abtn(s, "", () => alignLayers(s.k)));
 for (const s of DIST_BTNS) $("distRow").appendChild(abtn(s, "distbtn", () => distribute(s.k)));
 function applyLangExtras() {   // Tooltips (title-Attribute werden nicht vom TreeWalker übersetzt) bei Sprachwechsel auffrischen
-  document.querySelectorAll("#toolbar .toolbtn").forEach(b => { const t = b._t; if (!t) return; b.title = t.mode ? UI.t(t.t[0], t.t[1]) : t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); });
+  document.querySelectorAll("#toolbar .toolbtn").forEach(b => { const t = b._t; if (!t) return;
+    if (b._lab && t.lab) b._lab.textContent = UI.t(t.lab[0], t.lab[1]);
+    b.title = t.add ? UI.t("Ebene hinzufügen", "Add layer") : t.mode ? UI.t(t.t[0], t.t[1]) : t.type === "text" ? UI.t("Text", "Text") : t.type === "image" ? UI.t("Bild", "Image") : toolLabel(t.tool); });
+  $("tpSearch").placeholder = UI.t("Werkzeug suchen …", "Search tools …");
+  $("toolPalette").setAttribute("aria-label", UI.t("Ebene hinzufügen", "Add layer"));
+  const bh = $("btnHintAdd"); if (bh) bh.textContent = UI.t("+ Ebene hinzufügen …", "+ Add layer …");
+  if (paletteOpen()) renderPalette();
   document.querySelectorAll(".abtn").forEach(b => { if (b._spec) b.title = UI.t(b._spec.t[0], b._spec.t[1]); });
   const wf = $("inLw").closest(".obf"); if (wf) wf.title = UI.t("Breite (mm)", "Width (mm)");
   const hf = $("inLh").closest(".obf"); if (hf) hf.title = UI.t("Höhe (mm)", "Height (mm)");
   const al = $("obAspect"); if (al) al.title = UI.t("Breite & Höhe sind proportional gekoppelt (gleichmäßige Skalierung)", "Width & height are aspect-locked (uniform scaling)");
   const rf = $("inLr").closest(".obf"); if (rf) rf.title = UI.t("Drehung (°)", "Rotation (°)");
   $("inLmode").title = UI.t("Plotter-Modus", "Plotter mode");
+  const zb = $("stZoom"); if (zb) zb.title = UI.t("Klick: Einpassen", "Click: fit to view");
 }
 $("alignRef").addEventListener("change", () => { $("alignRef")._forced = false; });   // bewusste Wahl nicht mehr automatisch überschreiben
 // Panels ein-/ausklappen (mehr Platz in der Sidebar)
@@ -1156,6 +1291,8 @@ const MENUS = {
     { l: UI.t("Exportieren als SVG", "Export as SVG"), a: exportSvg },
   ],
   edit: () => [
+    { l: UI.t("Ebene hinzufügen …", "Add layer …"), a: openPalette },
+    { sep: 1 },
     { l: UI.t("Ebene umbenennen …", "Rename layer …"), a: renameLayer },
     { l: UI.t("Ebene(n) duplizieren", "Duplicate layer(s)"), a: duplicateSelected },
     { l: UI.t("Ebene(n) löschen", "Delete layer(s)"), a: deleteSelected },
@@ -1167,6 +1304,7 @@ const MENUS = {
     { l: UI.t("Einpassen", "Fit"), a: fitView },
     { l: UI.t("Vergrößern", "Zoom in"), a: () => zoomBy(1.2) },
     { l: UI.t("Verkleinern", "Zoom out"), a: () => zoomBy(1 / 1.2) },
+    { l: UI.t("Originalgröße (100 %)", "Actual size (100%)"), a: zoom100 },
     { sep: 1 },
     ...Object.keys(PAPERS).map(k => ({ l: UI.t("Blatt: ", "Sheet: ") + UI.t(PAPER_LABELS[k], { none: "none", A4P: "A4 portrait", A4L: "A4 landscape", A5P: "A5 portrait", A3P: "A3 portrait", Letter: "Letter" }[k]), a: () => setPaper(k), chk: S.paper === k })),
     { l: UI.t("Arbeitsfläche …", "Work area …"), a: editMat },
@@ -1192,7 +1330,7 @@ function showMenu(btn) {
 }
 document.querySelectorAll(".menubtn").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); showMenu(b); }));
 dd.addEventListener("click", e => e.stopPropagation());
-document.addEventListener("click", closeMenu);
+document.addEventListener("click", () => { closeMenu(); closePalette(); });
 // Tastatur: Entf löscht Auswahl, Cmd/Ctrl+S speichert, Cmd/Ctrl+A wählt alles, Esc hebt auf, Pfeile verschieben
 const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 window.addEventListener("keydown", e => {
@@ -1202,7 +1340,9 @@ window.addEventListener("keydown", e => {
     if (e.key === "Escape") { e.preventDefault(); if (penDraft) { penDraft = null; penDrag = null; redraw(); } else if (penEdit) finishPenEdit(); else { freeDraft = null; redraw(); } return; }
     if ((e.key === "Backspace" || e.key === "Delete") && penDraft) { e.preventDefault(); penDraft.anchors.pop(); if (!penDraft.anchors.length) penDraft = null; redraw(); return; }
   }
+  if (paletteOpen() && e.key === "Escape") { e.preventDefault(); closePalette(); return; }   // Palette hat Vorrang vor globalem Esc
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && { v: "select", b: "free", p: "pen", a: "edit" }[e.key.toLowerCase()]) { e.preventDefault(); setTool({ v: "select", b: "free", p: "pen", a: "edit" }[e.key.toLowerCase()]); return; }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveLayout(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") { e.preventDefault(); selectAll(); }
   else if ((e.key === "Delete" || e.key === "Backspace") && S.selIds.length) { e.preventDefault(); deleteSelected(); }
@@ -1257,7 +1397,7 @@ const I18N_EN = {
 };
 function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
 UI.initLang(I18N_EN); applyLangDefaults(); applyLangExtras(); UI.onLangChange(() => { applyLangDefaults(); applyLangExtras(); updatePropsUI(); renderList(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*"); }); });
-resize(); fitView(); renderList(); updatePropsUI(); updateTbScroll(); setTool("select"); restoreAutosave();   // letztes Layout wiederherstellen
+resize(); fitView(); renderList(); updatePropsUI(); setTool("select"); restoreAutosave();   // letztes Layout wiederherstellen
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
