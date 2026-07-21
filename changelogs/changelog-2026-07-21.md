@@ -5,6 +5,10 @@
 
 ## UI-Änderungen
 
+- **Sichtbare Build-Kennung.** Dezent in der unteren rechten Ecke jeder App-Seite
+  wird jetzt der Build-Stand angezeigt (z.B. „Build 2026-07-21"), zentral aus
+  `ui.js` (`UI.build`) injiziert. So lässt sich ohne DevTools erkennen, welcher
+  Stand live ist. Bei jedem Deploy zusammen mit den `?v=`-Cache-Versionen erhöhen.
 
 ## Bugfixes
 

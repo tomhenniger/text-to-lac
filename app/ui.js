@@ -88,8 +88,25 @@ window.UI = (function () {
     document.head.appendChild(s);
   }
 
+  /* ============================== Build-Kennung ============================== */
+  // Bei jedem Deploy aktualisieren (zusammen mit den ?v=-Cache-Versionen der
+  // Skripte). Dient als sichtbarer Beleg, welcher Stand gerade live ist.
+  const BUILD = "2026-07-21";
+  function showBuildTag() {
+    if (!document.body || document.getElementById("uiBuildTag")) return;
+    const el = document.createElement("div");
+    el.id = "uiBuildTag";
+    el.textContent = "Build " + BUILD;
+    el.title = "Handschrift · Build " + BUILD;
+    el.style.cssText = "position:fixed;bottom:6px;right:8px;z-index:50;pointer-events:none;" +
+      "font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);" +
+      "opacity:.5;letter-spacing:.02em;user-select:none";
+    document.body.appendChild(el);
+  }
+
   function initTheme() {
     injectBaseCss();
+    showBuildTag();
     let saved = null;
     try { saved = localStorage.getItem(THEME_KEY); } catch {}
     apply(saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
@@ -295,5 +312,5 @@ window.UI = (function () {
   }
 
   return { initTheme, onThemeChange, palette, theme, initTour, startTour,
-           initLang, onLangChange, lang, t, icon, initIcons };
+           initLang, onLangChange, lang, t, icon, initIcons, build: BUILD };
 })();
