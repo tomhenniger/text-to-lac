@@ -47,18 +47,44 @@ window.ScanImport = (function () {
     const img = new Image();
     img.src = URL.createObjectURL(file);
     await img.decode();
-    const sc = Math.min(1, 3500 / Math.max(img.width, img.height));
-    const w = Math.round(img.width * sc), h = Math.round(img.height * sc);
-    const c = document.createElement("canvas");
-    c.width = w; c.height = h;
-    const g = c.getContext("2d", { willReadFrequently: true });
-    g.drawImage(img, 0, 0, w, h);
     URL.revokeObjectURL(img.src);
-    const d = g.getImageData(0, 0, w, h).data;
+    // Erst bei voller Auflösung in Graustufen wandeln, dann mit einem
+    // dunkelheitserhaltenden Min-Pool verkleinern (dunkelster Quellwert je
+    // Zielpixel). Würde man wie üblich per Canvas mitteln, verwäscht der Browser
+    // dünne (farbmanaged/ICC dekodierte) Tinte mit dem weißen Papier — die Linie
+    // wird heller und reißt beim Schwellwert ab. Der Min-Pool hält den dunklen
+    // Tintenkern; dickere Striche normalisiert später die Skelettierung.
+    const nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;
+    const CAP = 8000;                        // Speichergrenze fürs Zwischenbild
+    const pre = Math.min(1, CAP / Math.max(nw, nh));
+    const sw = Math.max(1, Math.round(nw * pre)), sh = Math.max(1, Math.round(nh * pre));
+    const src = document.createElement("canvas");
+    src.width = sw; src.height = sh;
+    const sg = src.getContext("2d", { willReadFrequently: true });
+    sg.imageSmoothingEnabled = true; sg.imageSmoothingQuality = "high";
+    sg.drawImage(img, 0, 0, sw, sh);
+    const rgba = sg.getImageData(0, 0, sw, sh).data;
+    const gfull = new Uint8ClampedArray(sw * sh);
+    for (let i = 0; i < gfull.length; i++) {
+      const a = rgba[i * 4 + 3] / 255;
+      gfull[i] = (0.2126 * rgba[i * 4] + 0.7152 * rgba[i * 4 + 1] + 0.0722 * rgba[i * 4 + 2]) * a + 255 * (1 - a);
+    }
+    const sc = Math.min(1, 3500 / Math.max(sw, sh));
+    const w = Math.max(1, Math.round(sw * sc)), h = Math.max(1, Math.round(sh * sc));
+    if (w === sw && h === sh) return { gray: gfull, w, h };   // klein genug, kein Pooling
     const gray = new Uint8ClampedArray(w * h);
-    for (let i = 0; i < gray.length; i++) {
-      const a = d[i * 4 + 3] / 255;
-      gray[i] = (0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2]) * a + 255 * (1 - a);
+    const bxf = sw / w, byf = sh / h;
+    for (let oy = 0; oy < h; oy++) {
+      const y0 = Math.floor(oy * byf), y1 = Math.max(y0 + 1, Math.min(sh, Math.round((oy + 1) * byf)));
+      for (let ox = 0; ox < w; ox++) {
+        const x0 = Math.floor(ox * bxf), x1 = Math.max(x0 + 1, Math.min(sw, Math.round((ox + 1) * bxf)));
+        let mn = 255;
+        for (let sy = y0; sy < y1; sy++) {
+          const row = sy * sw;
+          for (let sx = x0; sx < x1; sx++) { const v = gfull[row + sx]; if (v < mn) mn = v; }
+        }
+        gray[oy * w + ox] = mn;
+      }
     }
     return { gray, w, h };
   }
