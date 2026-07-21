@@ -109,7 +109,7 @@
   <input type="file" id="fileScan" accept="image/*" multiple style="display:none">
   <div class="hint" id="scanStatus">Vorlage drucken (100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, abfotografieren oder scannen und die Bilder hier einlesen — die erkannten Buchstaben landen direkt in dieser Schrift.</div>
 
-  <div class="btnrow" style="margin-top:14px"><button class="primary" id="btnUse">In der Schreib-App verwenden</button></div>
+  <div class="btnrow" style="margin-top:14px"><button class="primary" id="btnUse">Im Layer-Studio verwenden</button></div>
   <div class="btnrow"><button id="btnExport">Als Datei sichern (.json)</button><button id="btnImport">Laden …</button></div>
   <input type="file" id="fileImport" accept=".json" style="display:none">
   <div class="btnrow"><button id="btnDelFont" style="color:#dc2626">Schrift löschen</button></div>
@@ -135,7 +135,7 @@
   <div id="variantBar"><span id="varLabel">Noch keine Varianten</span></div>
 </div>
 
-<script src="ui.js?v=9"></script>
+<script src="ui.js?v=10"></script>
 <script src="vorlage_layout.js"></script>
 <script src="scan.js?v=3"></script>
 <script>
@@ -469,7 +469,7 @@ $("btnUse").onclick = () => {
   const [s] = curFont(); saveStore(s);
   const n = Object.keys(loadStore()[fontId()].glyphsVar).filter(c => c !== " ").length;
   if (!n) { alert(UI.t("Noch keine Zeichen erfasst.", "No characters captured yet.")); return; }
-  location.href = "index.html?font=" + encodeURIComponent(fontId());
+  location.href = "studio.html?font=" + encodeURIComponent(fontId());
 };
 $("btnExport").onclick = () => {
   const [s] = curFont(); saveStore(s);
@@ -519,7 +519,7 @@ const TOUR = [
   { el: "#btnVorlage", title: "5 · Oder: auf Papier schreiben",
     text: "Bequemer mit echtem Stift: <b>Papier-Vorlage drucken</b> (öffnet in neuem Tab), ausfüllen, abfotografieren oder scannen und die Bilder direkt hier über <b>„Scans einlesen“</b> importieren — alles läuft im Browser. Danach kannst du jede Glyphe prüfen und nachbessern." },
   { el: "#btnUse", title: "6 · Verwenden & sichern",
-    text: "„In der Schreib-App verwenden“ wechselt direkt rüber mit deiner Schrift ausgewählt. Alles speichert sich automatisch im Browser; „Als Datei sichern“ erstellt ein Backup zum Weitergeben." },
+    text: "„Im Layer-Studio verwenden“ öffnet das Studio mit einer Text-Ebene in deiner Schrift. Alles speichert sich automatisch im Browser; „Als Datei sichern“ erstellt ein Backup zum Weitergeben." },
 ];
 /* ====== Scan-Import (Papier-Vorlage) ====== */
 $("btnScan").onclick = () => $("fileScan").click();
@@ -566,7 +566,7 @@ const TOUR_EN = [
   { el: "#btnVorlage", title: "5 · Or: write on paper",
     text: "More comfortable with a real pen: <b>print the paper template</b> (opens in a new tab), fill it in, photograph or scan it and import the images right here via <b>Import scans</b> — everything runs in your browser. Then review and touch up every glyph." },
   { el: "#btnUse", title: "6 · Use & back up",
-    text: "Use in writer app switches right over with your font selected. Everything saves automatically in the browser; Save as file creates a backup you can share." },
+    text: "Use in Layer Studio opens the studio with a text layer in your font. Everything saves automatically in the browser; Save as file creates a backup you can share." },
 ];
 const I18N_EN = {
   'Handschrift erfassen': 'Capture handwriting',
@@ -592,7 +592,7 @@ const I18N_EN = {
   'Ausgefüllte Scans einlesen …': 'Import filled-in scans …',
   'Vorlage drucken (100 %, tatsächliche Größe), mit dunklem Stift ausfüllen, abfotografieren oder scannen und die Bilder hier einlesen — die erkannten Buchstaben landen direkt in dieser Schrift.':
     'Print the template (100 %, actual size), fill it in with a dark pen, photograph or scan it and import the images here — recognized letters go straight into this font.',
-  'In der Schreib-App verwenden': 'Use in writer app',
+  'Im Layer-Studio verwenden': 'Use in Layer Studio',
   'Als Datei sichern (.json)': 'Save as file (.json)',
   'Laden …': 'Load …',
   'Schrift löschen': 'Delete font',

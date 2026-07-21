@@ -90,9 +90,12 @@ window.UI = (function () {
 
   /* ============================== Build-Kennung ============================== */
   // Bei jedem Deploy aktualisieren (zusammen mit den ?v=-Cache-Versionen der
-  // Skripte). Dient als sichtbarer Beleg, welcher Stand gerade live ist.
-  const BUILD = "2026-07-21";
+  // Skripte). Format: JJJJ-MM-TT.N — N ist der Release-Zähler des Tages, damit
+  // sich mehrere Releases am selben Tag eindeutig unterscheiden lassen.
+  const BUILD = "2026-07-21.2";
   function showBuildTag() {
+    // im Studio-Embed (iframe) nicht anzeigen — sonst erschiene der Tag doppelt
+    if (/[?&#]embed\b/.test(location.search + location.hash)) return;
     if (!document.body || document.getElementById("uiBuildTag")) return;
     const el = document.createElement("div");
     el.id = "uiBuildTag";

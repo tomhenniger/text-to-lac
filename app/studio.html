@@ -79,6 +79,7 @@
   .lrow .ln { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lrow .ic { width: 24px; height: 24px; padding: 0; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
   .lrow .ic:hover { color: var(--text); }
+  .lrow .ic.del:hover { color: #dc2626; }
   .lrow .lti { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
                border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; }
   .lrow .lti canvas { width: 30px; height: 30px; display: block; }
@@ -198,9 +199,6 @@
     </select>
     <div class="abar" id="alignRow"></div>
     <div class="abar" id="distRow"></div>
-    <span class="obsep"></span>
-    <button class="obbtn" id="btnDup">Duplizieren</button>
-    <button class="obbtn" id="btnDel">Löschen</button>
     <span class="obLabel" id="obSelInfo" style="margin-left:auto"></span>
   </div>
 </div>
@@ -240,7 +238,7 @@
 
 <script src="configs.js"></script>
 <script src="lac.js?v=5"></script>
-<script src="ui.js?v=9"></script>
+<script src="ui.js?v=10"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -261,7 +259,7 @@ let snapGuides = null;
 function makeLayer(type, tool) {
   return { id: LID++, type, tool: tool || null, name: "Layer " + (LSEQ++),
     visible: true, transform: { x: 40, y: 40, scale: 1, rot: 0 }, params: null,
-    strokesCache: [], groups: null, cw: 0, ch: 0, color: null, mode: "KCPenDraw", modelEuler: null, _frame: null };
+    strokesCache: [], groups: null, cw: 0, ch: 0, color: null, mode: "KCPenDraw", modelEuler: null, font: null, _frame: null };
 }
 function isModelLayer(L) { return !!L && L.type === "misc" && L.tool === "model"; }
 function isPenLayer(L) { return !!L && L.type === "pen"; }
@@ -306,7 +304,8 @@ function mat2content(L, mx, my) {   // Mausposition (mm auf Matte) → Content-K
 function hexToRgbStr(hex) { const n = parseInt(hex.slice(1), 16); return (n >> 16 & 255) + " " + (n >> 8 & 255) + " " + (n & 255) + " 255"; }
 function rgbStrToHex(c) { const p = (c || "").split(" "); const h = v => (+v || 0).toString(16).padStart(2, "0"); return "#" + h(p[0]) + h(p[1]) + h(p[2]); }
 function embedUrl(L) {
-  const base = L.type === "text" ? "index.html?embed=1" : L.type === "image" ? "bild.html?embed=1" : "misc.html?embed=1&tool=" + L.tool;
+  let base = L.type === "text" ? "index.html?embed=1" : L.type === "image" ? "bild.html?embed=1" : "misc.html?embed=1&tool=" + L.tool;
+  if (L.type === "text" && L.font) base += "&font=" + encodeURIComponent(L.font);   // Schrift der Text-Ebene vorwählen
   return base + "&v=5";   // Cache-Bust für die eingebettete Tool-HTML (Handschrift-Erfassung: neuer Tab)
 }
 
@@ -503,7 +502,7 @@ function setTool(mode) {
   S.tool = mode; cv.style.cursor = mode === "select" ? "default" : "crosshair";
   document.querySelectorAll(".toolbtn[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
   if (mode === "edit" && isPenLayer(sel()) && sel().pen && sel().pen.kind === "bezier") penEdit = { L: sel() };   // ausgewählten Pfad direkt bearbeitbar machen
-  setStatus(mode === "pen" ? UI.t("Pfad: klicken = Ankerpunkt, ziehen = Kurve, ersten Punkt/Enter = schließen, Esc = abbrechen.", "Path: click = anchor, drag = curve, first point/Enter = finish, Esc = cancel.")
+  setStatus(mode === "pen" ? UI.t("Stift: klicken = Ankerpunkt, ziehen = Kurve, ersten Punkt/Enter = schließen, Esc = abbrechen.", "Pen: click = anchor, drag = curve, first point/Enter = finish, Esc = cancel.")
     : mode === "free" ? UI.t("Freihand: auf der Fläche ziehen.", "Freehand: drag on the canvas.")
     : mode === "edit" ? UI.t("Knoten bearbeiten: Bézier-Pfad anklicken, Anker/Griffe ziehen.", "Edit nodes: click a Bézier path, drag anchors/handles.") : UI.t("Bereit", "Ready"));
   redraw();
@@ -521,10 +520,28 @@ function finishPen() {
   const L = makePenLayer(d, UI.t("Pfad", "Path") + " " + (LSEQ)); L.transform.x = b.minX; L.transform.y = b.minY;
   S.layers.push(L); selectLayer(L.id); markDirty();
 }
+function chaikin(p, iter) {   // Ecken-Schneiden: macht die abgetastete Polylinie zu einer glatten Kurve
+  for (let k = 0; k < iter; k++) {
+    if (p.length < 3) break;
+    const q = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) {
+      const a = p[i], b = p[i + 1];
+      q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
+      q.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+    }
+    q.push(p[p.length - 1]);
+    p = q;
+  }
+  return p;
+}
 function finishFree() {
   const pts = freeDraft; freeDraft = null;
   if (!pts || pts.length < 2) { redraw(); return; }
-  const s = window.LacExport.rdp(pts, 0.4); let mnx = 1e9, mny = 1e9; for (const [x, y] of s) { if (x < mnx) mnx = x; if (y < mny) mny = y; }
+  // Hohe Auflösung: nur minimal ausdünnen, dann glätten — keine Low-Poly-Kanten mehr.
+  let s = window.LacExport.rdp(pts, 0.05);   // Hand-Jitter-Duplikate entfernen (vorher grob: 0.4 mm)
+  s = chaikin(s, 2);                          // Ecken runden → weiche Kurve
+  s = window.LacExport.rdp(s, 0.03);          // kollineare Punkte trimmen (Form bleibt glatt)
+  let mnx = 1e9, mny = 1e9; for (const [x, y] of s) { if (x < mnx) mnx = x; if (y < mny) mny = y; }
   const L = makePenLayer({ kind: "free", poly: s.map(([x, y]) => [x - mnx, y - mny]) }); L.transform.x = mnx; L.transform.y = mny;
   S.layers.push(L); selectLayer(L.id); markDirty();
 }
@@ -592,7 +609,7 @@ window.addEventListener("mousemove", e => {
     else if (penDrag.mode === "hIn") { a.hIn = [cx - a.x, cy - a.y]; if (penDrag.smooth) a.hOut = [-a.hIn[0], -a.hIn[1]]; }
     penEdit.L.strokesCache = penFlatten(penEdit.L.pen); redraw(); return; }   // cw/ch eingefroren lassen → Rotations-Pivot bleibt fix (kein Nachlaufen)
   if (penDrag && penDrag.mode === "new") { const a = penDrag.a; a.hOut = [mx - a.x, my - a.y]; a.hIn = [-a.hOut[0], -a.hOut[1]]; redraw(); return; }
-  if (freeDraft) { const last = freeDraft[freeDraft.length - 1], ls = scrPt(last[0], last[1]), cs = scrPt(mx, my); if (Math.hypot(cs[0] - ls[0], cs[1] - ls[1]) > 1.5) { freeDraft.push([mx, my]); redraw(); } }   // Abtastung in Screen-px (zoom-unabhängig)
+  if (freeDraft) { const last = freeDraft[freeDraft.length - 1], ls = scrPt(last[0], last[1]), cs = scrPt(mx, my); if (Math.hypot(cs[0] - ls[0], cs[1] - ls[1]) > 0.8) { freeDraft.push([mx, my]); redraw(); } }   // dichte Abtastung in Screen-px (zoom-unabhängig)
 });
 window.addEventListener("mouseup", () => { if (freeDraft) { finishFree(); return; } if (penDrag) penDrag = null; });
 cv.addEventListener("mousedown", e => {
@@ -794,6 +811,8 @@ const LIICONS = {
   eye: '<path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="1.9"/>',
   eyeoff: '<path d="M2 2l12 12"/><path d="M6.6 6.7a2 2 0 0 0 2.7 2.8"/><path d="M3.2 9.7C2 8.8 1 8 1 8s2.6-4.5 7-4.5c.9 0 1.7.2 2.5.5M13.2 6.6C14.2 7.4 15 8 15 8s-2.6 4.5-7 4.5"/>',
   up: '<path d="M4 10l4-4 4 4"/>', down: '<path d="M4 6l4 4 4-4"/>',
+  copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.3"/><path d="M3.5 10.5a1.3 1.3 0 0 1-1-1.3V3.8a1.3 1.3 0 0 1 1.3-1.3h5.4a1.3 1.3 0 0 1 1.3 1"/>',
+  trash: '<path d="M2.5 4.5h11"/><path d="M6 4.5V3h4v1.5"/><path d="M4 4.5l.7 9h6.6l.7-9"/><path d="M6.5 7v4M9.5 7v4"/>',
 };
 function liIcon(name) { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + LIICONS[name] + '</svg>'; }
 function layerTypeIcon(L) {   // Werkzeug-Icon (zeigt den Ebenen-Typ), in der Ebenenfarbe getönt — Fallback für leere Ebenen
@@ -857,7 +876,11 @@ function renderList() {
     up.onclick = (ev) => { ev.stopPropagation(); if (i < S.layers.length - 1) { S.layers.splice(i, 1); S.layers.splice(i + 1, 0, L); renderList(); redraw(); } };
     const dn = document.createElement("button"); dn.className = "ic"; dn.innerHTML = liIcon("down"); dn.title = UI.t("nach unten", "move down");
     dn.onclick = (ev) => { ev.stopPropagation(); if (i > 0) { S.layers.splice(i, 1); S.layers.splice(i - 1, 0, L); renderList(); redraw(); } };
-    row.append(eye, ti, nm, up, dn);
+    const dup = document.createElement("button"); dup.className = "ic"; dup.innerHTML = liIcon("copy"); dup.title = UI.t("Duplizieren", "Duplicate");
+    dup.onclick = (ev) => { ev.stopPropagation(); duplicateLayer(L.id); };
+    const del = document.createElement("button"); del.className = "ic del"; del.innerHTML = liIcon("trash"); del.title = UI.t("Löschen", "Delete");
+    del.onclick = (ev) => { ev.stopPropagation(); deleteLayer(L.id); };
+    row.append(eye, ti, nm, up, dn, dup, del);
     row.onclick = (ev) => {
       if (ev.metaKey || ev.ctrlKey) toggleSelect(L.id);
       else if (ev.shiftKey) rangeSelect(L.id);
@@ -872,7 +895,7 @@ function renderList() {
 function serializeLayout() {
   return { format: "handschrift-studio", version: 1, matW: S.matW, matH: S.matH, paper: S.paper, bg: S.bg, quality: S.quality, fname: $("inFname").value,
     layers: S.layers.map(L => ({ type: L.type, tool: L.tool, name: L.name, visible: L.visible,
-      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler, pen: L.pen || null,
+      transform: L.transform, params: L.params, cw: L.cw, ch: L.ch, color: L.color, mode: L.mode, modelEuler: L.modelEuler, font: L.font || null, pen: L.pen || null,
       groups: L.groups, strokes: L.groups ? null : L.strokesCache })) };
 }
 function saveLayout() {
@@ -909,7 +932,7 @@ function loadLayout(obj) {
     L.name = d.name || d.label || L.name; L.visible = d.visible !== false;   // d.label: ältere Dateien
     if (d.transform) L.transform = d.transform;
     L.params = d.params || null; L.cw = +d.cw || 0; L.ch = +d.ch || 0;
-    L.color = d.color || null; L.mode = d.mode || "KCPenDraw"; L.modelEuler = d.modelEuler || null;
+    L.color = d.color || null; L.mode = d.mode || "KCPenDraw"; L.modelEuler = d.modelEuler || null; L.font = d.font || null;
     L.groups = d.groups || null;
     L.strokesCache = L.groups ? L.groups.flatMap(g => g.polylines) : (d.strokes || []);
     L._restored = L.type !== "pen" && L.strokesCache.length > 0;   // gecachte Striche schützen, bis das (lazy) iframe echte Striche liefert
@@ -1127,7 +1150,7 @@ const TICONS = {
   pennib: '<path d="M12 3l5 5-7 13-3-3z"/><path d="M12 3l-5 5 3 3"/><circle cx="11" cy="12" r="1.2"/>',
   editnode: '<path d="M5 18C9 8 15 8 19 6"/><rect x="3" y="16" width="4" height="4"/><rect x="17" y="4" width="4" height="4"/><circle cx="12" cy="10.5" r="1.4"/>',
 };
-const MODE_TOOLS = [{ mode: "select", icon: "select", t: ["Auswählen / Bewegen (V)", "Select / Move (V)"], lab: ["Auswahl", "Select"] }, { mode: "free", icon: "pen", t: ["Freihand zeichnen (B)", "Freehand draw (B)"], lab: ["Freihand", "Freehand"] }, { mode: "pen", icon: "pennib", t: ["Pfad (Bézier) (P)", "Path (Bézier) (P)"], lab: ["Pfad", "Path"] }, { mode: "edit", icon: "editnode", t: ["Knoten bearbeiten (A)", "Edit nodes (A)"], lab: ["Knoten", "Nodes"] }];
+const MODE_TOOLS = [{ mode: "select", icon: "select", t: ["Auswählen / Bewegen (V)", "Select / Move (V)"], lab: ["Auswahl", "Select"] }, { mode: "free", icon: "pen", t: ["Freihand zeichnen — frei ziehen (B)", "Freehand — draw by dragging (B)"], lab: ["Freihand", "Freehand"] }, { mode: "pen", icon: "pennib", t: ["Stift (Bézier) — Ankerpunkte setzen, erzeugt einen Pfad (P)", "Pen (Bézier) — click anchor points to build a path (P)"], lab: ["Stift", "Pen"] }, { mode: "edit", icon: "editnode", t: ["Knoten bearbeiten — Anker/Griffe eines vorhandenen Pfades ändern (A)", "Edit nodes — adjust anchors/handles of an existing path (A)"], lab: ["Knoten", "Nodes"] }];
 const TOOLBAR = [...MODE_TOOLS, { sep: 1 },
   { type: "text", lab: ["Text", "Text"] }, { type: "image", lab: ["Bild", "Image"] }, { type: "misc", tool: "model", lab: ["3D", "3D"] },
   { sep: 1 }, { add: 1, lab: ["Hinzufügen", "Add"] }];
@@ -1202,9 +1225,7 @@ $("tpSearch").addEventListener("keydown", e => {
 });
 $("btnHintAdd").onclick = e => { e.stopPropagation(); openPalette(); };
 
-// Auswahl-Transform + Buttons
-$("btnDel").onclick = deleteSelected;
-$("btnDup").onclick = duplicateSelected;
+// Auswahl-Transform (Duplizieren/Löschen jetzt pro Ebene in der Ebenenliste)
 for (const [id, key] of [["inLx", "x"], ["inLy", "y"], ["inLr", "rot"]])
   $(id).addEventListener("input", () => { const L = sel(); if (!L) return; let v = +$(id).value; if (key === "rot") v = v * Math.PI / 180; L.transform[key] = v; redraw(); markDirty(); });
 // Größe in echten mm — an die (uniforme) Skalierung gekoppelt: B/H teilen sich einen Faktor, daher die jeweils andere Achse mitführen (Skalierungsgrenzen wie beim Griff-Ziehen)
@@ -1398,6 +1419,15 @@ const I18N_EN = {
 function applyLangDefaults() { document.title = UI.t("Layer-Studio — Handschrift", "Layer Studio — Handschrift"); }
 UI.initLang(I18N_EN); applyLangDefaults(); applyLangExtras(); UI.onLangChange(() => { applyLangDefaults(); applyLangExtras(); updatePropsUI(); renderList(); S.layers.forEach(L => { if (L._frame && L._frame.contentWindow) L._frame.contentWindow.postMessage({ source: "ttl-studio", type: "setLang", lang: UI.lang() }, "*"); }); });
 resize(); fitView(); renderList(); updatePropsUI(); setTool("select"); restoreAutosave();   // letztes Layout wiederherstellen
+// Von der Handschrift-Erfassung mit ?font=… geöffnet → Text-Ebene in dieser Schrift ergänzen
+(function openFromFontParam() {
+  const fid = new URLSearchParams(location.search).get("font");
+  if (!fid) return;
+  let ok = false; try { ok = !!(JSON.parse(localStorage.getItem("hw_fonts") || "{}")[fid]); } catch {}
+  if (!ok) return;
+  const L = makeLayer("text"); L.font = fid; L.name = UI.t("Text", "Text");
+  S.layers.push(L); selectLayer(L.id); fitView(); redraw();
+})();
 </script>
 <script data-goatcounter="https://tomhenniger.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
